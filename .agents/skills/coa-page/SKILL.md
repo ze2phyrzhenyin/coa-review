@@ -7,6 +7,7 @@ description: 写或改 src/pages 下的一个页面：把引擎的 Trace 接到 
 3. 场景用 `src/scene` 的部件声明，位置固定；部件的值绑定到 Trace 状态的路径。值的移动用 `moves(step)` 说明从哪到哪走哪条线。
 4. 讲解：一道完整的例题。试一试：参数写进网址（`useParam`），改了立刻重算。练习：同题型换数，随机种子在网址里，判分用引擎；最后一题是台面上的答题纸，不带动画。
 5. 「弄坏它」至少一处：让学生做一个错的操作，把后果演出来。
+5a. 按 `docs/INTERACTION.md`「形象、直观、有趣」用这一主题的实物比喻；按「易懂、专业、美观」做第 0 步全景、最后一步结论、需要先会、常见错误、术语卡（`src/content/glossary.ts`）、规范的公式排版；视觉用 `docs/DESIGN.md` 的变量，不在页面里另定颜色和字号。
 6. 页面里不出现手写的答案和中间值。要显示的数都从 Trace 取。
 7. 文字：读 `.agents/skills/no-ai-flavor/SKILL.md` 和 `docs/STYLE.md`。术语用教材的。
 8. 自己看：起预览，`PORT=<端口> node scripts/qa-pages.mjs <编号>`；截手机和桌面的图打开看，按 `docs/INTERACTION.md` 的动效标准逐条过。

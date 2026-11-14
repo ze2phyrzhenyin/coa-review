@@ -10,11 +10,25 @@
       "scope": [
         "src/scene/",
         "src/player/",
-        "src/app/",
         "specs/_scene-contract.md",
         "specs/_player-contract.md"
       ],
       "spec": "specs/_scene-contract.md",
+      "accept": "bash scripts/gate.sh --build"
+    },
+    {
+      "id": "T102",
+      "title": "视觉规范、外壳和首页、术语表",
+      "role": "implementer",
+      "skill": "coa-implement",
+      "depends": [],
+      "scope": [
+        "docs/DESIGN.md",
+        "src/styles/",
+        "src/app/",
+        "src/main.tsx",
+        "src/content/glossary"
+      ],
       "accept": "bash scripts/gate.sh --build"
     },
     {
@@ -136,6 +150,7 @@
       "skill": "coa-page",
       "depends": [
         "T101",
+        "T102",
         "T111"
       ],
       "scope": [
@@ -153,6 +168,7 @@
       "skill": "coa-page",
       "depends": [
         "T101",
+        "T102",
         "T112"
       ],
       "scope": [
@@ -169,6 +185,7 @@
       "skill": "coa-page",
       "depends": [
         "T101",
+        "T102",
         "T113"
       ],
       "scope": [
@@ -185,6 +202,7 @@
       "skill": "coa-page",
       "depends": [
         "T101",
+        "T102",
         "T113"
       ],
       "scope": [
@@ -203,6 +221,7 @@
       "skill": "coa-page",
       "depends": [
         "T101",
+        "T102",
         "T114"
       ],
       "scope": [
@@ -221,6 +240,7 @@
       "skill": "coa-page",
       "depends": [
         "T101",
+        "T102",
         "T114"
       ],
       "scope": [
@@ -236,6 +256,7 @@
       "skill": "coa-page",
       "depends": [
         "T101",
+        "T102",
         "T114"
       ],
       "scope": [
@@ -253,6 +274,7 @@
       "skill": "coa-page",
       "depends": [
         "T101",
+        "T102",
         "T115"
       ],
       "scope": [
