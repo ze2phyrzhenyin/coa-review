@@ -1,0 +1,2 @@
+# gate --build（第 2 轮，2026-11-14，d1be8a0，工作区有未提交改动）
+GATE OK --build
