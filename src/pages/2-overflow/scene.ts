@@ -107,15 +107,17 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
     });
   });
 
-  // 丢掉的进位落进最左边的托盘；窄屏上放到列头上方，不加宽台面。
-  const trayWidth = 2.3;
+  // 丢掉的进位落进最左边的托盘。窄屏上托盘是「出界」列里进位格正下方的一小格（下一行这一列本来是空的），
+  // 不加宽台面，也不会在舞台上沿外。
+  const trayWidth = compact ? 1.1 : 2.3;
+  const below = keys[keys.indexOf('carry') + 1] ?? 'x';
   parts.push({
     id: 'drop',
     kind: 'register',
-    position: compact ? [cx(0) - HALF_TILE + trayWidth / 2, zHead - 1.45] : [cx(0) - HALF_TILE - 0.3 - trayWidth / 2, rz('carry')],
-    props: { name: '丢掉的进位', value: '', width: trayWidth },
+    position: compact ? [cx(0) - 0.1, rz(below)] : [cx(0) - HALF_TILE - 0.3 - trayWidth / 2, rz('carry')],
+    props: { name: compact ? '出界' : '丢掉的进位', value: '', width: trayWidth },
   });
-  table.drop = { value: from('dropped', (ctx) => (ctx.state.dropped === '1' ? `1，权 ${modulus}` : ctx.state.dropped === '0' ? '无' : '')) };
+  table.drop = { value: from('dropped', (ctx) => (ctx.state.dropped === '1' ? (compact ? '1' : `1，权 ${modulus}`) : ctx.state.dropped === '0' ? '无' : '')) };
 
   // 预测两个符号位：就在结果行的两个符号位上翻位片，只在出题那一屏出现（那时这两格还没写）。
   const asking = signAskIndex(trace);

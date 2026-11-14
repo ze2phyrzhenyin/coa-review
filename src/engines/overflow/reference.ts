@@ -166,6 +166,30 @@ export function compare(x: number, y: number, n: number, op: Operation, notation
   const special = op === '减' && y === -(2 ** n);
   same('C_f、C_0 是否取自进位行', solution.carriesFromRow, !special);
   if (!special) same('C_f、C_0 与进位行', [state.cf, state.c0], [state.rows.carry.cells[1], state.rows.carry.cells[2]]);
+  same('加法器重算的行', state.adder === null, !special);
+  if (special && state.adder) {
+    // 加法器的做法：[x]补 + [y]补 各位取反 + 1，n+1 位，用整数重算两个进位
+    const half = 2 ** n;
+    const xs = ((x % (2 * half)) + 2 * half) % (2 * half);
+    const notY = 2 * half - 1 - (((y % (2 * half)) + 2 * half) % (2 * half));
+    same('加法器的 C_0', state.c0, String(Math.floor(((xs % half) + (notY % half) + 1) / half)));
+    same('加法器的 C_f', state.cf, String(Math.floor((xs + notY + 1) / (2 * half))));
+    same('加法器的和', rowBits(state.adder.sum.cells), ((xs + notY + 1) % (2 * half)).toString(2).padStart(n + 1, '0'));
+    same('加法器的和是结果的低 n+1 位', rowBits(state.adder.sum.cells), want.sum.slice(1));
+  }
+
+  // 解题表与文字不许对不上：表上指明读 C_f、C_0 的那一行，S_f1、S_f2 两格就是状态里的 C_f、C_0
+  const rows = trace.table.rows;
+  const readRow = special ? rows.find((r) => r.cells[0] === '加法器进位（读 C_f、C_0）') : rows.find((r) => r.cells[0] === '进位');
+  same('解题表里读 C_f、C_0 的那一行', readRow ? [readRow.cells[2], readRow.cells[3]] : null, [state.cf, state.c0]);
+  same('解题表里只有一行可以读 C_f、C_0', rows.filter((r) => r.cells[0] === '进位' || r.cells[0] === '加法器进位（读 C_f、C_0）').length, 1);
+
+  // 按进位判出溢出时，文字必须说清楚怎么分正溢、负溢
+  const confirm = trace.steps.find((s) => s.title.startsWith('用进位再判一次'));
+  if (overflowed) {
+    same('进位判法分正溢、负溢的说明', [confirm?.why.includes('C_f = 0、C_0 = 1 是正溢'), confirm?.why.includes('C_f = 1、C_0 = 0 是负溢')], [true, true]);
+    same('进位判法的结论', confirm?.why.includes(`这里 C_f = ${state.cf}、C_0 = ${state.c0}，是${want.overflow}`), true);
+  }
 
   // 预测题：只有两道，答案取自引擎
   const asks = trace.steps.flatMap((s) => (s.ask ? [s.ask] : []));

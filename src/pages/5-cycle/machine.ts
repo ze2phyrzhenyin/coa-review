@@ -204,6 +204,10 @@ export function machineMoves(step: Step<State>): Move[] {
       out.push({ value, from: 'DMEM', to: 'DBUS', via: ['dmem-dbus'], phase: 1 });
     }
   }
+  // STO 的执行二：AR 在 T1 单独一步送上 ABUS(D)（数存读写的那一步就不再重复送）。
+  if (has('bus.ABUS_D.driver') && s.bus.ABUS_D.driver === 'AR' && !out.some((move) => move.to === 'ABUS_D') && !has('bus.DBUS.driver') && ![...changed].some((path) => path.startsWith('dmem.'))) {
+    out.push({ value: text(s.bus.ABUS_D.value), from: 'AR', to: 'ABUS_D', via: ['ar-abusd'], ink: 'addr' });
+  }
   if (has('reg.AR') && s.reg.AR !== null) out.push({ value: text(s.reg.AR), from: 'DBUS', to: 'AR', via: ['dbus-ar'], ink: 'addr' });
   if (has('reg.DR') && s.reg.DR !== null) out.push({ value: text(s.reg.DR), from: 'DBUS', to: 'DR', via: ['dbus-dr'] });
   if (['C', 'V', 'Z', 'N'].some((flag) => has(`reg.PSWR.${flag}`))) {

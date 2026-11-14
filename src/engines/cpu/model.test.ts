@@ -271,6 +271,8 @@ describe('微操作序列与 evals/golden/cpu-cycles.json 一致', () => {
           cycle = m.cycle;
           beat = at;
           for (const raw of m[names]) {
+            // 全角括号开头的是表里的说明，不是信号。
+            if (raw.startsWith('（')) continue;
             const name = fill(raw, x, y, a);
             const timed = /^(.*)\(T[1-4]\)$/.exec(name);
             if (timed) pulse.push(timed[1]!);
@@ -281,7 +283,11 @@ describe('微操作序列与 evals/golden/cpu-cycles.json 一致', () => {
         // flow() 给出同一张表，不依赖寄存器里的数。
         expect(
           flow(ins, names).flatMap((c) =>
-            c.micros.map((m) => [c.cycle, m.level, m.op, [...m.hold, ...m.pulse.map((p) => `${p}(${m.beat})`)].join('，')]),
+            c.micros.map((m) => {
+              const signals = [...m.hold, ...m.pulse.map((p) => `${p}(${m.beat})`)].join('，');
+              expect(m.cell).toBe(signals || (m.cell.startsWith('（') ? m.cell : ''));
+              return [c.cycle, m.level, m.op, m.cell];
+            }),
           ),
         ).toEqual(expectedMicros.map((m) => [m.cycle, m.level, fill(m.op, x, y, a), m[names].map((s) => fill(s, x, y, a)).join('，')]));
       });
@@ -405,6 +411,80 @@ describe('样例程序', () => {
       checked += 1;
     }
     expect(checked).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe('学生试读第 1 轮之后的四条口径（docs/DECISIONS.md D19）', () => {
+  const stoOnly = (names: SignalNames) => run(single({ op: 'STO', rx: 'R1', ry: 'R2' }, names));
+
+  it('每条指令选通用寄存器的行：教材名字下写说明，解析书写 LRi；why 说明教材不单列信号', () => {
+    const want: Record<string, { book: string[]; solutions: string[] }> = {
+      MOV: { book: ['（由 IR 的寄存器字段选中）'], solutions: ['LR2'] },
+      NOT: { book: ['（由 IR 的寄存器字段选中）'], solutions: ['LR2'] },
+      ADD: { book: ['（由 IR 的寄存器字段选中）'], solutions: ['LR1，LR2'] },
+      AND: { book: ['（由 IR 的寄存器字段选中）'], solutions: ['LR1，LR2'] },
+      STO: { book: ['（由 IR 的寄存器字段选中）', '（由 IR 的寄存器字段选中）'], solutions: ['LR2', 'LR1'] },
+    };
+    for (const [op, cells] of Object.entries(want)) {
+      for (const names of VOCABULARIES) {
+        const trace = run(single(make(op as Op, 'R1', 'R2', 7), names));
+        const rows = trace.table.rows.filter((r) => /^选 |→ALU$/.test(r.cells[2]!));
+        expect(rows.map((r) => r.cells[3])).toEqual(cells[names]);
+        for (const row of rows) {
+          const step = trace.steps.find((st) => st.id === row.step)!;
+          expect(step.why).toContain('教材不为它单列控制信号');
+          expect(step.state.signals.level.some((x) => x.startsWith('（'))).toBe(false);
+        }
+      }
+    }
+    // 表里控制信号一栏为空的只剩 ALU 运算和译码这两种行。
+    for (const names of VOCABULARIES) {
+      const blanks = run(sampleParams(names)).table.rows.filter((r) => r.cells[1] !== '' && r.cells[3] === '').map((r) => r.cells[2]);
+      expect(new Set(blanks.map((b) => b!.replace(/ .*/, '')))).toEqual(new Set(['ALU']));
+    }
+  });
+
+  it('AR → ABUS(D) 在 LAD、STO 的访存 CPU 周期都在 T1；STO 的写入在 T3', () => {
+    const trace = run(sampleParams());
+    const starts = trace.steps.filter((st) => st.changes.some((c) => c.at === 'bus.ABUS_D.driver' && c.to === 'AR'));
+    expect(starts.map((st) => [st.state.reg.IR.op, st.state.timing.cycle, st.state.timing.beat])).toEqual([
+      ['LAD', '执行二', 'T1'],
+      ['STO', '执行二', 'T1'],
+    ]);
+    const write = trace.steps.find((st) => st.changes.some((c) => c.at.startsWith('dmem.')))!;
+    expect(write.state.timing.beat).toBe('T3');
+    expect(write.state.signals.pulse).toEqual(['WE(D)']);
+  });
+
+  it('「打开哪个三态门」之前已经讲过 C2 接在哪里，且没有在标题里说破', () => {
+    for (const names of VOCABULARIES) {
+      const trace = stoOnly(names);
+      const index = trace.steps.findIndex((st) => st.ask?.answer === 'C2');
+      expect(index).toBeGreaterThan(0);
+      const earlier = trace.steps.slice(0, index);
+      expect(earlier.some((st) => st.why.includes('C2 接通用寄存器的输出'))).toBe(true);
+      expect(trace.steps[index - 1]!.title).not.toContain('C2');
+      expect(trace.steps.slice(0, index).filter((st) => st.level === 'cycle').at(-1)!.why).not.toContain('C2');
+    }
+  });
+
+  it('第一次 T3 打入、第一次 T4 打入各说一次为什么是这一拍', () => {
+    for (const params of [sampleParams('book'), sampleParams('solutions'), bookProgram.params]) {
+      const trace = run(params);
+      const t3 = trace.steps.filter((st) => st.why.includes('留出 T4 给下一级'));
+      const t4 = trace.steps.filter((st) => st.why.includes('T4 是 CPU 周期的最后一拍'));
+      expect(t3.length).toBe(1);
+      expect(t4.length).toBe(1);
+      expect(t3[0]!.state.timing.beat).toBe('T3');
+      expect(t3[0]!.state.signals.pulse.length).toBeGreaterThan(0);
+      expect(t4[0]!.state.timing.beat).toBe('T4');
+      expect(t4[0]!.state.signals.pulse.length).toBeGreaterThan(0);
+      // 都在第一条指令的取指周期里：IR 在 T3、PC 在 T4。
+      expect(t3[0]!.title).toBe('指存 → IBUS → IR');
+      expect(t4[0]!.title).toBe('PC + 1');
+      const firstT3 = trace.steps.find((st) => st.state.timing.beat === 'T3' && st.level === 'beat');
+      expect(firstT3).toBe(t3[0]);
+    }
   });
 });
 

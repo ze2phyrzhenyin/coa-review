@@ -412,6 +412,8 @@ interface Micro {
   hold: Sig[];
   /** 这个节拍的脉冲信号。 */
   pulse: Sig[];
+  /** 这一套名字里没有信号时，解题表「控制信号」一栏写的说明（带全角括号）。 */
+  note?: Partial<Record<SignalNames, string>>;
   /** 通路上的部件，按数据走的顺序。 */
   path: PartId[];
   ref: string;
@@ -451,6 +453,12 @@ const INSTRUCTION_REF: Readonly<Record<Op, string>> = {
   JMP: '教材 p160 图 5.12',
 };
 
+/** 三个三态门各接在哪个输出端上（图 5.1）。 */
+const GATE_ROLE: Readonly<Record<GateId, string>> = { C1: 'ALU 输出', C2: '通用寄存器输出', C3: 'IR 地址码' };
+
+/** 选通用寄存器时解题表里的说明：教材不为它单列信号。 */
+const SELECT_NOTE: Partial<Record<SignalNames, string>> = { book: '（由 IR 的寄存器字段选中）' };
+
 /** 一条指令的全部 CPU 周期和微操作。run、flow、解题表都从这里来。 */
 function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
   const nm = (sig: Sig): string | null => sig[names];
@@ -462,7 +470,18 @@ function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
       .join(' 和 ');
   /** 附在句末的信号名，例如「，信号 LR1」。 */
   const tag = (...sigs: Sig[]): string => (list(...sigs) ? `，信号 ${list(...sigs)}` : '');
-  const others = (keep: GateId): string => (['C1', 'C2', 'C3'] as const).filter((g) => g !== keep).join('、');
+  /** 选通用寄存器这一步为什么在教材的表里没有信号。 */
+  const selectNote = (...regs: GeneralRegister[]): string => {
+    const read = [...new Set(regs)].map((r) => `L${r}`).join(' 和 ');
+    return names === 'book'
+      ? `选哪个寄存器由 IR 的寄存器字段直接决定，教材不为它单列控制信号，表里注明「由 IR 的寄存器字段选中」；解析书把它写成读出信号 ${read}。`
+      : `选哪个寄存器由 IR 的寄存器字段直接决定，教材不为它单列控制信号；解析书写成读出信号 ${read}，电位信号，保持到这个 CPU 周期结束。`;
+  };
+  const others = (keep: GateId): string =>
+    (['C1', 'C2', 'C3'] as const)
+      .filter((g) => g !== keep)
+      .map((g) => `${g}（${GATE_ROLE[g]}）`)
+      .join('、');
 
   const fetch: CyclePlan = {
     name: '取指',
@@ -563,7 +582,7 @@ function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
     path: ['ALU', 'C1', 'DBUS'],
     ref,
     why: (s) =>
-      `打开 ALU 输出端的三态门 C1，${String(s.alu.out)} 上了 DBUS。DBUS 上同一时刻只能有一个数，${others('C1')} 和数存的读出端都关着。`,
+      `打开 ALU 输出端的三态门 C1，${String(s.alu.out)} 上了 DBUS。DBUS 上同一时刻只能有一个数，${others('C1')}和数存的读出端都关着。`,
     update: (d) => {
       d.gate.C1 = true;
       d.bus.DBUS = { value: d.alu.out, driver: 'ALU' };
@@ -599,7 +618,7 @@ function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
     path: ['IR', 'C3', 'DBUS'],
     ref,
     why: (s) =>
-      `打开 IR 输出端的三态门 C3，地址码字段里的${what} ${String(irAddress(s.reg.IR))} 上了 DBUS。${others('C3')} 和数存的读出端都关着。${tail}`,
+      `打开 IR 输出端的三态门 C3，地址码字段里的${what} ${String(irAddress(s.reg.IR))} 上了 DBUS。${others('C3')}和数存的读出端都关着。${tail}`,
     update: (d) => {
       d.gate.C3 = true;
       d.bus.DBUS = { value: irAddress(d.reg.IR), driver: 'IR' };
@@ -625,10 +644,11 @@ function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
             title: `${ry} → ALU`,
             hold: [lr(ry)],
             pulse: [],
+            note: SELECT_NOTE,
             path: [ry, 'ALU'],
             ref,
             why: (s) =>
-              `操作控制器按 IR 的源寄存器字段选中 ${ry}（${String(s.reg[ry])}），送到 ALU 的输入端${tag(lr(ry))}。这是电位信号，保持到这个 CPU 周期结束。`,
+              `操作控制器按 IR 的源寄存器字段选中 ${ry}（${String(s.reg[ry])}），送到 ALU 的输入端。${selectNote(ry)}`,
             update: (d) => {
               d.sel.left = ry;
             },
@@ -705,10 +725,11 @@ function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
             title: `${rx}、${ry} → ALU`,
             hold: reads,
             pulse: [],
+            note: SELECT_NOTE,
             path: rx === ry ? [rx, 'ALU'] : [rx, ry, 'ALU'],
             ref,
             why: (s) =>
-              `操作控制器按 IR 的两个寄存器字段选中 ${rx}（${String(s.reg[rx])}）和 ${ry}（${String(s.reg[ry])}），分别送到 ALU 的两个输入端${tag(...reads)}。`,
+              `操作控制器按 IR 的两个寄存器字段选中 ${rx}（${String(s.reg[rx])}）和 ${ry}（${String(s.reg[ry])}），分别送到 ALU 的两个输入端。${selectNote(rx, ry)}`,
             update: (d) => {
               d.sel.left = rx;
               d.sel.right = ry;
@@ -878,19 +899,20 @@ function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
         name: '执行一',
         title: '执行周期的第 1 个 CPU 周期：送操作数地址',
         ref,
-        why: `译码认出 STO。写数存要给出地址，地址在 ${ry} 里，经 C2 上 DBUS 送进 AR。DBUS 这个 CPU 周期被地址占着，要写的数等下一个 CPU 周期。`,
+        why: `译码认出 STO。写数存要给出地址，地址在 ${ry} 里，要经 DBUS 送进 AR。DBUS 这个 CPU 周期被地址占着，要写的数等下一个 CPU 周期。`,
         micros: [
           {
             beat: 'T1',
             level: 'beat',
             op: `选 ${ry}`,
-            title: `选中 ${ry}，送到 C2 的输入端`,
+            title: `选中 ${ry}`,
             hold: [lr(ry)],
             pulse: [],
+            note: SELECT_NOTE,
             path: [ry, 'C2'],
             ref,
             why: (s) =>
-              `操作控制器按 IR 的寄存器字段选中 ${ry}${tag(lr(ry))}，它存着要写的数存单元的地址 ${String(s.reg[ry])}。`,
+              `操作控制器按 IR 的寄存器字段选中 ${ry}，它存着要写的数存单元的地址 ${String(s.reg[ry])}。${selectNote(ry)}DBUS 的出口有三个三态门：C1 接 ALU 的输出，C2 接通用寄存器的输出，C3 接 IR 的地址码，开哪一个，哪一路的数就上 DBUS。`,
             update: (d) => {
               d.sel.right = ry;
             },
@@ -905,7 +927,7 @@ function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
             path: [ry, 'C2', 'DBUS'],
             ref,
             why: (s) =>
-              `打开通用寄存器输出端的三态门 C2，地址 ${String(s.reg[ry])} 不经 ALU 直接上 DBUS，省掉 ALU 的延迟。${others('C2')} 和数存的读出端都关着。`,
+              `打开通用寄存器输出端的三态门 C2，地址 ${String(s.reg[ry])} 不经 ALU 直接上 DBUS，省掉 ALU 的延迟。${others('C2')}和数存的读出端都关着。`,
             update: (d) => {
               d.gate.C2 = true;
               d.bus.DBUS = { value: d.reg[ry], driver: ry };
@@ -942,18 +964,37 @@ function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
         name: '执行二',
         title: '执行周期的第 2 个 CPU 周期：送操作数，写数存',
         ref,
-        why: `上一个 CPU 周期 C2 送的是地址，已经撤掉。这个 CPU 周期改选 ${rx}，同一个三态门 C2 送的是要写的数，AR 保持着地址。`,
+        why: `上一个 CPU 周期 C2 送的是地址，已经撤掉，AR 保持着地址。这个 CPU 周期一开始地址就经 ABUS(D) 送到数存，再改选 ${rx}，同一个三态门 C2 送要写的数。`,
         micros: [
           {
             beat: 'T1',
             level: 'beat',
+            op: 'AR→ABUS(D)',
+            title: 'AR → ABUS(D) → 数存',
+            hold: [SIG.WRITE_D],
+            pulse: [],
+            note: { book: '（AR 直通 ABUS(D)）' },
+            path: ['AR', 'ABUS_D', 'DMEM'],
+            ref,
+            why: (s) => {
+              const mode = nm(SIG.WRITE_D) ? `解析书在这个 CPU 周期给出 ${list(SIG.WRITE_D)}，表示对数存是写。` : '';
+              return `AR 和 ABUS(D) 之间是直通线，AR 在上一个 CPU 周期 T4 打入 ${String(s.reg.AR)} 之后，地址就一直在 ABUS(D) 上，数存从这个 CPU 周期开始就选中 ${String(s.reg.AR)} 号单元。${mode}LAD 读数存时也一样，地址写在访存 CPU 周期的 T1。`;
+            },
+            update: (d) => {
+              d.bus.ABUS_D = { value: d.reg.AR ?? 0, driver: 'AR' };
+            },
+          },
+          {
+            beat: 'T1',
+            level: 'explain',
             op: `选 ${rx}`,
-            title: `选中 ${rx}，送到 C2 的输入端`,
+            title: `选中 ${rx}`,
             hold: [lr(rx)],
             pulse: [],
+            note: SELECT_NOTE,
             path: [rx, 'C2'],
             ref,
-            why: (s) => `操作控制器改选 ${rx}${tag(lr(rx))}，它存着要写进数存的数 ${String(s.reg[rx])}。`,
+            why: (s) => `操作控制器改选 ${rx}，它存着要写进数存的数 ${String(s.reg[rx])}。${selectNote(rx)}`,
             update: (d) => {
               d.sel.right = rx;
             },
@@ -967,8 +1008,7 @@ function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
             pulse: [],
             path: [rx, 'C2', 'DBUS'],
             ref,
-            why: (s) =>
-              `再次打开 C2，这回 DBUS 上是数据 ${String(s.reg[rx])}。AR 仍保持着上一个 CPU 周期装入的地址 ${String(s.reg.AR)}。`,
+            why: (s) => `再次打开 C2，这回 DBUS 上是数据 ${String(s.reg[rx])}。${others('C2')}和数存的读出端都关着。`,
             update: (d) => {
               d.gate.C2 = true;
               d.bus.DBUS = { value: d.reg[rx], driver: rx };
@@ -979,22 +1019,22 @@ function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
             level: 'beat',
             op: 'DBUS→数存',
             title: 'DBUS → 数存（AR 指定的单元）',
-            hold: [SIG.WRITE_D],
+            hold: [],
             pulse: [SIG.WE_D],
-            path: ['DBUS', 'DMEM', 'AR', 'ABUS_D'],
+            note: { solutions: '（DR/W̄=0 已在本周期给出，不注节拍）' },
+            path: ['DBUS', 'DMEM'],
             ref,
             why: (s) => {
               const a = s.reg.AR ?? 0;
               const old = s.dmem[String(a)];
               const command = nm(SIG.WE_D)
-                ? `T3 发数存写命令 ${list(SIG.WE_D)}，脉冲信号，`
-                : `数存的读写线置成写，解析书记作 ${list(SIG.WRITE_D)}，不注节拍；这里和教材一样在 T3 写入，`;
-              const replaced = old === undefined ? '' : `，原来的 ${String(old)} 被盖掉`;
-              return `AR 的地址 ${String(a)} 经 ABUS(D) 选中单元。${command}DBUS 上的 ${String(s.bus.DBUS.value)} 写进数存 ${String(a)} 号单元${replaced}。写数存不经过 DR。`;
+                ? `T3 发数存写命令 ${list(SIG.WE_D)}。它是脉冲信号（例 5.3 写成 M3·T3·STO）：地址和要写的数先在线上稳定，T3 才写，读命令 RD(D) 则从周期开始就有效，好让数存有时间读出。`
+                : `解析书的 ${list(SIG.WRITE_D)} 不注节拍；这里和教材一样在 T3 写入，地址和要写的数这时已在线上稳定。`;
+              const replaced = old === undefined ? '' : `原来的 ${String(old)} 被盖掉。`;
+              return `${command}DBUS 上的 ${String(s.bus.DBUS.value)} 写进数存 ${String(a)} 号单元，${replaced}写数存不经过 DR。`;
             },
             update: (d) => {
               const a = d.reg.AR ?? 0;
-              d.bus.ABUS_D = { value: a, driver: 'AR' };
               if (d.bus.DBUS.value !== null) d.dmem[String(a)] = d.bus.DBUS.value;
             },
             ask: {
@@ -1062,7 +1102,8 @@ function named(sigs: Sig[], names: SignalNames): string[] {
 
 /** 解题表「控制信号」一栏：电位信号直接写，脉冲信号注明节拍。 */
 function signalCell(micro: Micro, names: SignalNames): string {
-  return [...named(micro.hold, names), ...named(micro.pulse, names).map((name) => `${name}(${micro.beat})`)].join('，');
+  const cell = [...named(micro.hold, names), ...named(micro.pulse, names).map((name) => `${name}(${micro.beat})`)].join('，');
+  return cell || (micro.note?.[names] ?? '');
 }
 
 // ---------- 方框图（不带数值） ----------
@@ -1076,6 +1117,8 @@ export interface FlowMicro {
   hold: string[];
   /** 这个节拍的脉冲信号，不带节拍标注。 */
   pulse: string[];
+  /** 解题表「控制信号」一栏：电位信号直接写，脉冲信号注节拍；没有信号时是说明或空串。 */
+  cell: string;
 }
 
 export interface FlowCycle {
@@ -1093,6 +1136,7 @@ export function flow(ins: Instruction, names: SignalNames): FlowCycle[] {
       op: micro.op,
       hold: named(micro.hold, names),
       pulse: named(micro.pulse, names),
+      cell: signalCell(micro, names),
     })),
   }));
 }
@@ -1149,6 +1193,13 @@ function instructionWhy(ins: Instruction, addr: number): string {
       return `${at}${ins.op} 只在通用寄存器之间传数，DBUS 只送一次，指令周期是 2 个 CPU 周期：取指、执行。`;
   }
 }
+
+/** 第一次在 T3 打入时补的一句（教材 p152 电位-脉冲方式，p169 图 5.23，p178 图 5.30）。 */
+const WHY_T3 =
+  '打入靠节拍脉冲：电位信号从 T1 起把通路接好，等存储器读出或 ALU 运算的结果在总线上稳定了才用脉冲打入（教材 p169 图 5.23），图 5.30 把 IR、DR 的打入放在 T3，好留出 T4 给下一级的 PC 或通用寄存器（p178）。';
+/** 第一次在 T4 打入时补的一句。 */
+const WHY_T4 =
+  'T4 是 CPU 周期的最后一拍，图 5.30 把 PC、AR 和通用寄存器的打入都放在这里（p178）：PC 在 T1 到 T3 一直给指存当地址，要等 IR 在 T3 打入后才能改，通用寄存器也要等 DR 在 T3 拿到数。';
 
 /** 运行程序，得到逐步的 Trace。参数不合法时抛出错误。 */
 export function run(params: Params): Trace<Params, State> {
@@ -1213,6 +1264,8 @@ export function run(params: Params): Trace<Params, State> {
     return `s${String(stepCount)}`;
   };
 
+  /** 第一次在 T3、T4 打入时各说一句为什么是这一拍。 */
+  const told = { T3: false, T4: false };
   let executed = 0;
   let cpuCycles = 0;
   const perInstruction: string[] = [];
@@ -1281,10 +1334,19 @@ export function run(params: Params): Trace<Params, State> {
       });
       for (const micro of cycle.micros) {
         const before = current;
+        let why = micro.why(before);
+        if (micro.pulse.length > 0 && micro.beat === 'T3' && !told.T3) {
+          told.T3 = true;
+          why += WHY_T3;
+        }
+        if (micro.pulse.length > 0 && micro.beat === 'T4' && !told.T4) {
+          told.T4 = true;
+          why += WHY_T4;
+        }
         const id = emit({
           level: micro.level,
           title: micro.title,
-          why: micro.why(before),
+          why,
           ref: micro.ref,
           path: micro.path,
           ask: micro.ask,

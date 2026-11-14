@@ -158,7 +158,7 @@ describe('Trace 的结构', () => {
   it('初始状态是空竖式', () => {
     const trace = sample('减');
     const flat = flatten(trace.initial);
-    for (const [at, v] of Object.entries(flat)) if (!at.endsWith('.label')) expect(v, at).toBe('');
+    for (const [at, v] of Object.entries(flat)) if (!at.endsWith('.label')) expect(v, at).toBe(at === 'adder' ? 'null' : '');
     expect(trace.initial.rows.sum.label).toBe('[x−y]变补');
     expect(sample('加').initial.rows.sum.label).toBe('[x+y]变补');
   });
@@ -338,8 +338,23 @@ describe('减去最小负数：−y 写不成 n+1 位补码', () => {
         const fromRow = state.rows.carry.cells[COLUMN_SF1] === state.rows.carry.cells[COLUMN_SF2] ? '0' : '1';
         expect(fromRow).not.toBe(state.vBySign);
         const confirm = trace.steps[trace.steps.length - 2]!;
-        expect(confirm.focus).toEqual(['cf', 'c0', 'vByCarry']);
-        expect(confirm.why).toContain('按加法器的做法重算');
+        expect(confirm.focus).toEqual(['adder.carry.cells.1', 'adder.carry.cells.2', 'cf', 'c0', 'vByCarry']);
+        expect(confirm.why).toContain('加法器做减法的办法重算');
+        expect(confirm.why).toContain('上面进位行里的两格不能当作 C_f、C_0');
+        // 表上：竖式进位行注明此例不读；加法器进位行的 S_f1、S_f2 两格就是文字里的 C_f、C_0
+        const labels = trace.table.rows.map((r) => r.cells[0]);
+        expect(labels).toContain('进位（此例不读 C_f、C_0）');
+        expect(labels).not.toContain('进位');
+        const adderRow = trace.table.rows.find((r) => r.cells[0] === '加法器进位（读 C_f、C_0）')!;
+        expect(adderRow.step).toBe(confirm.id);
+        expect([adderRow.cells[2], adderRow.cells[3]]).toEqual([state.cf, state.c0]);
+        expect(adderRow.cells[adderRow.cells.length - 1]).toBe('1');
+        expect(state.adder!.carry.cells[1]).toBe(state.cf);
+        expect(state.adder!.carry.cells[2]).toBe(state.c0);
+        expect(state.rows.carry.label).toBe('进位（此例不读 C_f、C_0）');
+        // 加法器的和是结果的低 n+1 位
+        expect(rowBits(state.adder!.sum.cells)).toBe(rowBits(state.rows.sum.cells).slice(1));
+        expect(trace.table.rows.slice(-4).map((r) => r.cells[0])).toEqual(['加法器进位（读 C_f、C_0）', '[x]补', '+ [y]补 各位取反', '加法器的和']);
         expect(confirm.ref).toContain('p39');
         expect(trace.steps[3]!.why).toContain('两个符号位是 01');
       }

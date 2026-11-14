@@ -69,6 +69,10 @@ export const COLUMN_SF1 = 1;
 export const COLUMN_SF2 = 2;
 export const COLUMN_FIRST_VALUE = 3;
 
+/** 减去最小负数时，竖式的进位行和加法器进位行的行名。解题表和状态里都用这两个名字。 */
+export const MAIN_CARRY_LABEL_SPECIAL = '进位（此例不读 C_f、C_0）';
+export const ADDER_CARRY_LABEL = '加法器进位（读 C_f、C_0）';
+
 export interface OverflowState {
   rows: {
     /** [x]变补。 */
@@ -100,6 +104,32 @@ export interface OverflowState {
   /** 无溢出时结果的真值（教材写法）；溢出或还没到结论时是空串。 */
   value: string;
   conclusion: string;
+  /**
+   * 只在减去最小负数时有（其余为 null），在用进位再判一次那一步写出：按加法器做减法的办法重算的
+   * 单符号位加法，C_f、C_0 从它的进位行读。列与竖式相同，单符号位放在 S_f2 那一列，
+   * 所以 C_0 在第 2 格（符号位上方），C_f 在第 1 格；最右一格是最低位进的 1。
+   */
+  adder: AdderRows | null;
+}
+
+export interface AdderRows {
+  /** 加法器的进位行，第 c 格是进入第 c 列的进位。 */
+  carry: Row;
+  /** [x]补（单符号位）。 */
+  x: Row;
+  /** [y]补 各位取反（单符号位）。 */
+  notY: Row;
+  /** 加法器的和，等于竖式结果的低 n+1 位。 */
+  sum: Row;
+}
+
+/** 加法器重算的位串（单符号位，n+1 位）。 */
+export interface AdderBits {
+  x: Bits;
+  notY: Bits;
+  sum: Bits;
+  /** n+1 位里每一位送出的进位，下标与位串相同；carries[0] 就是 C_f。 */
+  carries: Bits;
 }
 
 interface Operand {
@@ -138,6 +168,8 @@ export interface OverflowSolution {
   vByCarry: Bit;
   /** C_f、C_0 是否就是进位行里的那两格。减法且 y 为最小负数时不是，见 specs/2-overflow.md。 */
   carriesFromRow: boolean;
+  /** carriesFromRow 为 false 时：按加法器重算的那次加法。否则为 null。 */
+  adder: AdderBits | null;
   verdict: OverflowKind;
   /** 数学上的结果（单位是最低位），由 n+2 位的和按补码读出。 */
   exactUnits: number;
@@ -235,13 +267,17 @@ function solveWith(params: OverflowParams, x: Operand, y: Operand): OverflowSolu
   const carriesFromRow = modifiedOverflow(addendBits) === '无溢出';
   let cf: Bit;
   let c0: Bit;
+  let adder: AdderBits | null = null;
   if (carriesFromRow) {
     cf = carryInto(added, 0);
     c0 = carryInto(added, 1);
   } else {
-    const adder = rippleAdd(x.modified.slice(1), invert(y.modified.slice(1)), '1');
-    cf = adder.carryOut;
-    c0 = carryInto(adder, 0);
+    const xTwos = x.modified.slice(1);
+    const notY = invert(y.modified.slice(1));
+    const sum = rippleAdd(xTwos, notY, '1');
+    cf = sum.carryOut;
+    c0 = carryInto(sum, 0);
+    adder = { x: xTwos, notY, sum: sum.sum, carries: sum.carries };
   }
 
   return {
@@ -266,6 +302,7 @@ function solveWith(params: OverflowParams, x: Operand, y: Operand): OverflowSolu
     vBySign: xor(sf1, sf2),
     vByCarry: xor(cf, c0),
     carriesFromRow,
+    adder,
     verdict: modifiedOverflow(added.sum),
     exactUnits: decodeModified(added.sum),
   };
@@ -334,6 +371,7 @@ export function run(params: OverflowParams): Trace<OverflowParams, OverflowState
     verdict: '',
     value: '',
     conclusion: '',
+    adder: null,
   };
 
   const conditions: Condition[] = [
@@ -511,19 +549,40 @@ export function run(params: OverflowParams): Trace<OverflowParams, OverflowState
   // 6. 用进位再判一次：V = C_f ⊕ C_0
   const { cf, c0 } = solution;
   const carryFormula = `V = C_f ⊕ C_0 = ${cf} ⊕ ${c0} = ${solution.vByCarry}`;
-  push({
+  // 用进位判时怎样分正溢、负溢：两个进位不同才溢出，看是哪一个进位是 1。
+  const carryJudge =
+    solution.vByCarry === '0'
+      ? `两个进位相同，${verdict}。`
+      : `两个进位不同就是溢出：C_f = 0、C_0 = 1 是正溢，C_f = 1、C_0 = 0 是负溢。这里 C_f = ${cf}、C_0 = ${c0}，是${verdict}。`;
+  const adderBits = solution.adder;
+  const adderRows: AdderRows | null = adderBits
+    ? {
+        carry: {
+          label: ADDER_CARRY_LABEL,
+          cells: ['', bitAt(adderBits.carries, 0), ...[...adderBits.x].map((_, i): Cell => (i === n ? '1' : bitAt(adderBits.carries, i + 1)))],
+        },
+        x: { label: '[x]补', cells: ['', '', ...[...adderBits.x].map((_, i): Cell => bitAt(adderBits.x, i))] },
+        notY: { label: '+ [y]补 各位取反', cells: ['', '', ...[...adderBits.notY].map((_, i): Cell => bitAt(adderBits.notY, i))] },
+        sum: { label: '加法器的和', cells: ['', '', ...[...adderBits.sum].map((_, i): Cell => bitAt(adderBits.sum, i))] },
+      }
+    : null;
+  const stepConfirm = push({
     title: `用进位再判一次：${carryFormula}`,
-    why: solution.carriesFromRow
-      ? `去掉最高符号位，剩下的就是单符号位的补码加法。C_0 是最高数值位送进符号位的进位，写在进位行第二符号位上方，这里是 ${c0}；C_f 是符号位再向左送出的进位，写在最高符号位上方，这里是 ${cf}。两个加数各自的两个符号位相同，结果的两个符号位只会因为这两个进位不同而不同，所以两种判法结论一致：${verdict}。`
-      : `单符号位判法要求两个加数都是合法的 ${n + 1} 位补码。这里 −y = ${value(-y.units)} 写不成 ${n + 1} 位补码，进位行里的两个进位不能直接用。按加法器的做法重算：[x]补 加上 [y]补 各位取反的结果，最低位再进 1，得 C_0 = ${c0}、C_f = ${cf}，${carryFormula}，与两个符号位的结论一致：${verdict}。`,
-    ref: solution.carriesFromRow ? '教材 p38' : '教材 p38、p39 图2.3(b)',
-    focus: solution.carriesFromRow
-      ? [`rows.carry.cells.${COLUMN_SF1}`, `rows.carry.cells.${COLUMN_SF2}`, 'cf', 'c0', 'vByCarry']
-      : ['cf', 'c0', 'vByCarry'],
+    why: adderRows
+      ? `单符号位判法要求两个加数都是合法的 ${n + 1} 位补码。这里 −y = ${value(-y.units)} 写不成 ${n + 1} 位补码，上面进位行里的两格不能当作 C_f、C_0。改用加法器做减法的办法重算，写在解题表下面另起的几行：[x]补 加上 [y]补 各位取反，最低位再进 1。在这几行的进位行里，符号位那一列上方是 C_0 = ${c0}，再左一列是 C_f = ${cf}。加法器的和 ${formatBits(adderBits!.sum, notation, 1)} 与上面结果的低 ${n + 1} 位相同。${carryJudge}与两个符号位的结论一致。`
+      : `去掉最高符号位，剩下的就是单符号位的补码加法。C_0 是最高数值位送进符号位的进位，写在进位行第二符号位上方，这里是 ${c0}；C_f 是符号位再向左送出的进位，写在最高符号位上方，这里是 ${cf}。${carryJudge}两个加数各自的两个符号位相同，结果的两个符号位只会因为这两个进位不同而不同，所以两种判法结论总是一致。`,
+    ref: adderRows ? '教材 p38、p39 图2.3(b)' : '教材 p38',
+    focus: adderRows
+      ? [`adder.carry.cells.${COLUMN_SF1}`, `adder.carry.cells.${COLUMN_SF2}`, 'cf', 'c0', 'vByCarry']
+      : [`rows.carry.cells.${COLUMN_SF1}`, `rows.carry.cells.${COLUMN_SF2}`, 'cf', 'c0', 'vByCarry'],
     update: (s) => {
       s.cf = cf;
       s.c0 = c0;
       s.vByCarry = solution.vByCarry;
+      if (adderRows) {
+        s.adder = adderRows;
+        s.rows.carry.label = MAIN_CARRY_LABEL_SPECIAL;
+      }
     },
   });
 
@@ -580,10 +639,17 @@ export function run(params: OverflowParams): Trace<OverflowParams, OverflowState
     table.rows.push({ cells: line('[y]变补', cellsOf(solution.yBits), '.'), step: stepY });
     table.rows.push({ cells: line('各位取反', cellsOf(solution.invertedBits), '.'), step: stepInverted });
   }
-  table.rows.push({ cells: line('进位', carryCells, ''), step: stepFirstColumn });
+  table.rows.push({ cells: line(adderRows ? MAIN_CARRY_LABEL_SPECIAL : '进位', carryCells, ''), step: stepFirstColumn });
   table.rows.push({ cells: line('[x]变补', cellsOf(solution.xBits), '.'), step: stepX });
   table.rows.push({ cells: line(op === '加' ? '+ [y]变补' : '+ [−y]变补', cellsOf(addendBits), '.'), step: stepAddend });
   table.rows.push({ cells: line(sumLabel, cellsOf(sumBits), '.'), step: stepDrop });
+  // 减去最小负数：在竖式下面另起几行，写加法器重算的那次加法，C_f、C_0 从它的进位行读。
+  if (adderRows) {
+    table.rows.push({ cells: line(adderRows.carry.label, adderRows.carry.cells, ''), step: stepConfirm });
+    table.rows.push({ cells: line(adderRows.x.label, adderRows.x.cells, '.'), step: stepConfirm });
+    table.rows.push({ cells: line(adderRows.notY.label, adderRows.notY.cells, '.'), step: stepConfirm });
+    table.rows.push({ cells: line(adderRows.sum.label, adderRows.sum.cells, '.'), step: stepConfirm });
+  }
 
   const result: Record<string, string> = {
     结果的变形补码: show(sumBits),

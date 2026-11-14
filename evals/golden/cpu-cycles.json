@@ -6,7 +6,9 @@
     "MOV 与 NOT 走同一条通路（ALU、C1、DBUS、DR），只差 ALU 功能。",
     "AND 教材只在表 5.1 列出，没有跟踪；比照 ADD。",
     "ADD 按教材是 1 个执行 CPU 周期（T3 打入 DR，T4 打入寄存器）。解析书图 5.17 拆成 2 个，不采用。",
-    "STO 的写命令：教材 WE(D) 是 T3 的脉冲；解析书写 DR/W̄=0，不注节拍。"
+    "STO 的写命令：教材 WE(D) 是 T3 的脉冲；解析书写 DR/W̄=0，不注节拍，这里放在访存 CPU 周期 T1 那一行。",
+    "AR → ABUS(D) 在 LAD、STO 的访存 CPU 周期都写在 T1（docs/DECISIONS.md D19，教材 p159）。",
+    "选通用寄存器的行（MOV、NOT、ADD、AND、STO）在教材名字下没有信号，写「（由 IR 的寄存器字段选中）」，解析书写 LRi。全角括号开头的一项是说明，不是信号。"
   ],
   "cycles": { "MOV": 2, "NOT": 2, "ADD": 2, "AND": 2, "JMP": 2, "LAD": 3, "STO": 3 },
   "fetch": {
@@ -28,7 +30,7 @@
         {
           "name": "执行",
           "micros": [
-            { "beat": "T1", "level": "beat", "op": "{y}→ALU", "book": [], "solutions": ["L{y}"] },
+            { "beat": "T1", "level": "beat", "op": "{y}→ALU", "book": ["（由 IR 的寄存器字段选中）"], "solutions": ["L{y}"] },
             { "beat": "T1", "level": "explain", "op": "ALU 取反", "book": [], "solutions": [] },
             { "beat": "T1", "level": "explain", "op": "ALU→DBUS", "book": ["C1"], "solutions": ["C1"] },
             { "beat": "T3", "level": "beat", "op": "DBUS→DR", "book": ["LDDR(T3)"], "solutions": ["SDR(T3)"] },
@@ -45,7 +47,7 @@
         {
           "name": "执行",
           "micros": [
-            { "beat": "T1", "level": "beat", "op": "{y}→ALU", "book": [], "solutions": ["L{y}"] },
+            { "beat": "T1", "level": "beat", "op": "{y}→ALU", "book": ["（由 IR 的寄存器字段选中）"], "solutions": ["L{y}"] },
             { "beat": "T1", "level": "explain", "op": "ALU 传送", "book": [], "solutions": [] },
             { "beat": "T1", "level": "explain", "op": "ALU→DBUS", "book": ["C1"], "solutions": ["C1"] },
             { "beat": "T3", "level": "beat", "op": "DBUS→DR", "book": ["LDDR(T3)"], "solutions": ["SDR(T3)"] },
@@ -84,7 +86,7 @@
         {
           "name": "执行",
           "micros": [
-            { "beat": "T1", "level": "beat", "op": "{x}、{y}→ALU", "book": [], "solutions": ["L{x}", "L{y}"] },
+            { "beat": "T1", "level": "beat", "op": "{x}、{y}→ALU", "book": ["（由 IR 的寄存器字段选中）"], "solutions": ["L{x}", "L{y}"] },
             { "beat": "T1", "level": "explain", "op": "ALU 加", "book": [], "solutions": ["+"] },
             { "beat": "T1", "level": "explain", "op": "ALU→DBUS", "book": ["C1"], "solutions": ["C1"] },
             { "beat": "T3", "level": "beat", "op": "DBUS→DR，进位→PSWR", "book": ["LDDR(T3)"], "solutions": ["SDR(T3)", "SPSW(T3)"] },
@@ -101,7 +103,7 @@
         {
           "name": "执行",
           "micros": [
-            { "beat": "T1", "level": "beat", "op": "{x}、{y}→ALU", "book": [], "solutions": ["L{x}", "L{y}"] },
+            { "beat": "T1", "level": "beat", "op": "{x}、{y}→ALU", "book": ["（由 IR 的寄存器字段选中）"], "solutions": ["L{x}", "L{y}"] },
             { "beat": "T1", "level": "explain", "op": "ALU 逻辑乘", "book": [], "solutions": [] },
             { "beat": "T1", "level": "explain", "op": "ALU→DBUS", "book": ["C1"], "solutions": ["C1"] },
             { "beat": "T3", "level": "beat", "op": "DBUS→DR，标志→PSWR", "book": ["LDDR(T3)"], "solutions": ["SDR(T3)", "SPSW(T3)"] },
@@ -118,7 +120,7 @@
         {
           "name": "执行一",
           "micros": [
-            { "beat": "T1", "level": "beat", "op": "选 {y}", "book": [], "solutions": ["L{y}"] },
+            { "beat": "T1", "level": "beat", "op": "选 {y}", "book": ["（由 IR 的寄存器字段选中）"], "solutions": ["L{y}"] },
             { "beat": "T1", "level": "explain", "op": "{y}→DBUS", "book": ["C2"], "solutions": ["C2"] },
             { "beat": "T4", "level": "beat", "op": "DBUS→AR", "book": ["LDAR(T4)"], "solutions": ["SAR(T4)"] }
           ]
@@ -126,9 +128,10 @@
         {
           "name": "执行二",
           "micros": [
-            { "beat": "T1", "level": "beat", "op": "选 {x}", "book": [], "solutions": ["L{x}"] },
+            { "beat": "T1", "level": "beat", "op": "AR→ABUS(D)", "book": ["（AR 直通 ABUS(D)）"], "solutions": ["DR/W̄=0"] },
+            { "beat": "T1", "level": "explain", "op": "选 {x}", "book": ["（由 IR 的寄存器字段选中）"], "solutions": ["L{x}"] },
             { "beat": "T1", "level": "explain", "op": "{x}→DBUS", "book": ["C2"], "solutions": ["C2"] },
-            { "beat": "T3", "level": "beat", "op": "DBUS→数存", "book": ["WE(D)(T3)"], "solutions": ["DR/W̄=0"] }
+            { "beat": "T3", "level": "beat", "op": "DBUS→数存", "book": ["WE(D)(T3)"], "solutions": ["（DR/W̄=0 已在本周期给出，不注节拍）"] }
           ]
         }
       ]

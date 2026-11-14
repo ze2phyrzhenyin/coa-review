@@ -80,7 +80,43 @@ describe('evals/golden/overflow-cases.json 的固定用例', () => {
       const dataOf = (label: string) => plain(rows.find((r) => r.cells[0] === label)!.cells.slice(2).join(''));
       expect(dataOf('[x]变补')).toBe(plain(want.x));
       expect(dataOf(want.negY === undefined ? '+ [y]变补' : '+ [−y]变补')).toBe(plain(want.negY ?? want.y));
-      expect(plain(rows[rows.length - 1]!.cells.slice(2).join(''))).toBe(plain(want.sum));
+      expect(dataOf(item.params.op === '加' ? '[x+y]变补' : '[x−y]变补')).toBe(plain(want.sum));
+      // 表上读 C_f、C_0 的那一行（减去最小负数时是加法器进位行）与文字一致
+      const carryRow = rows.find((r) => r.cells[0] === '加法器进位（读 C_f、C_0）') ?? rows.find((r) => r.cells[0] === '进位')!;
+      expect([carryRow.cells[2], carryRow.cells[3]]).toEqual([want.cf, want.c0]);
+    });
+  }
+});
+
+interface AdderCase {
+  name: string;
+  params: OverflowParams;
+  expect: { adderCarry: string[]; x: string; notY: string; sum: string; cf: string; c0: string; overflow: '无溢出' | '正溢' | '负溢' };
+}
+
+const adderGolden = JSON.parse(readFileSync(new URL('../../../evals/golden/overflow-adder-cases.json', import.meta.url), 'utf8')) as {
+  cases: AdderCase[];
+};
+
+describe('evals/golden/overflow-adder-cases.json：减去最小负数，C_f、C_0 从加法器进位行读', () => {
+  for (const item of adderGolden.cases) {
+    it(item.name, () => {
+      const trace = run(item.params);
+      expect(validateTrace(trace)).toEqual([]);
+      const state = trace.steps[trace.steps.length - 1]!.state;
+      const want = item.expect;
+      const adder = state.adder!;
+      expect(adder.carry.cells).toEqual(want.adderCarry);
+      expect(adder.x.cells.slice(2).join('')).toBe(want.x);
+      expect(adder.notY.cells.slice(2).join('')).toBe(want.notY);
+      expect(adder.sum.cells.slice(2).join('')).toBe(want.sum);
+      expect([state.cf, state.c0]).toEqual([want.cf, want.c0]);
+      expect(state.verdict).toBe(want.overflow);
+      // 解题表上那一行与状态一致（定点小数在 S_f2 后多一列空的小数点格）
+      const row = trace.table.rows.find((r) => r.cells[0] === '加法器进位（读 C_f、C_0）')!;
+      const cells = row.cells.slice(1).filter((_, i) => !(item.params.notation === '小数' && i === 3));
+      expect(cells).toEqual(want.adderCarry);
+      expect(trace.table.rows.filter((r) => r.cells[0] === '进位')).toEqual([]);
     });
   }
 });
