@@ -260,8 +260,8 @@ export class Stage {
   /** 值牌上的字（sizes.value）不小于 14 像素时的比例。镜头缩小的下限。 */
   get legibleScale(): number {
     // 场景里最小的字是 0.31（名牌、说明）：这个比例下它是 12 像素，值牌上的字约 14 像素。
-    // 手机上再留 20%：台面后排离镜头远，透视下字会小一些。
-    return (12 / MIN_TEXT) * (this.width < 600 ? 1.2 : 1);
+    // 手机上再留 17%：台面后排离镜头远，透视下字会小一些。
+    return (12 / MIN_TEXT) * (this.width < 600 ? 1.17 : 1);
   }
 
   /** 宽屏上为了整张台面入画，可以比下限再小一点（字约 10–12 像素）；手机上不行。 */
@@ -423,6 +423,49 @@ export class Stage {
       }
     }
     return { px: Number.isFinite(min) ? Math.round(min * 10) / 10 : 0, text: which };
+  }
+
+  /**
+   * 画面上互相压住的字：两段字的框（去掉留白）有交叠。返回前几对的文字。只看看得见的字，
+   * 同一张牌上的字不会叠，所以有交叠就是排版问题。
+   */
+  textOverlaps(): string[] {
+    this.draw();
+    const camera = this.camera;
+    const right = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const up = new Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    const boxes: { text: string; x0: number; x1: number; y0: number; y1: number }[] = [];
+    const p = new Vector3();
+    const toScreen = (v: Vector3) => {
+      p.copy(v).project(camera);
+      return { x: ((p.x + 1) / 2) * this.width, y: ((1 - p.y) / 2) * this.height, z: p.z };
+    };
+    for (const text of this.kit.texts) {
+      if (!text.text || text.opacity < 0.5) continue;
+      let shown = true;
+      for (let node: Object3D | null = text.mesh; node; node = node.parent) if (!node.visible) shown = false;
+      if (!shown) continue;
+      const center = text.mesh.getWorldPosition(new Vector3());
+      // 去掉贴图四周的留白：字宽按量出的宽，字高按字号。
+      const halfW = Math.max(0, text.width / 2 - text.size * 0.12);
+      const halfH = text.size * 0.5;
+      const a = toScreen(center.clone().addScaledVector(right, -halfW).addScaledVector(up, halfH));
+      const b = toScreen(center.clone().addScaledVector(right, halfW).addScaledVector(up, -halfH));
+      if (a.z > 1 || b.x < 0 || a.x > this.width || b.y < 0 || a.y > this.height) continue;
+      boxes.push({ text: text.text, x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x), y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y) });
+    }
+    const found: string[] = [];
+    for (let i = 0; i < boxes.length && found.length < 3; i++) {
+      for (let j = i + 1; j < boxes.length && found.length < 3; j++) {
+        const m = boxes[i]!;
+        const n = boxes[j]!;
+        const dx = Math.min(m.x1, n.x1) - Math.max(m.x0, n.x0);
+        const dy = Math.min(m.y1, n.y1) - Math.max(m.y0, n.y0);
+        // 左右之间至少留 3 像素：挨着也算压住。
+        if (dx > -3 && dy > 1) found.push(`${m.text}／${n.text}`);
+      }
+    }
+    return found;
   }
 
   /** 在这个镜头位置下，这些范围是否都在画面里。 */

@@ -71,6 +71,9 @@ export class SceneView {
   private frames: string[][] = [[]];
   private extras: string[][] = [];
   private picks: string[][] = [];
+  private asks: string[][] = [];
+  /** 正在为第几步排镜头（wholeEdges 按那一步的画面判断哪些部件看得见）。 */
+  private planning = 0;
   private targets: string[][] = [];
   private poses: Pose[] = [];
   private cams: CamPose[] = [];
@@ -188,8 +191,9 @@ export class SceneView {
    * frames[i] 装不下时，只看住 targets[i]（值最后落下的部件；没给时取这一步变了的部件）：镜头从出发的地方移过去，正好跟着值走。
    * 镜头位置按步数从头推出来，所以回到第 n 步时与第一次到第 n 步时相同。
    */
-  plan(frames: string[][], extras: string[][] = [], poses: Pose[] = [], targets: string[][] = [], picks: string[][] = []): void {
+  plan(frames: string[][], extras: string[][] = [], poses: Pose[] = [], targets: string[][] = [], picks: string[][] = [], asks: string[][] = []): void {
     this.picks = picks;
+    this.asks = asks;
     this.frames = frames;
     this.targets = targets;
     this.extras = extras;
@@ -199,6 +203,7 @@ export class SceneView {
 
   private replan(resized: boolean): void {
     const { stage } = this;
+    this.planning = 0;
     const all = [stage.sceneBox()];
     const boxesAt = (i: number, ids: string[]) => stage.boxesOf(ids, true, this.poses[i]?.parts);
     // 全景：整张台面装得下、字只比最小字号小一点时，镜头一直停在这里。完整的画面比略大的字要紧。
@@ -213,11 +218,20 @@ export class SceneView {
       if (boxes.length > 0) pose = follow(boxes).pose;
     }
     this.cams = [pose];
+    this.planning = 0;
     for (let i = 1; i < this.frames.length; i++) {
+      this.planning = i;
       const main = boxesAt(i, this.frames[i] ?? []);
       const more = boxesAt(i, this.extras[i] ?? []);
       // 点选题：全部候选（和这一步的焦点）在字不小于 14 像素时装得下，就一起放进画面。
       const choices = boxesAt(i, this.picks[i] ?? []);
+      // 页面指定了这道题要看的部件：就看它们（题目问的格子、要比的式子），装不下的候选靠「看其余部件」。
+      const asked = boxesAt(i, this.asks[i] ?? []);
+      if (!wholeFits && asked.length > 0) {
+        if (!stage.sees(pose, asked, 0.03)) pose = follow(asked).pose;
+        this.cams.push(pose);
+        continue;
+      }
       if (!wholeFits && choices.length > 0) {
         // 这一步变了的部件优先：候选和它们一起装得下才一起看，否则先看这一步，候选靠「看其余部件」。
         const both = [...main, ...choices];
@@ -256,7 +270,57 @@ export class SceneView {
     const { stage } = this;
     let pose = stage.fit(boxes, 1, 0, true);
     if (!stage.sees(pose, boxes, 0)) pose = stage.fit(boxes, stage.legibleScale / stage.minScale, 0, true);
-    return { pose: stage.keepInScene(pose), fits: stage.sees(pose, boxes, 0) };
+    pose = this.wholeEdges(stage.keepInScene(pose), boxes);
+    return { pose, fits: stage.sees(pose, boxes, 0) };
+  }
+
+  /**
+   * 画面左右边上不切半个部件：被边切开的格子、牌，要么整个挪进来，要么整个挪出去。
+   * 在几种平移里挑切开最少、要看的部件仍在画面里、移动最小的。很宽的部件（总线、长导轨）不算。
+   */
+  private wholeEdges(pose: CamPose, keep: Box3[]): CamPose {
+    const { stage } = this;
+    const W = stage.width;
+    // 整张台面横着放得下（已经居中）时不用挪。
+    const all = stage.project(stage.sceneBox(), pose);
+    if (all.x >= -1 && all.x + all.w <= W + 1) return pose;
+    // 这一步隐藏的部件不算；很宽的部件（总线、主存板这类）被切开是常态，也不算。
+    const props = this.poses[this.planning]?.parts ?? this.pose.parts;
+    const rects = () =>
+      [...this.parts.entries()]
+        .filter(([id]) => !props[id]?.hidden)
+        .map(([, part]) => stage.project(part.bounds(), pose))
+        .filter((r) => r.w < W * 0.7);
+    const cutsAfter = (list: { x: number; w: number }[], dx: number) => list.filter((r) => (r.x + dx < 0 && r.x + r.w + dx > 0) || (r.x + dx < W && r.x + r.w + dx > W)).length;
+    const list = rects();
+    if (cutsAfter(list, 0) === 0) return pose;
+    const shifts = new Set<number>([0]);
+    for (const r of list) {
+      if (r.x < W && r.x + r.w > W) {
+        shifts.add(W - (r.x + r.w) - 4);
+        shifts.add(W - r.x + 2);
+      }
+      if (r.x < 0 && r.x + r.w > 0) {
+        shifts.add(-r.x + 4);
+        shifts.add(-(r.x + r.w) - 2);
+      }
+    }
+    const unit = 1 / stage.scaleOf(pose);
+    const moved = (dx: number): CamPose => {
+      const target = pose.target.clone();
+      target.x -= dx * unit * Math.cos(pose.az);
+      target.z += dx * unit * Math.sin(pose.az);
+      return { ...pose, target };
+    };
+    let best = { dx: 0, cuts: cutsAfter(list, 0), ok: stage.sees(pose, keep, 0) };
+    for (const dx of shifts) {
+      if (Math.abs(dx) > W * 0.4) continue;
+      const cuts = cutsAfter(list, dx);
+      const ok = stage.sees(moved(dx), keep, 0);
+      const better = (ok && !best.ok) || (ok === best.ok && (cuts < best.cuts || (cuts === best.cuts && Math.abs(dx) < Math.abs(best.dx))));
+      if (better) best = { dx, cuts, ok };
+    }
+    return best.dx === 0 ? pose : moved(best.dx);
   }
 
   /** 临时把这些部件放进画面（已经都在画面里就不动）。返回镜头要走多久。 */
@@ -455,6 +519,8 @@ export class SceneView {
       const smallest = this.stage.minTextPx();
       this.host.dataset.minText = String(smallest.px);
       this.host.dataset.minTextLabel = smallest.text;
+      // 互相压住的字，自动检查用。
+      this.host.dataset.textOverlaps = this.stage.textOverlaps().join('；');
       this.host.dataset.settled = 'true';
       this.emitRects();
       this.onSettle(hash);

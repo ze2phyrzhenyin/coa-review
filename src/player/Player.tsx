@@ -42,6 +42,8 @@ export interface PlayerProps<P, S> {
   breakIt?: ((state: S, part: string | null) => Breakage | null) | undefined;
   /** 答错时按学生的答案演后果（填数题、选择题、点选题都行）。返回 null 时用播放器自己的演法。 */
   onWrong?: ((ask: Ask, value: string, state: S, next: Step<S> | null) => Breakage | null) | undefined;
+  /** 出题时镜头要看的部件（题目问的格子、要比的式子）。不给时看候选和这一步的焦点。 */
+  askFrame?: ((ask: Ask, index: number) => string[]) | undefined;
   /** 翻位片作答：bits 题由哪个 bits 部件来答。学生点位片翻面，再按确定。 */
   flipPart?: ((ask: Ask, index: number) => string | null) | undefined;
   /** 宽屏上舞台占满整行，讲解排在舞台下面（台面很宽、两栏放不下时用）。 */
@@ -81,7 +83,7 @@ function pickTargets(scene: SceneSpec, ask: Ask | undefined): Map<string, string
 const onStage = (rect: Rect | undefined, size: { width: number; height: number }): boolean =>
   !!rect && rect.x + rect.w / 2 > 0 && rect.x + rect.w / 2 < size.width && rect.y + rect.h / 2 > 0 && rect.y + rect.h / 2 < size.height;
 
-export function Player<P, S>({ trace, scene, bind, moves, names, values, caption, breakIt, onWrong, flipPart, wide, children }: PlayerProps<P, S>) {
+export function Player<P, S>({ trace, scene, bind, moves, names, values, caption, breakIt, onWrong, flipPart, askFrame, wide, children }: PlayerProps<P, S>) {
   const show = (path: string, value: string) => (value === '' || value === 'null' ? '空' : values ? values(path, value) : value);
   const total = trace.steps.length;
   const [index, setIndex] = useIntParam('s', 0, 0, total);
@@ -148,6 +150,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
         const poses: Pose[] = [];
         const targets: string[][] = [];
         const picks: string[][] = [];
+        const asks: string[][] = [];
         for (let i = 0; i <= total; i++) {
           const planned = i > 0 && moves ? moves(trace.steps[i - 1]!) : [];
           const last = Math.max(0, ...planned.map((move) => move.phase ?? 0));
@@ -156,13 +159,15 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
           // 等学生作答时，接下来要动的部件装得下就一起留在画面里。
           extras.push(trace.steps[i]?.ask ? frameAt(input, i + 1) : []);
           picks.push([...(pickTargets(scene, trace.steps[i]?.ask)?.values() ?? [])]);
+          const ask = trace.steps[i]?.ask;
+          asks.push(ask && askFrame ? askFrame(ask, i) : []);
           poses.push(poseFor(i));
         }
         const start = index;
         made = new View(stage.current, canvasHost.current, scene, poseFor(start));
         made.onRects = setRects;
         made.stage.onPick = (id, bit) => pickRef.current(id, bit);
-        made.plan(frames, extras, poses, targets, picks);
+        made.plan(frames, extras, poses, targets, picks, asks);
         made.show(start, poseFor(start), { animate: false, forward: false, moves: [] });
         view.current = made;
         shown.current = `${start}`;

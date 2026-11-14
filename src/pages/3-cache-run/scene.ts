@@ -103,11 +103,11 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
 
   const parts: PartSpec[] = [
     { id: 'addr', kind: 'register', position: at([-4.9, Z_ADDR], [0, -7.4]), props: { name: '主存地址', value: '', ink: 'addr', width: 2.2 } },
-    { id: 'tag', kind: 'bits', position: at(full ? [-1.0, Z_ADDR] : [-1.7, Z_ADDR], full ? [-1.4, -6.1] : [-2.6, -6.1]), props: { name: '标记', bits: '0'.repeat(g.tagBits), ink: 'addr' } },
+    { id: 'tag', kind: 'bits', position: at(full ? [-1.0, Z_ADDR] : [-1.7, Z_ADDR], full ? [-1.2, -6.1] : [g.tagBits >= 3 ? -1.9 : -2.25, -6.1]), props: { name: '标记', bits: '0'.repeat(g.tagBits), ink: 'addr' } },
   ];
-  if (!full) parts.push({ id: 'idx', kind: 'bits', position: at([1.5, Z_ADDR], [0.3, -6.1]), props: { name: indexTitle(g), bits: '0'.repeat(g.indexBits), ink: 'addr' } });
+  if (!full) parts.push({ id: 'idx', kind: 'bits', position: at([1.5, Z_ADDR], [g.tagBits >= 3 ? 0.85 : 0.55, -6.1]), props: { name: indexTitle(g), bits: '0'.repeat(g.indexBits), ink: 'addr' } });
   parts.push(
-    { id: 'word', kind: 'bits', position: at(full ? [3.0, Z_ADDR] : [4.5, Z_ADDR], full ? [2.0, -6.1] : [2.9, -6.1]), props: { name: '字地址', bits: '0'.repeat(g.wordBits), ink: 'addr' } },
+    { id: 'word', kind: 'bits', position: at(full ? [3.0, Z_ADDR] : [4.5, Z_ADDR], full ? [2.1, -6.1] : [3.0, -6.1]), props: { name: '字地址', bits: '0'.repeat(g.wordBits), ink: 'addr' } },
     { id: 'calcJ', kind: 'label', position: at([3.3, -4.95], [0, -4.85]), props: { text: '', plate: true, size: 0.31, mono: true } },
     { id: 'calcI', kind: 'label', position: at([3.3, -4.05], [0, -4.1]), props: { text: '', plate: true, size: 0.31, mono: true } },
     mem,

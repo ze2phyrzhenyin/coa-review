@@ -57,7 +57,7 @@ const bind = bindTable<State>({ R1: { value: 'reg.R1' }, C2: { open: 'ctl.C2' } 
 
 ## DOM 约定
 
-`[data-stage]` 上：学生一按换步就写 `data-settled="false"`，换步开始时写 `data-scene-hash`；最后一帧画完后写 `data-settled="true"`、`data-min-text`（画面上看得见的字里最小的字号，CSS 像素）和 `data-min-text-label`（是哪一段字）。`qa-pages` 在 390 宽时要求不小于 12。摘要是目标画面全部部件属性和连线状态的 FNV-1a 摘要（8 位十六进制）。平面模式同样有这两个属性。
+`[data-stage]` 上：学生一按换步就写 `data-settled="false"`，换步开始时写 `data-scene-hash`；最后一帧画完后写 `data-settled="true"`、`data-min-text`（画面上看得见的字里最小的字号，CSS 像素）、`data-min-text-label`（是哪一段字）和 `data-text-overlaps`（互相压住或挨着不到 3 像素的字，空表示没有）。`qa-pages` 在 390 宽时要求字号不小于 12、没有压字。画面左右边上不切半个部件（`wholeEdges`），手机上舞台贴满屏宽。摘要是目标画面全部部件属性和连线状态的 FNV-1a 摘要（8 位十六进制）。平面模式同样有这两个属性。
 
 ## 已知的限制
 

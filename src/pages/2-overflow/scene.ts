@@ -28,6 +28,8 @@ export interface OverflowScene {
   flipPart: (ask: unknown, index: number) => string | null;
   /** 答错时按学生的答案演后果。 */
   wrong: (ask: { kind: string }, value: string) => Breakage | null;
+  /** 出题时镜头看哪些格子。 */
+  askFrame: (ask: { kind: string }, index: number) => string[];
 }
 
 /** 符号位与数值位之间多空的一点、行距。列距宽屏 1.0，窄屏 0.9（整张竖式不出左右边）。 */
@@ -72,6 +74,8 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
 
   // 列头：符号位和各数值位的权。
   const zHead = -0.95;
+  // 窄屏上「出界」这一列也有列头，下面的小牌只写 1 或 无，牌就不比格子宽。
+  if (compact) parts.push({ id: 'head-0', kind: 'label', position: [cx(0), zHead], props: { text: '出界', size: 0.36, tone: 'muted', weight: 500 } });
   for (let c = 1; c <= W; c++) {
     const name = colName(c);
     parts.push({ id: `head-${c}`, kind: 'label', position: [cx(c), zHead], props: { text: name, size: compact ? 0.36 : c < 3 ? 0.34 : 0.31, tone: c < 3 ? 'text' : 'muted', weight: c < 3 ? 600 : 500 } });
@@ -98,7 +102,8 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
       parts.push({ id: `dot-${key}`, kind: 'label', position: [(cx(2) + cx(3)) / 2, rz(key) + 0.18], props: { text: '.', size: 0.5, weight: 700 } });
     }
     const labelSize = compact ? 0.32 : 0.31;
-    const shown = label;
+    // 窄屏上行名只留方括号那一段（[x]、+[−y]），全名在条件和解题表里。
+    const shown = compact ? label.replace(/变补$/, '').replace(/\s+/g, '').replace('各位取反', '取反') : label;
     parts.push({
       id: `label-${key}`,
       kind: 'label',
@@ -112,9 +117,9 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   const trayWidth = compact ? 1.1 : 2.3;
   const below = keys[keys.indexOf('carry') + 1] ?? 'x';
   if (compact) {
-    // 窄屏：一块小牌「出界 1」「出界 无」，没有名牌，不会压到上面那一格。
-    parts.push({ id: 'drop', kind: 'label', position: [cx(0) - 0.1, rz(below)], props: { text: '', plate: true, size: 0.32 } });
-    table.drop = { text: from('dropped', (ctx) => (ctx.state.dropped === '1' ? '出界 1' : ctx.state.dropped === '0' ? '出界 无' : '')), hidden: from('dropped', (ctx) => ctx.state.dropped === '' || ctx.state.dropped === null) };
+    // 窄屏：「出界」列里进位格下面的一块小牌，只写 1 或 无，没有名牌，不会压到上面那一格。
+    parts.push({ id: 'drop', kind: 'label', position: [cx(0), rz(below)], props: { text: '', plate: true, size: 0.32 } });
+    table.drop = { text: from('dropped', (ctx) => (ctx.state.dropped === '1' ? '1' : ctx.state.dropped === '0' ? '无' : '')), hidden: from('dropped', (ctx) => ctx.state.dropped === '' || ctx.state.dropped === null) };
   } else {
     parts.push({ id: 'drop', kind: 'register', position: [cx(0) - HALF_TILE - 0.3 - trayWidth / 2, rz('carry')], props: { name: '丢掉的进位', value: '', width: trayWidth } });
     table.drop = { value: from('dropped', (ctx) => (ctx.state.dropped === '1' ? `1，权 ${modulus}` : ctx.state.dropped === '0' ? '无' : '')) };
@@ -145,12 +150,15 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   const midText = textWidth(`${low} 到 ${high}`, 0.36);
   // 窄屏上数轴不比竖式宽，三段都能同时入画。
   // 窄屏上数轴三段的字不缩小：分区宽度按字来定，必要时比竖式宽一点。
-  const L = compact ? Math.max(span + 0.9, 4 * (sideText + 0.3), 2 * (midText + 0.3)) : Math.max(10, span + 2.4, 4 * (sideText + 0.8), 2 * (midText + 0.8));
+  // 分区里的字最小缩到 0.31（手机上仍有 12 像素以上），数轴就不比竖式宽，整张竖式能横着放下。
+  const shrink = 0.31 / 0.36;
+  const L = compact ? Math.max(span + 0.9, 2 * (midText * shrink + 0.3)) : Math.max(10, span + 2.4, 4 * (sideText + 0.8), 2 * (midText + 0.8));
   const zLine = zFormula + 1.75;
   const zones: { id: string; title: '负溢' | '无溢出' | '正溢'; x: number; w: number; value: string }[] = [
-    { id: 'zone-neg', title: '负溢', x: (-3 * L) / 8, w: L / 4 - 0.12, value: `< ${low}` },
+    // 窄屏上两侧只写「负溢」「正溢」，范围写在中间一段，字不用缩小。
+    { id: 'zone-neg', title: '负溢', x: (-3 * L) / 8, w: L / 4 - 0.12, value: compact ? '' : `< ${low}` },
     { id: 'zone-ok', title: '无溢出', x: 0, w: L / 2 - 0.12, value: `${low} 到 ${high}` },
-    { id: 'zone-pos', title: '正溢', x: (3 * L) / 8, w: L / 4 - 0.12, value: `> ${high}` },
+    { id: 'zone-pos', title: '正溢', x: (3 * L) / 8, w: L / 4 - 0.12, value: compact ? '' : `> ${high}` },
   ];
   for (const zone of zones) {
     parts.push({ id: zone.id, kind: 'register', position: [zone.x, zLine], props: { name: zone.title, value: zone.value, width: zone.w }, pick: true, title: zone.title });
@@ -167,7 +175,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   const xv = (exact / 2 ** (n + 1)) * (L / 2);
   const inset = Math.max(0, home.w / 2 - markWidth / 2);
   const markX = Math.max(home.x - inset, Math.min(home.x + inset, xv));
-  parts.push({ id: 'mark', kind: 'register', position: [markX, zLine + 1.5], props: { name: `${expression} = ${formatDecimal(exact, n, notation)}`, value: '', width: markWidth } });
+  parts.push({ id: 'mark', kind: 'register', position: [markX, zLine + 1.5], props: { name: compact ? `= ${formatDecimal(exact, n, notation)}` : `${expression} = ${formatDecimal(exact, n, notation)}`, value: '', width: markWidth } });
   table.mark = {
     value: from('conclusion', (ctx) => (ctx.state.conclusion ? exactText : '')),
     hidden: from('conclusion', (ctx) => !ctx.state.conclusion),
@@ -250,5 +258,10 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
     return null;
   };
 
-  return { scene, bind, moves, names, values, flipPart, wrong };
+  // 符号位题看两个符号位那两列（进位、两个加数、结果）；判定题看结果的符号位和两个判定式。
+  const signColumns = [1, 2].flatMap((c) => keys.map((key) => `${key}-${c}`));
+  const askFrame = (ask: { kind: string }, index: number): string[] =>
+    index === asking ? [...signColumns, 'sign'] : ask.kind === 'choice' ? ['sum-1', 'sum-2', 'vs', 'vc'] : [];
+
+  return { scene, bind, moves, names, values, flipPart, wrong, askFrame };
 }

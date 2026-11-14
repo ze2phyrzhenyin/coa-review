@@ -493,10 +493,14 @@ button.pl-part {
   .pl-status {
     order: 0;
   }
+  /* 手机上舞台贴满屏宽（去掉页面左右的留白），台面能多放下两三列。 */
   .pl-stage {
     order: 1;
     height: min(48dvh, 420px);
     min-height: 300px;
+    margin-inline: -1rem;
+    border-radius: 0;
+    border-inline: 0;
   }
   .pl-ask.is-dock {
     order: 2;

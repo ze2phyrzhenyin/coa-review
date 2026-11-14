@@ -20,6 +20,7 @@ import { Player } from '../../player/Player';
 | `caption?` | `(state) => string`，舞台上方一行读数（模型机：CPU 周期、节拍、有效信号） |
 | `breakIt?` | `(state, part \| null) => Breakage \| null`，弄坏它：`{ label, patch, moves, message }`。有就在舞台下方给按钮，学生点场景里对应的部件也行；演出时把 `patch` 盖在画面上，`message` 显示在舞台下，「恢复」收回。有待答的题时不给 |
 | `onWrong?` | `(ask, value, state, next) => Breakage \| null`，答错时页面演后果（任何题型）：把 `patch` 盖上、`moves` 走一遍，约 2.6 秒后自己退回；`message` 留在题目下的提示前面 |
+| `askFrame?` | `(ask, index) => 部件 id[]`，出题时镜头看这些部件（题目问的格子、要比的式子）；候选装不下时靠「看其余部件」 |
 | `flipPart?` | `(ask, index) => 部件 id \| null`，`bits` 题在这个 `bits` 部件上翻位片作答 |
 | `wide?` | 宽屏上舞台占满整行、讲解排在下面（模型机这种很宽的台面） |
 | `children` | 舞台上方的控件（选例题、选粒度），宽屏一排按钮，窄屏下拉框 |
@@ -75,6 +76,5 @@ import { Player } from '../../player/Player';
 
 ## 已知的限制
 
-- 没有「播放」和调速，只能手动翻步。
-- 2-overflow 的竖式仍是一格一个部件，平面模式里很长；5-cycle 练习的答题纸是页面表格，不在场景里。
+- 没有「播放」和调速；2-overflow 的竖式一格一个部件，平面模式里很长；5-cycle 练习的答题纸是页面表格，不在场景里。
 - 窄屏上「为什么」排在控制条下面，要滚动才能看全；换 Trace（改参数）时场景整个重建，会闪一帧。

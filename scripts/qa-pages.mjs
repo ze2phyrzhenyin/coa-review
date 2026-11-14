@@ -108,7 +108,7 @@ for (const size of sizes) {
   await context.close();
 }
 
-// 场景里的字：390 宽时，看得见的字不小于 12 像素（[data-stage] 的 data-min-text，由场景量出）。每页看开头和前 4 步。
+// 场景里的字：390 宽时，看得见的字不小于 12 像素（data-min-text），也不互相压住（data-text-overlaps）。每页看开头和前 4 步。
 {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   for (const id of ids) {
@@ -116,16 +116,20 @@ for (const size of sizes) {
     await open(page, id);
     if ((await page.locator('[data-player] [data-stage]').count()) && (await page.locator('[data-player]').first().getAttribute('data-mode')) !== 'flat') {
       const sizes = [];
+      const clashes = [];
       for (let i = 0; i <= 4; i++) {
         await page.waitForFunction(() => document.querySelector('[data-stage]')?.getAttribute('data-settled') === 'true', null, { timeout: 15000 }).catch(() => {});
         const px = Number(await page.locator('[data-stage]').first().getAttribute('data-min-text'));
         const label = await page.locator('[data-stage]').first().getAttribute('data-min-text-label');
         if (px > 0) sizes.push({ step: i, px, label });
+        const overlaps = await page.locator('[data-stage]').first().getAttribute('data-text-overlaps');
+        if (overlaps) clashes.push(`第 ${i} 步 ${overlaps}`);
         await page.locator('[data-player]').first().focus();
         await page.keyboard.press('ArrowRight');
       }
       const small = sizes.filter((item) => item.px < 12);
       if (small.length) failures.push(`/${id}（390 宽）：场景里的字小于 12 px：${small.map((item) => `第 ${item.step} 步「${item.label}」${item.px} px`).join('、')}`);
+      if (clashes.length) failures.push(`/${id}（390 宽）：场景里的字互相压住：${clashes.slice(0, 3).join('，')}`);
     }
     await page.close();
   }

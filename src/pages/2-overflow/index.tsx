@@ -83,7 +83,7 @@ function Learn() {
         ))}
       </div>
       {made.ok ? (
-        <Player key={`learn-${index}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} flipPart={made.flipPart} onWrong={made.wrong} />
+        <Player key={`learn-${index}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} flipPart={made.flipPart} onWrong={made.wrong} askFrame={made.askFrame} />
       ) : (
         <p class="ovf-error">{made.error}</p>
       )}
@@ -225,7 +225,7 @@ function Try() {
               </dd>
             </div>
           </dl>
-          <Player key={`try-${JSON.stringify(params)}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} flipPart={made.flipPart} onWrong={made.wrong} />
+          <Player key={`try-${JSON.stringify(params)}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} flipPart={made.flipPart} onWrong={made.wrong} askFrame={made.askFrame} />
         </>
       ) : (
         <p class="ovf-error" role="alert">
