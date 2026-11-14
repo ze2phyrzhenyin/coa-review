@@ -1,0 +1,258 @@
+/* 3-cache-run 页面自己的样式。按钮、输入框、舞台沿用播放器的 pl-*。 */
+.cr {
+  --cr-muted: color-mix(in srgb, var(--ink) 62%, var(--paper));
+  --cr-accent: #d4472a;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+@media (prefers-color-scheme: dark) {
+  .cr {
+    --cr-accent: #f0795c;
+  }
+}
+
+.cr-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+.cr-tab {
+  min-height: 44px;
+  padding: 0 1rem;
+  font: inherit;
+  color: var(--cr-muted);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cr-tab[aria-selected='true'] {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--ink);
+}
+.cr-tab:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+#cr-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cr-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  align-items: flex-start;
+}
+.cr-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.cr .pl-btn.is-on {
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.cr-lead {
+  margin-right: 0.25rem;
+}
+.cr-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--cr-muted);
+}
+.cr-seq {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  flex: 1 1 22rem;
+}
+.cr-seq label {
+  font-size: 0.9375rem;
+}
+.cr-seq .cr-note,
+.cr-seq .cr-problem {
+  grid-column: 2 / -1;
+}
+.cr-problem {
+  margin: 0;
+  color: var(--cr-accent);
+}
+
+.cr-compare-wrap {
+  overflow-x: auto;
+}
+.cr-compare {
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+.cr-compare caption {
+  text-align: left;
+  font-size: 0.8125rem;
+  color: var(--cr-muted);
+  padding-bottom: 0.25rem;
+}
+.cr-compare th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--cr-muted);
+  padding: 0 1rem 0.25rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.cr-compare td {
+  padding: 0 1rem 0 0;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.cr-compare tr.is-current td {
+  font-weight: 600;
+}
+.cr-compare tr.is-current td:first-child {
+  box-shadow: inset 3px 0 0 var(--cr-accent);
+}
+.cr-pick {
+  min-height: 44px;
+  padding: 0 0.5rem;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+}
+.cr-pick:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+/* 练习 */
+.cr-quiz {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.cr-task {
+  margin: 0;
+}
+.cr-paper {
+  cursor: default;
+}
+.cr-paper.is-wide {
+  height: clamp(460px, 64vh, 600px);
+}
+.cr-paper.is-wide .cr-fill-grid {
+  grid-template-columns: repeat(3, minmax(0, 0.8fr)) minmax(0, 1.5fr) minmax(0, 1.1fr) auto;
+}
+.cr-quiz .pl-given {
+  font-size: 0.875rem;
+}
+.cr-fill {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  background: color-mix(in srgb, var(--paper) 96%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.cr-fill.is-anchored {
+  position: absolute;
+}
+.cr-fill-head {
+  margin: 0;
+  font-weight: 600;
+}
+.cr-fill-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.375rem 0.5rem;
+}
+.cr-fill-grid label,
+.cr-fill-result {
+  display: grid;
+  gap: 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--cr-muted);
+}
+.cr-fill-grid .pl-input {
+  width: 100%;
+}
+.cr-fill-result > div {
+  display: flex;
+  gap: 0.375rem;
+}
+.cr-fill-result .pl-btn {
+  flex: 1;
+  padding: 0 0.5rem;
+}
+.cr-fill-grid .is-wrong > span,
+.cr-fill-grid .is-wrong span {
+  color: var(--cr-accent);
+}
+.cr-fill-grid .is-wrong .pl-input {
+  border-color: var(--cr-accent);
+}
+.cr-check {
+  display: flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: end;
+  min-height: 44px;
+  font-size: 0.9375rem !important;
+}
+.cr-check input {
+  width: 22px;
+  height: 22px;
+}
+.cr-fill-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.cr-fill-foot .is-primary {
+  margin-left: auto;
+}
+.cr-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0;
+}
+.cr-verdict.is-wrong {
+  color: var(--cr-accent);
+}
+.cr-verdict .pl-btn {
+  color: var(--ink);
+}
+
+@media (max-width: 600px) {
+  .cr-seq {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .cr-seq label {
+    grid-column: 1 / -1;
+  }
+  .cr-seq .cr-note,
+  .cr-seq .cr-problem {
+    grid-column: 1 / -1;
+  }
+  .cr-fill-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

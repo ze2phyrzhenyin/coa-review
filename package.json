@@ -1,0 +1,30 @@
+{
+  "name": "coa-review",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 4630 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4631 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint:copy": "node scripts/lint-copy.mjs --quiet src",
+    "gate": "bash scripts/gate.sh"
+  },
+  "dependencies": {
+    "preact": "^11.2.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@preact/preset-vite": "^2.10.6",
+    "@types/node": "^26.6.6",
+    "@types/three": "^0.187.0",
+    "fast-check": "^4.10.2",
+    "jsdom": "^31.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

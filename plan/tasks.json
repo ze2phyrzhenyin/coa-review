@@ -1,0 +1,4 @@
+{
+  "note": "任务图。只有 planner 改这个文件。字段：id、title、role（prompts/roles 下的角色）、skill、depends、scope（独占的文件范围，路径前缀）、spec、accept（验收命令）。状态不写在这里，见 plan/state/。",
+  "tasks": []
+}

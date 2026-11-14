@@ -1,0 +1,151 @@
+{
+  "note": "图 5.1 模型机每条指令的 CPU 周期数和微操作顺序。来源：docs/textbook/ch04-05.md「五条指令的指令周期」，即教材 p154–160 图 5.5–5.13 的圈号顺序；节拍按 p178 图 5.30；教材信号名按 p179 例 5.3；解析书信号名按解析书 p85–86 图 5.14–5.17。{x}、{y} 是指令地址码里第一、第二个寄存器（R0–R3）。每个微操作一行：beat 节拍，level 是 beat（这个节拍的第一步）或 explain（同一节拍里拆开讲的小步），op 是解题表「操作」一栏，book、solutions 是两套名字下「控制信号」一栏（电位信号直接写，脉冲信号括号注节拍；那套名字里没有名字的信号不写）。译码行的节拍栏留空。",
+  "decisions": [
+    "取指 T4 的教材信号含 LDPC：例 5.3 写 LDPC=M1·T4+M2·T4·JMP，表 5.2 的 S3 同时有 LDPC 和 PC+1。解析书图 5.15 的取指只写 PC+1(T4)。",
+    "打入通用寄存器的信号教材写 LDRx、LDRy，这里换成具体寄存器 LDR0–LDR3。",
+    "MOV 与 NOT 走同一条通路（ALU、C1、DBUS、DR），只差 ALU 功能。",
+    "AND 教材只在表 5.1 列出，没有跟踪；比照 ADD。",
+    "ADD 按教材是 1 个执行 CPU 周期（T3 打入 DR，T4 打入寄存器）。解析书图 5.17 拆成 2 个，不采用。",
+    "STO 的写命令：教材 WE(D) 是 T3 的脉冲；解析书写 DR/W̄=0，不注节拍。"
+  ],
+  "cycles": { "MOV": 2, "NOT": 2, "ADD": 2, "AND": 2, "JMP": 2, "LAD": 3, "STO": 3 },
+  "fetch": {
+    "name": "取指",
+    "ref": "教材 p154–155 图 5.5，p178 图 5.30",
+    "micros": [
+      { "beat": "T1", "level": "beat", "op": "PC→ABUS(I)", "book": ["RD(I)"], "solutions": ["IR/W̄=1"] },
+      { "beat": "T3", "level": "beat", "op": "IBUS→IR", "book": ["LDIR(T3)"], "solutions": ["SIR(T3)"] },
+      { "beat": "T4", "level": "beat", "op": "PC+1", "book": ["PC+1(T4)", "LDPC(T4)"], "solutions": ["PC+1(T4)"] },
+      { "beat": "", "level": "explain", "op": "译码", "book": [], "solutions": [] }
+    ]
+  },
+  "execute": {
+    "NOT": {
+      "form": "NOT {x},{y}",
+      "meaning": "{y} 取反 → {x}",
+      "ref": "教材 p154–156 图 5.6",
+      "cycles": [
+        {
+          "name": "执行",
+          "micros": [
+            { "beat": "T1", "level": "beat", "op": "{y}→ALU", "book": [], "solutions": ["L{y}"] },
+            { "beat": "T1", "level": "explain", "op": "ALU 取反", "book": [], "solutions": [] },
+            { "beat": "T1", "level": "explain", "op": "ALU→DBUS", "book": ["C1"], "solutions": ["C1"] },
+            { "beat": "T3", "level": "beat", "op": "DBUS→DR", "book": ["LDDR(T3)"], "solutions": ["SDR(T3)"] },
+            { "beat": "T4", "level": "beat", "op": "DR→{x}", "book": ["LD{x}(T4)"], "solutions": ["S{x}(T4)"] }
+          ]
+        }
+      ]
+    },
+    "MOV": {
+      "form": "MOV {x},{y}",
+      "meaning": "{y} → {x}",
+      "ref": "教材 p162 图 5.15，p178 图 5.30",
+      "cycles": [
+        {
+          "name": "执行",
+          "micros": [
+            { "beat": "T1", "level": "beat", "op": "{y}→ALU", "book": [], "solutions": ["L{y}"] },
+            { "beat": "T1", "level": "explain", "op": "ALU 传送", "book": [], "solutions": [] },
+            { "beat": "T1", "level": "explain", "op": "ALU→DBUS", "book": ["C1"], "solutions": ["C1"] },
+            { "beat": "T3", "level": "beat", "op": "DBUS→DR", "book": ["LDDR(T3)"], "solutions": ["SDR(T3)"] },
+            { "beat": "T4", "level": "beat", "op": "DR→{x}", "book": ["LD{x}(T4)"], "solutions": ["S{x}(T4)"] }
+          ]
+        }
+      ]
+    },
+    "LAD": {
+      "form": "LAD {x},{a}",
+      "meaning": "数存 {a} 号单元 → {x}",
+      "ref": "教材 p156–157 图 5.8",
+      "cycles": [
+        {
+          "name": "执行一",
+          "micros": [
+            { "beat": "T1", "level": "beat", "op": "IR(地址码)→DBUS", "book": ["C3"], "solutions": ["C3"] },
+            { "beat": "T4", "level": "beat", "op": "DBUS→AR", "book": ["LDAR(T4)"], "solutions": ["SAR(T4)"] }
+          ]
+        },
+        {
+          "name": "执行二",
+          "micros": [
+            { "beat": "T1", "level": "beat", "op": "AR→ABUS(D)，数存→DBUS", "book": ["RD(D)"], "solutions": ["DR/W̄=1"] },
+            { "beat": "T3", "level": "beat", "op": "DBUS→DR", "book": ["LDDR(T3)"], "solutions": ["SDR(T3)"] },
+            { "beat": "T4", "level": "beat", "op": "DR→{x}", "book": ["LD{x}(T4)"], "solutions": ["S{x}(T4)"] }
+          ]
+        }
+      ]
+    },
+    "ADD": {
+      "form": "ADD {x},{y}",
+      "meaning": "{x} + {y} → {y}",
+      "ref": "教材 p157–158 图 5.9",
+      "cycles": [
+        {
+          "name": "执行",
+          "micros": [
+            { "beat": "T1", "level": "beat", "op": "{x}、{y}→ALU", "book": [], "solutions": ["L{x}", "L{y}"] },
+            { "beat": "T1", "level": "explain", "op": "ALU 加", "book": [], "solutions": ["+"] },
+            { "beat": "T1", "level": "explain", "op": "ALU→DBUS", "book": ["C1"], "solutions": ["C1"] },
+            { "beat": "T3", "level": "beat", "op": "DBUS→DR，进位→PSWR", "book": ["LDDR(T3)"], "solutions": ["SDR(T3)", "SPSW(T3)"] },
+            { "beat": "T4", "level": "beat", "op": "DR→{y}", "book": ["LD{y}(T4)"], "solutions": ["S{y}(T4)"] }
+          ]
+        }
+      ]
+    },
+    "AND": {
+      "form": "AND {x},{y}",
+      "meaning": "{x} AND {y} → {y}",
+      "ref": "教材 p153 表 5.1；教材没有跟踪，比照 ADD",
+      "cycles": [
+        {
+          "name": "执行",
+          "micros": [
+            { "beat": "T1", "level": "beat", "op": "{x}、{y}→ALU", "book": [], "solutions": ["L{x}", "L{y}"] },
+            { "beat": "T1", "level": "explain", "op": "ALU 逻辑乘", "book": [], "solutions": [] },
+            { "beat": "T1", "level": "explain", "op": "ALU→DBUS", "book": ["C1"], "solutions": ["C1"] },
+            { "beat": "T3", "level": "beat", "op": "DBUS→DR，标志→PSWR", "book": ["LDDR(T3)"], "solutions": ["SDR(T3)", "SPSW(T3)"] },
+            { "beat": "T4", "level": "beat", "op": "DR→{y}", "book": ["LD{y}(T4)"], "solutions": ["S{y}(T4)"] }
+          ]
+        }
+      ]
+    },
+    "STO": {
+      "form": "STO {x},({y})",
+      "meaning": "{x} → 数存 ({y}) 号单元",
+      "ref": "教材 p158–159 图 5.11",
+      "cycles": [
+        {
+          "name": "执行一",
+          "micros": [
+            { "beat": "T1", "level": "beat", "op": "选 {y}", "book": [], "solutions": ["L{y}"] },
+            { "beat": "T1", "level": "explain", "op": "{y}→DBUS", "book": ["C2"], "solutions": ["C2"] },
+            { "beat": "T4", "level": "beat", "op": "DBUS→AR", "book": ["LDAR(T4)"], "solutions": ["SAR(T4)"] }
+          ]
+        },
+        {
+          "name": "执行二",
+          "micros": [
+            { "beat": "T1", "level": "beat", "op": "选 {x}", "book": [], "solutions": ["L{x}"] },
+            { "beat": "T1", "level": "explain", "op": "{x}→DBUS", "book": ["C2"], "solutions": ["C2"] },
+            { "beat": "T3", "level": "beat", "op": "DBUS→数存", "book": ["WE(D)(T3)"], "solutions": ["DR/W̄=0"] }
+          ]
+        }
+      ]
+    },
+    "JMP": {
+      "form": "JMP {a}",
+      "meaning": "{a} → PC",
+      "ref": "教材 p159–160 图 5.13",
+      "cycles": [
+        {
+          "name": "执行",
+          "micros": [
+            { "beat": "T1", "level": "beat", "op": "IR(地址码)→DBUS", "book": ["C3"], "solutions": ["C3"] },
+            { "beat": "T4", "level": "beat", "op": "DBUS→PC", "book": ["LDPC(T4)"], "solutions": ["SPC(T4)"] }
+          ]
+        }
+      ]
+    }
+  }
+}

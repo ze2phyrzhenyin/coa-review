@@ -1,0 +1,413 @@
+{
+  "note": "一行一个页面。implementer 不改这个文件；evaluator 按 .agents/skills/coa-look 验收后只改 passes 和 evidence（scripts/check-features.mjs 强制）。增删页面由 planner 做，并同步 src/content/pages.ts 和 docs/PLAN.md。",
+  "accept": [
+    "讲解、试一试、练习三部分齐全，答案全部来自引擎",
+    "键盘前进、后退、重置；回退后画面与当初一致",
+    "步数和参数写进网址，刷新后回到同一画面",
+    "360 px 宽不横向滚动，触控目标不小于 44 px",
+    "减少动态效果时没有位移动画",
+    "scripts/gate.sh --build 通过",
+    "student 角色照页面做完变式题，没有卡住的步骤"
+  ],
+  "features": [
+    {
+      "id": "1-cpi",
+      "title": "CPI、MIPS、执行时间怎么互算",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-codes",
+      "title": "−128 为什么只有补码，补码和移码差在哪",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-overflow",
+      "title": "01 和 10 哪个是正溢，进位丢掉算不算溢出",
+      "batch": "sample",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-negate",
+      "title": "找第一个 1 和取反加 1 为什么是一回事",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-ieee",
+      "title": "隐藏的 1 去哪了，E 加 127 还是 128",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-range",
+      "title": "最大负数和最小负数分别是哪个",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-cla",
+      "title": "C4 怎么展开，延迟怎么数",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-mul",
+      "title": "补码相乘为什么先变绝对值",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-div",
+      "title": "余数为负为什么不恢复，下一步反而加",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-alu",
+      "title": "S3–S0 怎么决定运算",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-bus3",
+      "title": "单总线为什么三步，三总线为什么一步",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-fpadd",
+      "title": "对阶移谁，规格化往哪边移",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-fpmul",
+      "title": "移码阶相加为什么要减偏移量",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "2-parity",
+      "title": "奇校验位取 0 还是 1",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-expand",
+      "title": "8 片芯片为什么只要 2 位片选",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-decode",
+      "title": "ROM、RAM 各占一段地址，译码器接哪几根线",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-endian",
+      "title": "0x1234 在大端和小端里怎么放",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-refresh",
+      "title": "集中式和分散式刷新，哪段时间不能读写",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-interleave",
+      "title": "读 4 个字为什么是 T+3τ",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-cache-addr",
+      "title": "同一个地址，三种映射各切成哪几段",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-cache-run",
+      "title": "主存块落到哪一行，为什么被换出",
+      "batch": "sample",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-cache-perf",
+      "title": "h、ta、e、r 怎么互相求",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-cache-write",
+      "title": "写命中、写未命中时谁被改",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-cache-l2",
+      "title": "加了二级 cache，CPI 怎么算",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-vm-addr",
+      "title": "虚地址怎么变成物理地址",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-vm-seg",
+      "title": "段式为什么是相加，段页式查几次表",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-vm-replace",
+      "title": "FIFO 和 FIFO+LRU 的表每一列怎么填",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "3-miss-combo",
+      "title": "三处缺失，哪些组合不可能",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "4-opcode",
+      "title": "扩展操作码到底留几个码",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "4-format",
+      "title": "指令格式设计题从哪下手",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "4-ea",
+      "title": "这串十六进制指令的有效地址是多少",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "4-arm",
+      "title": "ARM 汇编怎么变成 32 位机器码",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-cycle",
+      "title": "LAD 为什么比 ADD 多一个 CPU 周期",
+      "batch": "sample",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-flow",
+      "title": "方框图旁边的信号怎么写，哪些要带 T",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-datapath",
+      "title": "换一张数据通路图怎么排微操作",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-timing",
+      "title": "T1–T4 和 CPU 周期是什么关系",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-micro",
+      "title": "取指微指令怎么知道下一条去哪",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-mfield",
+      "title": "微指令每个字段几位，控存多大",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-maddr",
+      "title": "分支微地址怎么分配",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-mgroup",
+      "title": "相容和相斥微命令怎么分组",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-hardwired",
+      "title": "LDDR 的逻辑表达式是怎么写出来的",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-spacetime",
+      "title": "时空图怎么画，周期数怎么数",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-hazard",
+      "title": "RAW、WAR、WAW 怎么分",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-stall",
+      "title": "相关之后停几拍，定向以后呢",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "5-superscalar",
+      "title": "超标量的推进图怎么排",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "6-arbiter",
+      "title": "链式查询为什么离仲裁器近的优先",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "6-timing",
+      "title": "异步读里的确认在等谁",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "6-serial",
+      "title": "一帧到底几位，带宽怎么算",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "8-poll",
+      "title": "CPU 在查询循环里浪费了什么",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "8-intr",
+      "title": "关中断、保存断点、保存现场，谁做、先后是什么",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "8-mask",
+      "title": "改屏蔽字为什么能改处理次序",
+      "batch": "first",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "8-im",
+      "title": "执行 B 的服务程序时 IM 为什么是 111",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "8-saturate",
+      "title": "链上每个设备多等多少",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "8-dma",
+      "title": "DMA 请求和中断请求有什么不同",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "8-dma-mode",
+      "title": "周期挪用和透明 DMA 区别在哪",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "8-dma-multi",
+      "title": "两个设备同时请求先服务谁",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    },
+    {
+      "id": "8-io",
+      "title": "系统里谁拖后腿",
+      "batch": "second",
+      "passes": false,
+      "evidence": ""
+    }
+  ]
+}

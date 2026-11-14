@@ -1,0 +1,239 @@
+/* 2-overflow 页面自己的控件：标签页、例题、试一试的参数、答题纸。颜色沿用外壳的 --ink、--paper、--line、--mark。 */
+.ovf {
+  --ovf-muted: color-mix(in srgb, var(--ink) 62%, var(--paper));
+  --ovf-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --ovf-ok: #2f7a4b;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+@media (prefers-color-scheme: dark) {
+  .ovf {
+    --ovf-ok: #7cc79a;
+  }
+}
+
+.ovf-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ovf-tab {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  color: var(--ovf-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.ovf-tab.is-on {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+  font-weight: 600;
+}
+.ovf-tab:focus-visible,
+.ovf-choice:focus-visible,
+.ovf-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.ovf-choices,
+.ovf-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.ovf-choice,
+.ovf-btn {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 0.875rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.ovf-choices .ovf-choice {
+  font-family: var(--ovf-mono);
+  font-size: 0.9375rem;
+}
+.ovf-choice.is-on {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+  font-weight: 600;
+}
+.ovf-btn.is-primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.ovf-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* 试一试 */
+.ovf-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 0.75rem 1rem;
+  align-items: start;
+}
+.ovf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+.ovf-field > span {
+  color: var(--ovf-muted);
+}
+.ovf-input {
+  min-height: 44px;
+  width: 100%;
+  padding: 0 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.4 var(--ovf-mono);
+}
+.ovf-hidden-submit {
+  display: none;
+}
+.ovf-formulas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+}
+.ovf-formulas div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.375rem 0.75rem;
+}
+.ovf-formulas dt {
+  font-size: 0.8125rem;
+  color: var(--ovf-muted);
+  font-family: var(--ovf-mono);
+}
+.ovf-formulas dd {
+  margin: 0;
+  font-family: var(--ovf-mono);
+  font-weight: 600;
+}
+.ovf-error {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--mark);
+  border-radius: 8px;
+  color: var(--mark);
+}
+
+/* 练习：答题纸 */
+.ovf-paper {
+  max-width: 34rem;
+  padding: 1.25rem 1.25rem 1.5rem;
+  background: color-mix(in srgb, var(--paper) 88%, #e8e2d2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 6px 18px rgb(0 0 0 / 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+.ovf-task {
+  margin: 0;
+}
+.ovf-line {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 0.25rem 0.75rem;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.ovf-line.is-sum {
+  border-top: 1px solid var(--ink);
+  padding-top: 0.875rem;
+}
+.ovf-line-label {
+  font-family: var(--ovf-mono);
+  font-size: 0.9375rem;
+  padding: 0;
+}
+.ovf-line > :not(.ovf-line-label):not(input):not(.ovf-seg) {
+  grid-column: 2;
+}
+.ovf-verdict legend {
+  float: left;
+}
+.ovf-bits {
+  letter-spacing: 0.12em;
+}
+.ovf-bits.is-ok {
+  border-color: var(--ovf-ok);
+}
+.ovf-bits.is-bad {
+  border-color: var(--mark);
+}
+.ovf-cells {
+  display: flex;
+  gap: 2px;
+  font: 600 0.9375rem var(--ovf-mono);
+}
+.ovf-cells span {
+  width: 1.5rem;
+  text-align: center;
+  border-bottom: 2px solid transparent;
+}
+.ovf-cells span.is-bad {
+  color: var(--mark);
+  border-bottom-color: var(--mark);
+}
+.ovf-note,
+.ovf-key,
+.ovf-done {
+  margin: 0;
+  font-size: 0.875rem;
+}
+.ovf-note.is-ok,
+.ovf-done {
+  color: var(--ovf-ok);
+}
+.ovf-note.is-bad {
+  color: var(--mark);
+}
+.ovf-key {
+  font-family: var(--ovf-mono);
+  color: var(--ovf-muted);
+}
+.ovf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+@media (max-width: 520px) {
+  .ovf-line {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ovf-line > :not(.ovf-line-label):not(input):not(.ovf-seg) {
+    grid-column: 1;
+  }
+  .ovf-verdict legend {
+    float: none;
+  }
+}

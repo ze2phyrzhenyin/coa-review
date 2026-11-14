@@ -1,0 +1,35 @@
+{
+  "allow": [
+    "cache",
+    "CPU",
+    "TLB",
+    "DMA",
+    "IEEE",
+    "ARM",
+    "RAW",
+    "WAR",
+    "WAW",
+    "LRU",
+    "LFU",
+    "FIFO",
+    "MIPS",
+    "CPI",
+    "ROM",
+    "RAM",
+    "DRAM",
+    "SRAM",
+    "ALU",
+    "PC",
+    "IR",
+    "AR",
+    "DR"
+  ],
+  "ignore": [
+    ".test.ts",
+    ".test.tsx",
+    "node_modules"
+  ],
+  "lang": [
+    "zh"
+  ]
+}

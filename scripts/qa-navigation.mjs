@@ -1,0 +1,76 @@
+#!/usr/bin/env node
+// 导航状态检查（AGENTS.md › Navigation，负责人 2026-11-08 的硬要求）：
+//  1. 点侧栏换页后，侧栏滚动位置不变，当前项可见；
+//  2. 新会话直接打开深层页面，当前项自动在视野内；
+//  3. 页内标签页（role=tab）刷新后仍是刚才选中的那个（状态在网址里）。
+// 用法：PORT=4631 node scripts/qa-navigation.mjs      线上：ORIGIN=https://… node scripts/qa-navigation.mjs
+// 需要侧栏够长才测得出滚动：本地用 VITE_SHOW_PLANNED=1 的构建（gate.sh --build 已这样做）。
+import { finish, implementedIds, launch, open, pageIds } from './qa-lib.mjs';
+
+const browser = await launch();
+const failures = [];
+const navState = (page) =>
+  page.evaluate(() => {
+    const nav = document.getElementById('nav');
+    const active = nav?.querySelector('.nav-link[aria-current="page"]');
+    if (!nav || !active) return { scroll: -1, visible: false, label: '' };
+    const box = nav.getBoundingClientRect();
+    const rect = active.getBoundingClientRect();
+    return { scroll: Math.round(nav.scrollTop), visible: rect.top >= box.top - 1 && rect.bottom <= box.bottom + 1, label: active.textContent.trim() };
+  });
+
+{
+  const page = await (await browser.newContext({ viewport: { width: 1280, height: 600 } })).newPage();
+  await open(page, '');
+  const links = page.locator('#nav .nav-link');
+  const count = await links.count();
+  if (count === 0) failures.push('侧栏里没有页面链接');
+  const picks = count >= 12 ? [count - 1, Math.floor(count * 0.6), Math.floor(count * 0.85)] : [...Array(count).keys()].slice(-3);
+  for (const index of picks) {
+    const link = links.nth(index);
+    await link.scrollIntoViewIfNeeded();
+    const label = (await link.textContent()).trim();
+    const before = await page.evaluate(() => document.getElementById('nav').scrollTop);
+    await link.click();
+    await page.waitForTimeout(200);
+    const state = await navState(page);
+    if (state.label !== label) failures.push(`点「${label}」后当前项是「${state.label}」`);
+    if (!state.visible) failures.push(`点「${label}」后当前项不在视野内`);
+    if (Math.abs(state.scroll - before) > 80) failures.push(`点「${label}」后侧栏位置变了（${Math.round(before)} → ${state.scroll}）`);
+  }
+  await page.context().close();
+}
+
+const deep = [pageIds.at(-1), pageIds[Math.floor(pageIds.length * 0.75)], pageIds[Math.floor(pageIds.length * 0.5)]];
+for (const id of deep) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 600 } });
+  const page = await context.newPage();
+  await open(page, id);
+  await page.waitForTimeout(150);
+  if ((await page.locator('#nav .nav-link').count()) > 0) {
+    const state = await navState(page);
+    if (state.label && !state.visible) failures.push(`直接打开 /${id}，当前项「${state.label}」不在视野内`);
+  }
+  await context.close();
+}
+
+{
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  for (const id of implementedIds) {
+    const page = await context.newPage();
+    await open(page, id);
+    const tabs = page.locator('#main [role="tab"]');
+    if ((await tabs.count()) >= 2) {
+      const label = (await tabs.nth(1).textContent()).trim();
+      await tabs.nth(1).click();
+      await page.reload({ waitUntil: 'load' });
+      await page.locator('#main h1').first().waitFor();
+      const selected = (await page.locator('#main [role="tab"][aria-selected="true"]').first().textContent().catch(() => ''))?.trim();
+      if (selected !== label) failures.push(`/${id}：标签页「${label}」刷新后丢了（状态要写进网址）`);
+    }
+    await page.close();
+  }
+  await context.close();
+}
+await browser.close();
+finish('qa-navigation', failures);
