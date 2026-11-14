@@ -12,7 +12,7 @@
 4. 通用寄存器的信号写成 Rx、Ry（指令里第一个、第二个寄存器）：教材 LDRx、LDRy，解析书 SRx、SRy、LRx、LRy（图 5.30 的记法）。
 5. 电位信号（`flow()` 的 hold）只与 M，脉冲信号（pulse）与 M·T（p179）。同一个 M 或 M·T 的指令相或放进括号，按指令集的顺序；所有指令都有的项不写指令；各项按 M、T 的先后排。
 6. `run` 的步（都是 `explain`）：判断电位还是脉冲；每条指令一步，写出在哪个 M·T、做什么，或者不发；合并；最后写出表达式并问学生（文本，判分用 `equivalent`）。
-7. `runReverse`：表达式里 · * × 是与，+ 是或，可以加括号；只认 M1–M3、T1–T4 和指令名。顶层每一项一步，列出它为 1 的（指令·M·T）和那一拍做的事；给了信号时再一步，逐拍对照流程图，列出漏掉和多出的节拍。电位信号算四拍都有效。
+7. `runReverse`：表达式里 · * × 是与，+ 是或，可以加括号；只认 M1–M3、T1–T4 和指令名。顶层每一项一步，列出它为 1 的（指令·M·T）和那一拍做的事；给了信号时再一步，逐拍对照流程图，列出漏掉和多出的节拍。电位信号算四拍都有效。同步控制下每条指令都走 M1–M3（p179），两周期指令的 M3 空过，式子在那里为 1 也算多出。
 8. 状态：`run` 为 `signal`、`kind`、`marks`、`scanning`、`terms`、`expression`；`runReverse` 为 `terms`、`matches`、`missing`、`extra`。
 9. `trace.table`：`run` 为 节拍电位｜节拍脉冲｜指令｜项，每行指回第一次找到这一项的那一步；`runReverse` 为 项｜指令｜节拍｜这一拍的操作。
 10. `result`：`run` 为信号、类型、表达式；`runReverse` 为有效节拍数，给了信号再加一致、漏掉、多出。
@@ -23,6 +23,7 @@
 - WHEN 求 LDDR THEN `M2·T3·(MOV+ADD)+M3·T3·LAD`；求 LDPC THEN `M1·T4+M2·T4·JMP`；求 RD(D) THEN `M3·LAD`。
 - WHEN 反查 `M2·T3·ADD+M3·T3·LAD` 对照 LDDR THEN 漏掉 MOV·M2·T3。
 - WHEN 反查 `M3·STO` 对照 WE(D) THEN 多出 T1、T2、T4 三拍（脉冲信号忘了与 T）。
+- WHEN 反查 `M2·T3·(MOV+ADD)+M3·T3` 对照 LDDR THEN 有效 7 拍，多出 MOV、ADD、JMP、STO 的 M3·T3。
 - WHEN 指令集只有 MOV、ADD，求 WE(D) THEN 抛出错误。
 
 ## 性质

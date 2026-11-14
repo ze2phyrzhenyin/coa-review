@@ -192,10 +192,13 @@ export function pointsOfSignal(signal: string, ops: readonly Op[], names: Signal
   return [...new Set(out)].sort();
 }
 
+/** 同步控制下每条指令都走 M1–M3 三个节拍电位，两周期指令的 M3 空过（p179）。 */
+export const POTENTIALS = 3;
+
 export function pointsOfExpression(text: string, ops: readonly Op[]): string[] {
   const tree = parseExpression(text);
   const out: string[] = [];
-  for (const op of ops) for (let m = 1; m <= cyclesOf(op); m += 1) for (const t of BEATS) if (evaluate(tree, op, m, t)) out.push(`${op}·M${m}·T${t}`);
+  for (const op of ops) for (let m = 1; m <= POTENTIALS; m += 1) for (const t of BEATS) if (evaluate(tree, op, m, t)) out.push(`${op}·M${m}·T${t}`);
   return out.sort();
 }
 
@@ -390,8 +393,8 @@ export function runReverse(params: ReverseParams): Trace<ReverseParams, ReverseS
       level: 'explain',
       title: pts.length ? `${term}：${pts.length} 个节拍有效` : `${term}：没有一个节拍有效`,
       why: pts.length
-        ? `${pts.map((p) => `${p}${doing.has(p) ? `（${doing.get(p)!}）` : ''}`).join('，')}。`
-        : '这一项要求的指令没有这个节拍电位，或者几个条件互相矛盾，永远为 0。',
+        ? `${pts.map((p) => `${p}（${doing.get(p) ?? (Number(p.split('·')[1]!.slice(1)) > cyclesOf(p.split('·')[0] as Op) ? 'M3 空过' : '这一拍没有操作')}）`).join('，')}。同步控制下每条指令都走 M1–M3，两个 CPU 周期的指令在 M3 空过，式子在那里为 1 也会发出信号（p179）。`
+        : '这一项的几个条件互相矛盾，永远为 0。',
       ref: '教材 p178–179',
       update: (d) => {
         d.matches[i] = pts;

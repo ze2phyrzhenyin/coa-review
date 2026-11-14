@@ -158,6 +158,15 @@ function binaryText(mag: Rational, fracBits: number): string {
   return toBinary(mag, Math.max(8, fracBits)).text;
 }
 
+/** 输入的绝对值：十进制写得完就写十进制，否则写成分数（如 1/3）。 */
+function inputText(mag: Rational): string {
+  try {
+    return toDecimal(mag);
+  } catch {
+    return `${mag.num}/${mag.den}`;
+  }
+}
+
 function trimZeros(bits: string): string {
   const t = bits.replace(/0+$/, '');
   return t === '' ? '0' : t;
@@ -337,6 +346,8 @@ interface TeachEncoding {
   dropped: string;
   roundedUp: boolean;
   carry: boolean;
+  /** 负的补码尾数舍入后正好是 −1/2，改写成 −1 × 2^(e−1)。 */
+  rewritten: boolean;
 }
 
 function teachExponent(L: TeachLayout, negative: boolean, mag: Rational): number {
@@ -358,6 +369,7 @@ function encodeTeach(L: TeachLayout, negative: boolean, mag: Rational): TeachEnc
       dropped: '',
       roundedUp: false,
       carry: false,
+      rewritten: false,
     };
   }
   let e = teachExponent(L, negative, mag);
@@ -373,6 +385,13 @@ function encodeTeach(L: TeachLayout, negative: boolean, mag: Rational): TeachEnc
     q = full >> 1n;
     e += 1;
     carry = true;
+  }
+  let rewritten = false;
+  if (negative && L.mant === '补码' && q === full >> 1n) {
+    // 补码尾数 1.100…0（−1/2）的符号位与最高数值位相同，不是规格化数，改写成 −1 × 2^(e−1)。
+    q = full;
+    e -= 1;
+    rewritten = true;
   }
   if (e < range.min || e > range.max) {
     throw new BitsError(
@@ -390,6 +409,7 @@ function encodeTeach(L: TeachLayout, negative: boolean, mag: Rational): TeachEnc
     dropped,
     roundedUp,
     carry,
+    rewritten,
   };
 }
 
@@ -557,7 +577,7 @@ function hiddenToBits(
   const emin = eminOf(L);
   const binary = binaryText(mag, Math.max(0, p - enc.e0) + 4);
   const stepBinary = push({
-    title: `|x| = ${toDecimal(mag)} = (${binary})₂`,
+    title: `|x| = ${inputText(mag)} = (${binary})₂`,
     why: binary.endsWith('…')
       ? '整数部分除 2 取余、小数部分乘 2 取整。这个小数乘 2 永远乘不尽，写到尾数用得着的位数再多几位就够了。'
       : '整数部分反复除 2 取余，小数部分反复乘 2 取整，两部分分开转换再拼起来。',
@@ -572,14 +592,7 @@ function hiddenToBits(
   const normalBefore = enc.subnormalBefore
     ? `0.${trimZeros(keptMant)}${enc.dropped ? '…' : ''} × 2^${expText(emin)}`
     : `1.${trimZeros(keptMant)}${enc.dropped ? '…' : ''} × 2^${expText(enc.e0)}`;
-  const askE: Ask | undefined = enc.subnormalBefore
-    ? undefined
-    : {
-        prompt: `把 (${binary})₂ 的小数点移到第一个 1 后面，指数 e 是多少？`,
-        kind: 'number',
-        answer: String(enc.e0),
-        hint: '小数点往左移几位，指数就加几；往右移几位，指数就减几。',
-      };
+  const shownE0 = enc.subnormalBefore ? emin : enc.e0;
   const stepNormal = push({
     title: enc.subnormalBefore
       ? `|x| 比最小的规格化数 2^${expText(emin)} 还小，写成 ${normalBefore}`
@@ -589,59 +602,32 @@ function hiddenToBits(
       : '小数点移到第一个 1 的后面，最高位就是 1，这是规格化的写法（p28）。小数点左移几位，指数加几。',
     ref: '教材 p28',
     focus: ['normal', 'e'],
-    ...(askE ? { ask: askE } : {}),
+    ask: enc.subnormalBefore
+      ? {
+          prompt: `|x| 比 2^${expText(emin)} 还小，写成 0.xxx × 2^e 时 e 取多少？`,
+          kind: 'number',
+          answer: String(emin),
+          hint: '非规格化数的指数是固定的，等于最小规格化数的指数。',
+        }
+      : {
+          prompt: `把 (${binary})₂ 的小数点移到第一个 1 后面，指数 e 是多少？`,
+          kind: 'number',
+          answer: String(enc.e0),
+          hint: '小数点往左移几位，指数就加几；往右移几位，指数就减几。',
+        },
     update: (s) => {
       s.normal = normalBefore;
-      s.e = String(enc.e0 < emin && enc.subnormalBefore ? emin : enc.e0);
+      s.e = String(shownE0);
     },
   });
 
-  // 阶码
+  // 舍入（有被舍去的位时单独一步，p64 就近舍入）
   const emax = emaxOf(L);
-  const preE = enc.e0 + L.bias;
   const preOverflow = !enc.subnormalBefore && enc.e0 > emax;
-  const shownE = enc.subnormalBefore ? 0 : preOverflow ? 2 ** ew - 1 : preE;
-  const shownEBits = unsignedBits(shownE, ew);
-  const askBias: Ask | undefined =
-    enc.subnormalBefore || preOverflow
-      ? undefined
-      : {
-          prompt: `e = ${expText(enc.e0)}，阶码 E 的十进制值是多少？`,
-          kind: 'number',
-          answer: String(preE),
-          hint: `E = e + 偏移量。先想清楚这种格式的偏移量是多少。`,
-        };
-  const stepExp = push({
-    title: enc.subnormalBefore
-      ? `非规格化数的阶码 E = 0：${shownEBits}`
-      : preOverflow
-        ? `e = ${expText(enc.e0)} 超过 ${expText(emax)}，阶码上溢，按无穷大写：E 全 1`
-        : `阶码 E = e + ${L.bias} = ${preE} = ${shownEBits}`,
-    why: enc.subnormalBefore
-      ? `E = 0 而尾数不为 0，就表示非规格化数，指数按 ${expText(emin)} 算，不是 0 − ${L.bias}。`
-      : preOverflow
-        ? `规格化数的 E 最大是 ${2 ** ew - 2}。超出就是阶码上溢，IEEE754 把它当作无穷大（p64）。`
-        : biasWhy(L),
-    ref: enc.subnormalBefore || preOverflow ? '教材 p28、p64' : L.specials ? '教材 p28 式(2.10)' : '教材 p30 例2.10',
-    focus: ['exponent', 'E'],
-    ...(askBias ? { ask: askBias } : {}),
-    update: (s) => {
-      s.exponent = shownEBits;
-      s.E = String(shownE);
-    },
-  });
-
-  // 尾数
   const finalE = unsignedBits(enc.E, ew);
   const finalM = enc.M;
-  const parts: string[] = [];
-  if (enc.overflow) {
-    parts.push('无穷大的尾数全 0。');
-  } else if (enc.subnormalBefore && !enc.carry) {
-    parts.push(`非规格化数没有隐藏的 1，尾数直接取 0. 后面的 ${p} 位。`);
-  } else {
-    parts.push(`1.M 的那个 1 永远是 1，不存，只存小数点后面的 ${p} 位，等于多出 1 位精度（p28）。`);
-  }
+  const finalNormal = enc.overflow ? '' : `${enc.kind === '规格化数' ? '1' : '0'}.${trimZeros(finalM)} × 2^${expText(enc.e ?? emin)}`;
+  let stepRound = '';
   if (enc.dropped !== '' && !preOverflow) {
     const tail = enc.dropped.length > 12 ? `${enc.dropped.slice(0, 12)}…` : enc.dropped;
     const how =
@@ -652,30 +638,74 @@ function hiddenToBits(
           : enc.lowOdd
             ? '正好是最低位的一半，最低位是 1，加 1 使它变成 0'
             : '正好是最低位的一半，最低位是 0，直接截掉';
-    parts.push(`第 ${p} 位后面还有 ${tail}，按就近舍入：多出的部分${how}（p64）。`);
+    const parts = [`小数点后只能留 ${p} 位，第 ${p} 位后面还有 ${tail}。按就近舍入：多出的部分${how}（p64）。`];
+    if (enc.carry && !enc.overflow) {
+      parts.push(enc.subnormalBefore ? '加 1 后进位成 1.000…0，正好是最小的规格化数 1.0 × 2^' + expText(emin) + '。' : '加 1 后进位成 10.000…0，右移 1 位，指数加 1。');
+    }
+    if (enc.overflow) parts.push(`舍入后指数变成 ${expText(enc.e0 + 1)}，超过 ${expText(emax)}，阶码上溢，结果是无穷大（p64）。`);
+    stepRound = push({
+      title: enc.overflow ? `舍入：进位后指数超过 ${expText(emax)}，上溢` : `舍入：${normalBefore} ≈ ${finalNormal}`,
+      why: parts.join(''),
+      ref: '教材 p64',
+      focus: ['normal', 'rounded', 'e'],
+      update: (s) => {
+        s.rounded = enc.dropped;
+        if (!enc.overflow) s.normal = finalNormal;
+        if (enc.e !== null) s.e = String(enc.e);
+      },
+    });
   }
-  if (enc.carry && !enc.overflow) {
-    parts.push(enc.subnormalBefore ? '加 1 后进位成 1.000…0，变成最小的规格化数，阶码改为 1。' : `加 1 后尾数进位成 10.000…0，右移 1 位，指数加 1，阶码改为 ${enc.E}。`);
-  }
-  if (enc.overflow && !preOverflow) parts.push(`舍入后指数变成 ${expText(enc.e0 + 1)}，超过 ${expText(emax)}，阶码上溢，结果是无穷大，阶码全 1。`);
+
+  // 阶码（舍入之后的指数）
+  const finalKindNormal = enc.kind === '规格化数';
+  const shownE = enc.E;
+  const shownEBits = finalE;
+  const stepExp = push({
+    title: enc.overflow
+      ? `e = ${expText(enc.overflow && preOverflow ? enc.e0 : enc.e0 + 1)} 超过 ${expText(emax)}，阶码上溢，按无穷大写：E 全 1`
+      : finalKindNormal
+        ? `阶码 E = e + ${L.bias} = ${shownE} = ${shownEBits}`
+        : `${enc.kind === '零' ? '舍入成 0，' : '非规格化数的'}阶码 E = 0：${shownEBits}`,
+    why: enc.overflow
+      ? `规格化数的 E 最大是 ${2 ** ew - 2}。超出就是阶码上溢，IEEE754 把它当作无穷大（p64）。`
+      : finalKindNormal
+        ? biasWhy(L)
+        : `E = 0 表示非规格化数或 0，指数按 ${expText(emin)} 算，不是 0 − ${L.bias}。`,
+    ref: enc.overflow || !finalKindNormal ? '教材 p28、p64' : L.specials ? '教材 p28 式(2.10)' : '教材 p30 例2.10',
+    focus: ['exponent', 'E'],
+    ...(enc.overflow
+      ? {}
+      : {
+          ask: {
+            prompt: finalKindNormal ? `e = ${expText(enc.e ?? enc.e0)}，阶码 E 的十进制值是多少？` : '非规格化数的阶码 E 的十进制值是多少？',
+            kind: 'number' as const,
+            answer: String(shownE),
+            hint: finalKindNormal ? 'E = e + 偏移量。先想清楚这种格式的偏移量是多少。' : '看 p28 第 5 种情况：非规格化数的阶码全 0。',
+          },
+        }),
+    update: (s) => {
+      s.exponent = shownEBits;
+      s.E = String(shownE);
+    },
+  });
+
+  // 尾数
   const stepMant = push({
     title: enc.overflow
       ? `尾数 M = ${group(finalM)}`
-      : enc.subnormalBefore && !enc.carry
+      : !finalKindNormal
         ? `尾数 M 取 0.M 的 ${p} 位：${group(finalM)}`
         : `去掉最高位的 1，尾数 M 取 ${p} 位：${group(finalM)}`,
-    why: parts.join(''),
-    ref: enc.dropped !== '' ? '教材 p28、p64' : '教材 p28',
-    focus: ['mantissa', 'hidden', 'rounded'],
+    why: enc.overflow
+      ? '无穷大的尾数全 0。'
+      : !finalKindNormal
+        ? `非规格化数没有隐藏的 1，尾数直接取 0. 后面的 ${p} 位。`
+        : `1.M 的那个 1 永远是 1，不存，只存小数点后面的 ${p} 位，等于多出 1 位精度（p28）。`,
+    ref: '教材 p28',
+    focus: ['mantissa', 'hidden'],
     update: (s) => {
       s.mantissa = finalM;
-      s.hidden = enc.overflow ? '' : enc.kind === '规格化数' ? '1' : '0';
-      s.rounded = enc.dropped;
-      if (s.exponent !== finalE) {
-        s.exponent = finalE;
-        s.E = String(enc.E);
-        if (enc.e !== null) s.e = String(enc.e);
-      }
+      s.hidden = enc.overflow ? '' : finalKindNormal ? '1' : '0';
     },
   });
 
@@ -709,6 +739,7 @@ function hiddenToBits(
         { cells: ['S', S], step: stepSign },
         { cells: ['|x| 的二进制', binary], step: stepBinary },
         { cells: ['规格化', normalBefore], step: stepNormal },
+        ...(stepRound ? [{ cells: ['舍入', finalNormal || '上溢'], step: stepRound }] : []),
         { cells: ['阶码 E', `${shownE} = ${shownEBits}`], step: stepExp },
         { cells: ['尾数 M', group(finalM)], step: stepMant },
         { cells: ['十六进制', hex], step: stepHex },
@@ -917,7 +948,7 @@ function teachToBits(
   const fracNeeded = Math.max(0, L.m - enc.e) + 4;
   const binary = binaryText(mag, fracNeeded);
   const stepBinary = push({
-    title: `|x| = ${toDecimal(mag)} = (${binary})₂`,
+    title: `|x| = ${inputText(mag)} = (${binary})₂`,
     why: '整数部分反复除 2 取余，小数部分反复乘 2 取整。',
     ref: '教材 p29 例2.6',
     focus: ['binary'],
@@ -951,55 +982,62 @@ function teachToBits(
     },
   });
 
-  const e0Bits = codeFits(L, e0) ? encode(L.exp, e0, L.k - 1) : '';
   const finalExp = enc.expBits;
+  const mantCode = enc.mantCode;
+  const units = (negative ? -1 : 1) * enc.q;
+  const mantShown = formatBits(mantCode, '小数');
+  const finalNormal = `${mantValueText(units, L.m)} × 2^${expText(enc.e)}`;
+
+  // 舍入：0 舍 1 入（p67），对绝对值做
+  let stepRound = '';
+  if (enc.dropped !== '' || enc.rewritten) {
+    const tail = enc.dropped.length > 12 ? `${enc.dropped.slice(0, 12)}…` : enc.dropped;
+    const parts = [
+      `尾数只能留 ${L.m} 位，第 ${L.m} 位后面还有 ${tail}。按 0 舍 1 入：被舍去的最高位是 ${enc.dropped.charAt(0)}，${enc.roundedUp ? '在最低位加 1' : '直接舍去'}（p67）。`,
+    ];
+    if (enc.carry) parts.push('加 1 后尾数的绝对值变成 1，右移 1 位、指数加 1。');
+    if (enc.rewritten) parts.push('舍入后负尾数正好是 −1/2，补码 1.100…0 的符号位与最高数值位相同，不是规格化数，改写成 −1 × 2^(e−1)。');
+    stepRound = push({
+      title: `舍入：${normalBefore} ≈ ${finalNormal}`,
+      why: parts.join(''),
+      ref: enc.rewritten ? '教材 p67；解析 p21 计算30' : '教材 p67',
+      focus: ['normal', 'rounded', 'e'],
+      update: (s) => {
+        s.rounded = enc.dropped;
+        s.normal = finalNormal;
+        s.e = String(enc.e);
+      },
+    });
+  }
+
   const expWhy =
     L.exp === '移码'
       ? `${L.k} 位移码的偏移量是 2^${L.k - 1}：[e]移 = 2^${L.k - 1} + e（式 2.9），阶码只能是 ${expText(range.min)} 到 ${expText(range.max)}。`
       : `${L.k} 位补码，最高位是阶符；负数按 2^${L.k} + e 写，阶码只能是 ${expText(range.min)} 到 ${expText(range.max)}。`;
   const stepExp = push({
-    title: e0Bits ? `阶码 e = ${expText(e0)} 写成 ${L.k} 位${L.exp}：${e0Bits}` : `阶码 e = ${expText(e0)} 超出 ${L.k} 位${L.exp}的范围`,
+    title: `阶码 e = ${expText(enc.e)} 写成 ${L.k} 位${L.exp}：${finalExp}`,
     why: expWhy,
     ref: L.exp === '移码' ? '教材 p27 式(2.9)' : '教材 p25 式(2.6)',
     focus: ['exponent', 'E'],
-    ...(e0Bits
-      ? {
-          ask: {
-            prompt: `e = ${expText(e0)}，${L.k} 位${L.exp}的阶码位串是什么？`,
-            kind: 'bits' as const,
-            answer: e0Bits,
-            hint: L.exp === '移码' ? `在 e 上加 2^${L.k - 1}，写成 ${L.k} 位。` : '正数直接写，负数取反加 1，共写满 k 位。',
-          },
-        }
-      : {}),
+    ask: {
+      prompt: `e = ${expText(enc.e)}，${L.k} 位${L.exp}的阶码位串是什么？`,
+      kind: 'bits',
+      answer: finalExp,
+      hint: L.exp === '移码' ? `在 e 上加 2^${L.k - 1}，写成 ${L.k} 位。` : '正数直接写，负数取反加 1，共写满 k 位。',
+    },
     update: (s) => {
-      s.exponent = e0Bits;
-      s.E = e0Bits;
+      s.exponent = finalExp;
+      s.E = finalExp;
     },
   });
 
-  const mantCode = enc.mantCode;
-  const units = (negative ? -1 : 1) * enc.q;
-  const mantShown = formatBits(mantCode, '小数');
-  const parts = [`尾数 ${mantValueText(units, L.m)} 写成 ${L.m + 1} 位${L.mant}（数符在最前）。`];
-  if (enc.dropped !== '') {
-    const tail = enc.dropped.length > 12 ? `${enc.dropped.slice(0, 12)}…` : enc.dropped;
-    parts.push(`第 ${L.m} 位后面还有 ${tail}，按 0 舍 1 入：被舍去的最高位是 ${enc.dropped.charAt(0)}，${enc.roundedUp ? '在最低位加 1' : '直接舍去'}（p67）。`);
-  }
-  if (enc.carry) parts.push(`加 1 后尾数变成 1.000…0，右移 1 位、指数加 1，阶码改为 ${finalExp}。`);
   const stepMant = push({
     title: `尾数 = ${mantShown}，存 S = ${mantCode.charAt(0)}，尾数 ${mantCode.slice(1)}`,
-    why: parts.join(''),
-    ref: enc.dropped !== '' ? '教材 p67' : '教材 p24–26',
-    focus: ['mantissa', 'rounded'],
+    why: `尾数 ${mantValueText(units, L.m)} 写成 ${L.m + 1} 位${L.mant}，数符在最前，其余 ${L.m} 位放进尾数域。`,
+    ref: '教材 p24–26',
+    focus: ['mantissa'],
     update: (s) => {
       s.mantissa = mantCode.slice(1);
-      s.rounded = enc.dropped;
-      if (s.exponent !== finalExp) {
-        s.exponent = finalExp;
-        s.E = finalExp;
-        s.e = String(enc.e);
-      }
     },
   });
 
@@ -1028,16 +1066,12 @@ function teachToBits(
       { cells: ['S', S], step: stepSign },
       { cells: ['|x| 的二进制', binary], step: stepBinary },
       { cells: ['规格化', normalBefore], step: stepNormal },
-      { cells: ['阶码', e0Bits || '超出范围'], step: stepExp },
+      ...(stepRound ? [{ cells: ['舍入', finalNormal], step: stepRound }] : []),
+      { cells: ['阶码', finalExp], step: stepExp },
       { cells: ['尾数', mantShown], step: stepMant },
       { cells: ['机器数', hex ? `${group(bits)} = ${hex}` : group(bits)], step: stepHex },
     ],
   });
-}
-
-function codeFits(L: TeachLayout, e: number): boolean {
-  const r = expRange(L);
-  return e >= r.min && e <= r.max;
 }
 
 function teachResult(S: string, E: string, M: string, bits: string, hex: string): Record<string, string> {

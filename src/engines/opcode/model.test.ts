@@ -122,6 +122,19 @@ describe('扩展操作码：性质', () => {
     );
   });
 
+  it('卡在：第一类自己的条数在它那一级分不出来；说明要缩减哪一类', () => {
+    const p: OpcodeParams = { wordBits: 4, addressBits: 1, levels: [{ addresses: 2, count: 1 }, { addresses: 1, count: 1 }, { addresses: 0, count: 11 }] };
+    const t = run(p);
+    expect(validateTrace(t)).toEqual([]);
+    expect(plan(p).available).toEqual([4, 6, 10]);
+    expect(t.result['卡在']).toBe('零地址');
+    expect(t.result['要缩减']).toBe('一地址少用 1 条，或二地址少用 1 条');
+    expect(t.steps.at(-1)!.why).toMatch(/要缩减前面的分配/);
+    const q = run({ wordBits: 12, addressBits: 4, levels: [{ addresses: 2, count: 15 }, { addresses: 1, count: 1 }, { addresses: 0, count: 300 }] });
+    expect(q.result['卡在']).toBe('零地址');
+    expect(run({ wordBits: 12, addressBits: 4, levels: [{ addresses: 2, count: 17 }] }).result['要缩减']).toMatch(/无前一类/);
+  });
+
   it('出题器给出的参数都能跑通', () => {
     for (let seed = 0; seed < 200; seed += 1) {
       const p = generate(seed);

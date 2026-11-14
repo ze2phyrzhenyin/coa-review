@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { validateTrace } from '../trace';
-import { generate, locate, run, validateParams, type Params } from './model';
+import { design, generate, locate, run, validateParams, type Params } from './model';
 
 // 独立参照测试：只按 specs/3-decode.md 写，不看 model.ts。
 // 参照的做法：把地址空间按组大小切段，逐段看落进哪一组；查地址时逐组扫描。
@@ -23,6 +23,7 @@ interface Spec {
   addressBits: number;
   dataBits: number;
   regions: Region[];
+  decoder?: '74138' | '74139';
   groupWords?: number;
   probe?: number;
 }
@@ -293,7 +294,9 @@ describe('decode：Trace 的形状', () => {
         if (s.probe !== undefined) {
           const ask = trace.steps[trace.steps.length - 1]!.ask!;
           const hit = refLocate(ref, s.probe);
+          // 要求 10、11：命中时答组名，区域外答「没有芯片」。
           if (hit) expect(mentions(ask.answer, hit.group)).toBe(true);
+          else expect(ask.answer).toContain('没有芯片');
         }
       }),
       RUNS,
@@ -366,16 +369,185 @@ describe('decode：与参照对拍', () => {
               expect(parseInt(m![3]!, 16)).toBe(hit.offset);
             }
           }
-          // 规格不清：locate 的返回形状没写，只查它说出的组名。
-          const text = JSON.stringify(locate(P(s), address) ?? null);
-          // 不带编号的名字（ROM、RAM）可能作为 kind 出现，反向只查带编号的。
-          if (hit) expect(mentions(text, hit.group)).toBe(true);
-          for (const x of ref.groups) if (x.name !== hit?.group && /\d$/.test(x.name)) expect(mentions(text, x.name)).toBe(false);
+          // 要求 11、性质 1：locate 与 probe 步给出相同的组、译码输出和片内地址。
+          expect(locate(P(s), address)).toEqual(expectedLocate(s, ref, address));
         });
       }),
       { numRuns: 80 },
     );
   }, SLOW);
+
+  it('性质 1：随机分配下逐个地址核对 locate 的组和片内地址（n ≤ 10 时穷举全部地址）', () => {
+    fc.assert(
+      fc.property(arbSpec, fc.array(fc.nat(), { minLength: 48, maxLength: 48 }), (s, seeds) => {
+        const ref = reference(s);
+        const all = 2 ** s.addressBits;
+        const addresses = all <= 1024 ? Array.from({ length: all }, (_, a) => a) : sampleAddresses(s, ref, seeds);
+        const p = P(s);
+        for (const address of addresses) {
+          const got = locate(p, address);
+          const want = expectedLocate(s, ref, address);
+          expect(got).toEqual(want);
+          // 另一种算法核对片内地址：组按自身字数对齐时，片内地址就是地址的低 log2(组字数) 位。
+          const owner = ref.groups.filter((x) => address >= x.start && address < x.start + x.words);
+          expect(owner.length).toBeLessThanOrEqual(1); // 性质 2
+          if (owner.length === 1 && owner[0]!.start % owner[0]!.words === 0) expect(got.inner).toBe(address % owner[0]!.words);
+          if (owner.length === 0) expect(got.chip).toBeNull();
+        }
+      }),
+      { numRuns: 80 },
+    );
+  }, SLOW);
+});
+
+/**
+ * locate 的期望值，按规格自己算：
+ * 组内：chip = 组名，inner = 地址 − 组首地址，output = 地址所在段的 Yi；
+ * 组外：chip、inner 为 null；地址的高位（接使能端的线）与基址相同时译码器有效，output 为所在段的 Yi，否则为 null。
+ */
+function expectedLocate(s: Spec, ref: Ref, address: number): { chip: string | null; output: string | null; inner: number | null } {
+  const windowSize = ref.g * 2 ** ref.inputs;
+  const inWindow = address >= ref.base && address < ref.base + windowSize;
+  const output = inWindow ? `Y${Math.floor((address - ref.base) / ref.g)}` : null;
+  const hit = refLocate(ref, address);
+  if (hit === null) return { chip: null, output, inner: null };
+  return { chip: hit.group, output: `Y${hit.y}`, inner: hit.offset };
+}
+
+// ---------- 要求 4：使能端；要求 5：小芯片的与非门 ----------
+
+/** 「G2B ← A15」「/G2B ← 接地」→ ['G2B', 'A15']。 */
+function pin(text: string): [string, string] {
+  const m = /^\s*[/¯]?\s*(G\d?[AB]?)\s*←\s*(.+?)\s*$/.exec(text);
+  expect(m, `使能端写法：${text}`).not.toBeNull();
+  return [m![1]!, m![2]!];
+}
+
+const bit = (value: number, i: number): number => Math.floor(value / 2 ** i) % 2;
+
+/** 按要求 4 自己算使能端：多出的线 A(n−1)…A(k+输入数) 取基址里的位，恒 1 接 G1，恒 0 接 /G2B。 */
+function expectedEnables(s: Spec, ref: Ref): Record<string, string> {
+  if (ref.decoder === '74139') return { G: 'MREQ' };
+  const ones: string[] = [];
+  const zeros: string[] = [];
+  for (let i = s.addressBits - 1; i >= ref.k + ref.inputs; i -= 1) (bit(ref.base, i) === 1 ? ones : zeros).push(`A${i}`);
+  expect(ones.length).toBeLessThanOrEqual(1);
+  expect(zeros.length).toBeLessThanOrEqual(1);
+  return { G1: ones[0] ?? '高电平', G2A: 'MREQ', G2B: zeros[0] ?? '接地' };
+}
+
+describe('decode：使能端和局部译码（要求 4、5）', () => {
+  it('要求 4：74138 的 G2A 接 MREQ，恒 1 的线接 G1、恒 0 的线接 G2B，没用的 G1 接高电平、G2B 接地；74139 只有 G ← MREQ', () => {
+    fc.assert(
+      fc.property(arbSpec, (s) => {
+        const ref = reference(s);
+        const want = expectedEnables(s, ref);
+        const fromDesign = Object.fromEntries(design(P(s)).enables.map(pin));
+        expect(fromDesign).toEqual(want);
+        const trace = run(P(s));
+        const st = trace.steps[trace.steps.length - 1]!.state as { decoder: { enables: string[] } };
+        expect(Object.fromEntries(st.decoder.enables.map(pin))).toEqual(want);
+        expect(design(P(s)).enables.length).toBe(Object.keys(want).length);
+      }),
+      RUNS,
+    );
+  }, SLOW);
+
+  it('要求 4：多出的线有两根都恒 1 或都恒 0、多出三根、74139 遇到多出的线时 run 抛错', () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 8, max: 20 }), fc.constantFrom(0, 1, 2, 3), (n, kind) => {
+        // 组大小 2^k，k = n − h；区域只有一组 RAM，放在基址处，基址的多出线取值由 kind 定。
+        const h = kind === 2 ? 6 : kind === 3 ? 3 : 5;
+        const k = n - h;
+        const g = 2 ** k;
+        let base = 0;
+        if (kind === 0) base = 0b11 * 2 ** (k + 3); // A(n−1)、A(n−2) 都恒 1
+        if (kind === 1) base = 0; // 两根都恒 0
+        if (kind === 2) base = 0b010 * 2 ** (k + 3); // 三根多出的线
+        const s: Spec = {
+          addressBits: n,
+          dataBits: 8,
+          regions: [{ kind: 'RAM', start: base, end: base + g - 1, chip: { words: g, bits: 8 } }],
+          groupWords: g,
+        };
+        if (kind === 3) s.decoder = '74139'; // h = 3，74139 只有 2 个输入，多出 1 根放不下
+        expect(() => run(P(s))).toThrow();
+        expect(validateParams(P(s)).length).toBeGreaterThan(0);
+      }),
+      { numRuns: 40 },
+    );
+  });
+
+  it('要求 5：小芯片的 Yi 经非门，A(k−1)…A(c) 全部进与非门，取值为 0 的线先经非门，取值为 1 的不经', () => {
+    let seen = 0;
+    let seenZero = 0;
+    fc.assert(
+      fc.property(arbSpec, (s) => {
+        const ref = reference(s);
+        const { table } = run(P(s));
+        ref.ys.forEach((y, i) => {
+          if (y.gate !== 'nand') return;
+          seen += 1;
+          const group = ref.groups.find((x) => x.start >= y.from && x.start <= y.to)!;
+          const c = bitsFor(group.words);
+          const gate = table.rows[i]!.cells[3]!;
+          expect(gate).toMatch(new RegExp(`Y${i}(?!\\d)\\s*经非门`));
+          expect(gate).toContain('与非门');
+          // 进与非门的地址线：恰为 A(k−1)…A(c)，从高到低。
+          const named = [...gate.matchAll(/A(\d+)/g)].map((m) => Number(m[1]!));
+          const want: number[] = [];
+          for (let j = ref.k - 1; j >= c; j -= 1) want.push(j);
+          expect(named).toEqual(want);
+          for (const j of want) {
+            const inverted = new RegExp(`A${j}(?!\\d)\\s*经非门`).test(gate);
+            // 组首地址的第 j 位就是这一组在 Aj 上的取值（组按芯片字数对齐，组内 A(k−1)…A(c) 不变）。
+            expect(inverted, `${gate}：A${j}`).toBe(bit(group.start, j) === 0);
+            if (bit(group.start, j) === 0) seenZero += 1;
+          }
+        });
+      }),
+      { numRuns: 300 },
+    );
+    // 生成器确实覆盖了小芯片和「取值为 0 的线」这一支。
+    expect(seen).toBeGreaterThan(0);
+    expect(seenZero).toBeGreaterThan(0);
+  }, SLOW);
+
+  it('场景补充：E800H–EFFFH 用 2K×16 位（A12 = 0、A11 = 1），A12 经非门、A11 直接进与非门', () => {
+    // E800H = 1110 1000 0000 0000：A15–A13 = 111 → Y7；A12 = 0；A11 = 1。
+    const s: Spec = {
+      addressBits: 16,
+      dataBits: 16,
+      groupWords: 8192,
+      regions: [
+        { kind: 'ROM', start: 0x0000, end: 0x1fff },
+        { kind: 'RAM', start: 0xe800, end: 0xefff, chip: { words: '2K', bits: 16 } },
+      ],
+      probe: 0xe805,
+    };
+    const { result, table } = run(P(s));
+    const y7 = table.rows[7]!.cells[3]!;
+    expect(y7).toMatch(/Y7\s*经非门/);
+    expect(y7).toMatch(/A12\s*经非门/);
+    expect(y7).not.toMatch(/A11\s*经非门/);
+    expect([...y7.matchAll(/A(\d+)/g)].map((m) => Number(m[1]!))).toEqual([12, 11]);
+    expect(result['选中']).toMatch(/^RAM（Y7），片内地址 0*5H$/);
+    expect(locate(P(s), 0xe805)).toEqual({ chip: 'RAM', output: 'Y7', inner: 5 });
+    expect(locate(P(s), 0xe7ff)).toEqual({ chip: null, output: 'Y7', inner: null });
+    // 8K 一组、A15–A13 全进 74138，没有多出的线。
+    expect(Object.fromEntries(design(P(s)).enables.map(pin))).toEqual({ G1: '高电平', G2A: 'MREQ', G2B: '接地' });
+  });
+
+  it('场景补充：只有 8000H–8FFFH（4K 一组），A15 恒 1 接 G1', () => {
+    const s: Spec = {
+      addressBits: 16,
+      dataBits: 8,
+      regions: [{ kind: 'RAM', start: 0x8000, end: 0x8fff, chip: { words: '4K', bits: 8 } }],
+    };
+    expect(Object.fromEntries(design(P(s)).enables.map(pin))).toEqual({ G1: 'A15', G2A: 'MREQ', G2B: '接地' });
+    expect(locate(P(s), 0x0000)).toEqual({ chip: null, output: null, inner: null });
+    expect(locate(P(s), 0x8123)).toEqual({ chip: 'RAM', output: 'Y0', inner: 0x123 });
+  });
 });
 
 describe('decode：generate', () => {

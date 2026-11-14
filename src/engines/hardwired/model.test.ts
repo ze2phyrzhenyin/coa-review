@@ -122,9 +122,13 @@ describe('硬布线：性质', () => {
     expect(() => run({ signal: 'LDDR', instructions: ['MOV', 'MOV'] })).toThrow(/重复/);
   });
 
-  it('MOV 没有 M3，M3·MOV 一拍也不有效', () => {
-    const t = runReverse({ expression: 'M3·MOV' });
-    expect(t.result['有效节拍数']).toBe('0');
+  it('同步控制下两周期指令也走 M3（空过），式子在那里为 1 就算多发', () => {
+    expect(runReverse({ expression: 'M3·MOV' }).result['有效节拍数']).toBe('4');
+    const t = runReverse({ expression: 'M2·T3·(MOV+ADD)+M3·T3', signal: 'LDDR' });
+    expect(validateTrace(t)).toEqual([]);
+    expect(t.result['有效节拍数']).toBe('7');
+    expect(t.result['多出']).toBe('ADD·M3·T3、JMP·M3·T3、MOV·M3·T3、STO·M3·T3');
+    expect(t.result['漏掉']).toBe('无');
   });
 });
 

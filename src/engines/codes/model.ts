@@ -279,6 +279,12 @@ export function run(params: CodesParams): Trace<CodesParams, CodesState> {
       answer: '不能',
       hint: `原码的数值位只有 ${n} 位，看 |x| 要几位。`,
     };
+    asks.补码 = {
+      prompt: `x = ${binary} 没有反码可以加 1。按定义 [x]补 = ${modulus} + x，[x]补 是什么？`,
+      kind: 'bits',
+      answer: solution.codes.补码?.bits ?? '',
+      hint: `${modulus} + x 算出来再写成 ${width} 位，符号位也算在内。`,
+    };
   }
   if (negative && !isMin) {
     asks.反码 = {

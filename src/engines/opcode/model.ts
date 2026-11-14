@@ -117,12 +117,12 @@ export function plan(p: OpcodeParams): Plan {
     }
     out.available.push(available);
     out.start.push(start);
-    const laterNeed = i + 1 < p.levels.length ? prefixesNeeded(p.levels, opBits, i + 1) : 0;
-    if (used > available || available - used < laterNeed) {
-      out.used.push(Math.min(used, available));
-      out.reserved.push(Math.max(0, available - used));
+    // 卡在：第一类自己要的条数，从前面各类取完码、其余全部留作扩展之后，这一级的编码空间里分不出来。
+    if (used > available) {
+      out.used.push(available);
+      out.reserved.push(0);
       out.feasible = false;
-      out.failAt = used > available ? i : i + 1;
+      out.failAt = i;
       break;
     }
     out.used.push(used);
@@ -204,12 +204,11 @@ export function run(params: OpcodeParams): Trace<OpcodeParams, OpcodeState> {
     const start = pl.start[i]!;
     const later = i + 1 < params.levels.length;
     const failsHere = !pl.feasible && pl.failAt === i;
-    const failsNext = !pl.feasible && pl.failAt === i + 1;
     let title: string;
     let why: string;
     if (failsHere) {
       title = `${name}要 ${want!} 条，只有 ${available} 种编码，不够`;
-      why = '这一级的编码空间装不下要求的条数，方案不可行。要么减少前面几类的条数，多留些码作扩展，要么加长指令字。';
+      why = `前面各类取完自己的码，其余全部留作扩展，到${name}这一级也只有 ${available} 种编码，差 ${want! - available} 个，方案不可行。${shrinkAdvice(params, pl, i)}`;
     } else {
       const usedRange = used > 0 ? span(start, used, i) : '不用';
       title = `${name} ${used} 条：${usedRange}${later ? `，留 ${reserved} 个作扩展` : ''}`;
@@ -222,9 +221,6 @@ export function run(params: OpcodeParams): Trace<OpcodeParams, OpcodeState> {
         why = `从小到大取 ${used} 个码，最大的 ${reserved} 个码留给后面几类作前缀；留下的码一个也不能给本级用，否则译码时分不清它是本级指令还是更长操作码的开头。`;
       } else {
         why = `最后一类，从小到大取 ${used} 个码${reserved > 0 ? `，还空着 ${reserved} 个` : '，正好用完'}。`;
-      }
-      if (failsNext) {
-        why += ` 可是后面几类至少要 ${prefixesNeeded(params.levels, pl.opBits, i + 1)} 个前缀，只留得下 ${reserved} 个，方案不可行。`;
       }
     }
     const rowStep = step({
@@ -242,11 +238,11 @@ export function run(params: OpcodeParams): Trace<OpcodeParams, OpcodeState> {
         s.reserved = reserved;
         s.range = used > 0 && !failsHere ? [text(start, i), text(start + used - 1, i)] : null;
         s.reservedRange = reserved > 0 && !failsHere ? [text(start + used, i), text(start + available - 1, i)] : null;
-        if (failsHere || failsNext) d.feasible = false;
+        if (failsHere) d.feasible = false;
       },
     });
     rowSteps.push(rowStep);
-    if (failsHere || failsNext) break;
+    if (failsHere) break;
   }
   if (pl.feasible) {
     step({
@@ -269,7 +265,15 @@ export function run(params: OpcodeParams): Trace<OpcodeParams, OpcodeState> {
     }
   });
   if (pl.maxLevel !== null && pl.feasible) result[`${levelName(params.levels[pl.maxLevel]!.addresses)}指令最多`] = `${pl.maxCount!} 条`;
-  if (!pl.feasible) result['卡在'] = levelName(params.levels[pl.failAt!]!.addresses);
+  if (!pl.feasible) {
+    result['卡在'] = levelName(params.levels[pl.failAt!]!.addresses);
+    const options = shrinkOptions(params, pl, pl.failAt!);
+    result['要缩减'] = options.length
+      ? options.map((o) => `${levelName(params.levels[o.level]!.addresses)}少用 ${o.by} 条`).join('，或')
+      : pl.failAt === 0
+        ? '无前一类可缩减，减少本类条数或加长指令字'
+        : '单缩减一类不够，几类一起减或加长指令字';
+  }
   return builder.finish(result, {
     columns: ['类别', '操作码位数', '可用编码数', '操作码编码范围', '条数', '留作扩展'],
     rows: pl.used.map((u, i) => {
@@ -288,6 +292,29 @@ export function run(params: OpcodeParams): Trace<OpcodeParams, OpcodeState> {
       };
     }),
   });
+}
+
+/** 不可行时该缩减哪一类：前面第 j 类每少用 1 个码，卡住的第 i 类就多 2^(第 i 类与第 j 类操作码位数之差) 个编码。 */
+export function shrinkOptions(params: OpcodeParams, pl: Plan, i: number): { level: number; by: number; gain: number }[] {
+  const lack = params.levels[i]!.count! - pl.available[i]!;
+  const out: { level: number; by: number; gain: number }[] = [];
+  for (let j = i - 1; j >= 0; j -= 1) {
+    const gain = 2 ** (pl.opBits[i]! - pl.opBits[j]!);
+    const by = Math.ceil(lack / gain);
+    if (by <= pl.used[j]!) out.push({ level: j, by, gain });
+  }
+  return out;
+}
+
+function shrinkAdvice(params: OpcodeParams, pl: Plan, i: number): string {
+  const name = (j: number): string => levelName(params.levels[j]!.addresses);
+  if (i === 0) return `${name(0)}是第一类，前面没有可以让出的码，只能减少条数或加长指令字。`;
+  const options = shrinkOptions(params, pl, i);
+  const each = Array.from({ length: i }, (_, k) => i - 1 - k)
+    .map((j) => `${name(j)}每少 1 条，${name(i)}多 ${2 ** (pl.opBits[i]! - pl.opBits[j]!)} 个编码`)
+    .join('；');
+  if (options.length === 0) return `前面各类多留一个码，${name(i)}就多一批编码（${each}），可单缩减哪一类都不够，要几类一起减，或者加长指令字。`;
+  return `要缩减前面的分配：${options.map((o) => `${name(o.level)}少用 ${o.by} 条`).join('，或')}（${each}）。`;
 }
 
 // ---------- 出题 ----------

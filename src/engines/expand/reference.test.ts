@@ -237,7 +237,7 @@ describe('expand：Trace 的形状', () => {
     );
   }, SLOW);
 
-  it('预测题：组数 > 1 时地址线步问译码位（含片内位、全部位两个错答），给了 probe 时最后一步问第几组', () => {
+  it('预测题：组数 > 1 时地址线步问译码位，选项恰为 正确答案、A(k−1)–A0、A(n−1)–A0（去重）；组数 ≥ 2 且给了 probe 时才问第几组', () => {
     fc.assert(
       fc.property(arbSpec, (s) => {
         const trace = run(P(s));
@@ -249,16 +249,27 @@ describe('expand：Trace 的形状', () => {
           const ask = choices[0]!.ask!;
           expect(ask.kind).toBe('choice');
           expect(lines(ask.answer)).toEqual(down(ref.n - 1, ref.k));
-          const parsed = ask.options!.map((o) => lines(o));
-          // 规格不清：「把片内位当片选」是整段 A(k−1)–A0 还是其中几位没说；接受全落在片内位里的选项。
-          expect(parsed.some((ls) => ls.length > 0 && ls.every((x) => x < ref.k))).toBe(true);
-          expect(parsed.map((ls) => JSON.stringify(ls))).toContain(JSON.stringify(down(ref.n - 1, 0)));
+          const options = ask.options!;
+          // 要求 10：答案本身是选项之一；选项去重。
+          expect(options).toContain(ask.answer);
+          expect(new Set(options).size).toBe(options.length);
+          // 要求 10：选项恰好是这三种地址线集合（去重后），不多不少。k ≥ 1、n − k ≥ 1，三者互不相同。
+          const want = [down(ref.n - 1, ref.k), down(ref.k - 1, 0), down(ref.n - 1, 0)].map((ls) => JSON.stringify(ls));
+          const uniqueWant = [...new Set(want)].sort();
+          expect(options.map((o) => JSON.stringify(lines(o))).sort()).toEqual(uniqueWant);
         }
-        // 规格不清：只有 1 组时查地址步问不问「第几组」没说，只查组数 > 1。
-        if (s.probe !== undefined && ref.groups > 1) {
-          const ask = trace.steps[trace.steps.length - 1]!.ask!;
-          expect(ask.kind).toBe('number');
-          expect(ask.answer).toBe(String(ref.probe!.group));
+        // 要求 10（2026-11-15 改）：只有组数 ≥ 2 且给了 probe 时，查地址步问「选中第几组」；只有一组时不问。
+        const numbers = trace.steps.filter((step) => step.ask?.kind === 'number');
+        const asked = s.probe !== undefined && ref.groups >= 2;
+        expect(numbers.length).toBe(asked ? 1 : 0);
+        if (s.probe !== undefined) {
+          const last = trace.steps[trace.steps.length - 1]!;
+          if (asked) {
+            expect(last.ask?.kind).toBe('number');
+            expect(last.ask!.answer).toBe(String(ref.probe!.group));
+          } else {
+            expect(last.ask).toBeUndefined();
+          }
         }
       }),
       RUNS,
