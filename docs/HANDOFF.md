@@ -25,9 +25,11 @@
 | `src/lib/bits.ts`、`src/engines/overflow/`、`specs/2-overflow.md` | 位运算库和变形补码引擎 | 86 |
 | `src/scene/`、`src/player/` | three.js 部件库和逐步播放器；`/5-cycle?demo=kit` 演示 | qa-pages 通过 |
 
-**0.1 已上线**（2026-11-14 12:05，版本 `20261114T110520Z-047361a`）：https://coa.zhaoyang.fr ，上线两页 `/5-cycle`、`/2-overflow`，都过了三轮独立验收和两轮学生试读（记录在 `evals/look/`）。回滚：`bash scripts/release.sh rollback`。
+**0.2 已上线**（2026-11-14 23:53，版本 `20261114T225321Z-e11c878`）：https://coa.zhaoyang.fr ，三个样板页 `/5-cycle`、`/2-overflow`、`/3-cache-run` 都过了独立验收（3–4 轮）和学生试读（记录在 `evals/look/`）。回滚：`bash scripts/release.sh rollback`。0.1 是 `20261114T110520Z-047361a`。
 
-`/3-cache-run` 第 3 轮差学生一项（组相联例子里「区」的说法前后矛盾、「处理」一栏），正在修，修好再验收上线。各页剩余问题见 `evals/look/<页面>/report-r3.md`。
+剩余的低优先级问题见各页 `evals/look/<页面>/report-r3.md`、`report-r4.md`；桌面场景文字约 10–11 px；MOV 第 12 步手机上 DR 在画面左外。
+
+下一步（按 docs/PLAN.md）：一批 24 页。先用 planner 写规格、拆任务图，引擎和页面分道并行（`fanout.sh` 或 Agent 工具），每页走同样的验收和学生试读。
 
 引擎在教材没写清处的选择记在 `docs/DECISIONS.md` D16–D18，等任课老师口径。
 
