@@ -3,6 +3,7 @@ import { useMemo, useState } from 'preact/hooks';
 import type { TargetedEvent } from 'preact';
 import { formatValue } from '../../lib/bits';
 import type { OverflowKind } from '../../lib/bits';
+import { Rich } from '../../player/Rich';
 import { checkRow, checkValue, columnName, compact, makeProblem, show } from './practice';
 import type { RowCheck, RowKind } from './practice';
 
@@ -88,7 +89,7 @@ export function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
             )}
             {result && (
               <p class={`ovf-note${result.ok ? ' is-ok' : ' is-bad'}`} role="status">
-                {result.message}
+                <Rich text={result.message} />
               </p>
             )}
             {revealed && <p class="ovf-key">答案 {show(line.expected, notation)}</p>}
@@ -115,7 +116,7 @@ export function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
         </div>
         {results && (
           <p class={`ovf-note${results.verdictOk ? ' is-ok' : ' is-bad'}`} role="status">
-            {results.verdictOk ? '对' : verdict === '' ? '没选' : `不对。看结果的两个符号位（${columnName(0, n, notation)}、${columnName(1, n, notation)}）：相同无溢出，01 正溢，10 负溢。`}
+            <Rich text={results.verdictOk ? '对' : verdict === '' ? '没选' : `不对。看结果的两个符号位（${columnName(0, n, notation)}、${columnName(1, n, notation)}）：相同无溢出，01 正溢，10 负溢。`} />
           </p>
         )}
         {revealed && <p class="ovf-key">答案 {solution.verdict}</p>}

@@ -1,6 +1,7 @@
 import { useMemo } from 'preact/hooks';
 import { useParam } from '../../app/url-state';
 import { Player } from '../../player/Player';
+import { useNarrow } from '../../app/media';
 import { breakSetup, breakTrace } from './break-trace';
 import { cacheStage } from './scene';
 import { exampleParams } from './setup';
@@ -12,7 +13,8 @@ export function BreakIt() {
   const [, setStep] = useParam('s', '0');
   const into = setup.wrongRows.includes(Number(intoText)) ? Number(intoText) : (setup.wrongRows[0] ?? 0);
   const trace = useMemo(() => breakTrace(exampleParams, into), [into]);
-  const stage = useMemo(() => cacheStage(exampleParams), []);
+  const narrow = useNarrow();
+  const stage = useMemo(() => cacheStage(exampleParams, narrow), [narrow]);
 
   return (
     <>
@@ -37,7 +39,7 @@ export function BreakIt() {
           ))}
         </div>
       </div>
-      <Player key={into} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} />
+      <Player key={into} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} />
     </>
   );
 }

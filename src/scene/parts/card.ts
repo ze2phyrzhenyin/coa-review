@@ -5,7 +5,10 @@ import type { Kit, TextTone } from '../kit';
 import { easeIn, easeOut } from '../motion';
 import { sizes, timing } from '../theme';
 
-export type CardKind = 'tile' | 'chip' | 'accent';
+/** slot 是还没写的空槽：比台面深一点的凹位，没有字。 */
+export type CardKind = 'tile' | 'chip' | 'accent' | 'slot';
+
+const matOf = (kit: Kit, kind: CardKind) => (kind === 'slot' ? kit.mats.plinth : kit.mats[kind]);
 
 export interface CardOptions {
   kind: CardKind;
@@ -19,7 +22,7 @@ export interface CardOptions {
   weight?: number;
 }
 
-const textTone = (kind: CardKind, changed: boolean): TextTone => (kind === 'tile' ? (changed ? 'accentOnTile' : 'tileText') : 'chipText');
+const textTone = (kind: CardKind, changed: boolean): TextTone => (kind === 'tile' || kind === 'slot' ? (changed ? 'accentOnTile' : 'tileText') : 'chipText');
 
 /**
  * 一张牌：圆角薄片加一行字，挂在正对屏幕的组里。值牌、名牌、位片、表格里的格子都是它。
@@ -44,7 +47,7 @@ export class Card {
     this.kind = options.kind;
     this.height = options.height;
     this.text = text;
-    this.slab = new Mesh(undefined, kit.mats[this.kind]);
+    this.slab = new Mesh(undefined, matOf(kit, this.kind));
     this.slab.castShadow = true;
     this.slab.receiveShadow = true;
     this.label = new TextPlane(kit, text, { size: options.size, tone: textTone(this.kind, false), mono: options.mono ?? false, weight: options.weight ?? 500 });
@@ -79,7 +82,7 @@ export class Card {
   setKind(kind: CardKind): void {
     if (kind === this.kind) return;
     this.kind = kind;
-    this.slab.material = this.kit.mats[kind];
+    this.slab.material = matOf(this.kit, kind);
     this.label.set(this.text, { tone: textTone(kind, this.changed) });
   }
 

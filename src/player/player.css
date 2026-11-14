@@ -509,6 +509,10 @@ button.pl-part {
     grid-template-columns: 1fr 1fr 2fr;
     margin: 0.5rem 0 0;
   }
+  .pl-bar .pl-btn {
+    padding: 0 0.5rem;
+    white-space: nowrap;
+  }
   .pl-step {
     order: 5;
     margin-top: 0.75rem;
@@ -581,4 +585,17 @@ button.pl-part {
   .pl-select {
     display: flex;
   }
+}
+
+/* 翻位片作答时的一排位 */
+.pl-bit {
+  min-width: 44px;
+  padding: 0;
+  font-family: var(--pl-mono);
+  font-weight: 600;
+}
+.pl sub,
+.pl sup {
+  font-size: 0.72em;
+  line-height: 0;
 }

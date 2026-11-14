@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'preact/hooks';
 import type { TargetedEvent } from 'preact';
 import { useParam } from '../../app/url-state';
+import { useNarrow } from '../../app/media';
 import type { Operation, OverflowParams } from '../../engines/overflow/model';
 import { formatValue, parseValue } from '../../lib/bits';
 import type { Notation } from '../../lib/bits';
@@ -60,7 +61,8 @@ function Learn() {
   const [ex, setEx] = useParam('ex', '1');
   const [, setStep] = useParam('s', '0');
   const index = Math.max(0, Math.min(EXAMPLES.length - 1, Number(ex) - 1 || 0));
-  const made = useMemo(() => lesson(exampleParams(index)), [index]);
+  const narrow = useNarrow();
+  const made = useMemo(() => lesson(exampleParams(index), narrow), [index, narrow]);
   return (
     <>
       <div class="ovf-choices" role="group" aria-label="例题">
@@ -81,7 +83,7 @@ function Learn() {
         ))}
       </div>
       {made.ok ? (
-        <Player key={`learn-${index}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} />
+        <Player key={`learn-${index}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} flipPart={made.flipPart} />
       ) : (
         <p class="ovf-error">{made.error}</p>
       )}
@@ -114,7 +116,8 @@ function Try() {
   const shownY = draft?.y ?? y;
 
   const params: OverflowParams = useMemo(() => ({ x: { as: '真值', text: x }, y: { as: '真值', text: y }, n, op, notation }), [x, y, n, op, notation]);
-  const made = useMemo(() => lesson(params), [params]);
+  const narrow = useNarrow();
+  const made = useMemo(() => lesson(params, narrow), [params, narrow]);
 
   const commit = () => {
     if (!draft) return;
@@ -192,13 +195,17 @@ function Try() {
               <dd>{made.trace.result['结果的变形补码']}</dd>
             </div>
             <div>
-              <dt>V = S_f1 ⊕ S_f2</dt>
+              <dt>
+                V = S<sub>f1</sub> ⊕ S<sub>f2</sub>
+              </dt>
               <dd>
                 {made.solution.sf1} ⊕ {made.solution.sf2} = {made.solution.vBySign}
               </dd>
             </div>
             <div>
-              <dt>V = C_f ⊕ C_0</dt>
+              <dt>
+                V = C<sub>f</sub> ⊕ C<sub>0</sub>
+              </dt>
               <dd>
                 {made.solution.cf} ⊕ {made.solution.c0} = {made.solution.vByCarry}
               </dd>
@@ -211,7 +218,7 @@ function Try() {
               </dd>
             </div>
           </dl>
-          <Player key={`try-${JSON.stringify(params)}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} />
+          <Player key={`try-${JSON.stringify(params)}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} flipPart={made.flipPart} />
         </>
       ) : (
         <p class="ovf-error" role="alert">

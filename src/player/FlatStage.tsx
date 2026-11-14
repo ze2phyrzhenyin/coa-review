@@ -1,5 +1,6 @@
 /** 平面模式：没有 WebGL 时，同一份目标画面用普通页面元素排出来。步骤、文字、解题表、答题控件都一样。 */
 import type { Patch, PartSpec, Pose, SceneSpec } from '../scene';
+import { Rich } from './Rich';
 
 const text = (value: unknown): string => (value === undefined || value === null ? '' : String(value));
 const isOn = (value: unknown): boolean => value === true || value === '1' || value === 'true';
@@ -77,8 +78,8 @@ export function FlatStage({ scene, pose, picking, wrong, onPick }: FlatStageProp
                   <tr key={r} class={props.active === r ? 'is-current' : ''}>
                     {labels ? <th scope="row">{labels[r]}</th> : null}
                     {row.map((cell, c) => (
-                      <td key={c} class={marked.has(`${r}.${c}`) ? 'is-changed' : ''}>
-                        {cell}
+                      <td key={c} class={marked.has(`${r}.${c}`) || props.cell === `${r}.${c}` ? 'is-changed' : ''}>
+                        <Rich text={cell} />
                       </td>
                     ))}
                   </tr>
@@ -87,13 +88,21 @@ export function FlatStage({ scene, pose, picking, wrong, onPick }: FlatStageProp
             </table>
           );
         } else if (part.kind === 'label') {
-          body = <span class="pl-part-value">{text(props.text)}</span>;
+          body = (
+            <span class="pl-part-value">
+              <Rich text={text(props.text)} />
+            </span>
+          );
         } else {
           const said = readout(part, props);
           body = (
             <>
-              <span class="pl-part-name">{title}</span>
-              <span class="pl-part-value">{said.startsWith(`${title}，`) ? said.slice(title.length + 1) : said}</span>
+              <span class="pl-part-name">
+                <Rich text={title} />
+              </span>
+              <span class="pl-part-value">
+                <Rich text={said.startsWith(`${title}，`) ? said.slice(title.length + 1) : said} />
+              </span>
             </>
           );
         }

@@ -6,6 +6,7 @@ import { useState } from 'preact/hooks';
 import type { CSSProperties, TargetedEvent } from 'preact';
 import type { Ask } from '../engines/trace';
 import type { Rect } from '../scene';
+import { Rich } from './Rich';
 
 export interface AnswerProps {
   ask: Ask;
@@ -20,6 +21,10 @@ export interface AnswerProps {
   onAnswer: (value: string) => void;
   onPick: (option: string) => void;
   onReveal: () => void;
+  /** 点选题的候选不全在画面里时，让镜头去看其余的。 */
+  onLook?: (() => void) | undefined;
+  /** 翻位片作答：当前翻出的位串（空格是没翻的位）、翻第 i 位。 */
+  flip?: { bits: string; toggle: (i: number) => void } | undefined;
 }
 
 const placeholders: Record<Ask['kind'], string> = { choice: '', bits: '例如 0101', number: '填一个数', text: '' };
@@ -36,11 +41,11 @@ function beside(anchor: Rect, size: { width: number; height: number }): CSSPrope
   return { left: `${Math.round(x)}px`, top: `${top}px`, width: `${PANEL}px` };
 }
 
-export function Answer({ ask, picking, wrong, anchor, size, offStage, onAnswer, onPick, onReveal }: AnswerProps) {
+export function Answer({ ask, picking, wrong, anchor, size, offStage, onAnswer, onPick, onReveal, onLook, flip }: AnswerProps) {
   const [value, setValue] = useState('');
   const hint = wrong ? (
     <p class="pl-hint" role="status">
-      不对。{ask.hint ?? '再看一遍这一步之前的状态。'}
+      不对。<Rich text={ask.hint ?? '再看一遍这一步之前的状态。'} />
     </p>
   ) : null;
   const reveal = (
@@ -52,14 +57,44 @@ export function Answer({ ask, picking, wrong, anchor, size, offStage, onAnswer, 
   if (picking) {
     return (
       <div class="pl-ask is-dock" data-no-orbit>
-        <p class="pl-prompt">{ask.prompt}</p>
+        <p class="pl-prompt">
+          <Rich text={ask.prompt} />
+        </p>
         {hint ?? <p class="pl-note">点场景里的部件作答。</p>}
         <div class="pl-actions">
+          {offStage.length > 0 && onLook ? (
+            <button type="button" class="pl-btn" onClick={onLook}>
+              看其余部件
+            </button>
+          ) : null}
           {offStage.map((option) => (
             <button key={option} type="button" class={`pl-btn${wrong?.value === option ? ' is-wrong' : ''}`} onClick={() => onPick(option)}>
               {option}
             </button>
           ))}
+          {reveal}
+        </div>
+      </div>
+    );
+  }
+
+  if (flip) {
+    const complete = !flip.bits.includes(' ');
+    return (
+      <div class="pl-ask is-dock" data-no-orbit>
+        <p class="pl-prompt">
+          <Rich text={ask.prompt} />
+        </p>
+        {hint ?? <p class="pl-note">点场景里的位片翻面，翻好后按确定。</p>}
+        <div class="pl-actions">
+          {[...flip.bits].map((bit, i) => (
+            <button key={i} type="button" class="pl-btn pl-bit" data-bit={i} aria-label={`第 ${i + 1} 位，${bit === ' ' ? '还没翻' : bit}`} onClick={() => flip.toggle(i)}>
+              {bit === ' ' ? '?' : bit}
+            </button>
+          ))}
+          <button type="button" class="pl-btn is-primary" disabled={!complete} onClick={() => onAnswer(flip.bits)}>
+            确定
+          </button>
           {reveal}
         </div>
       </div>
@@ -74,13 +109,15 @@ export function Answer({ ask, picking, wrong, anchor, size, offStage, onAnswer, 
 
   return (
     <div class={`pl-ask ${style ? 'is-anchored' : 'is-dock'}`} style={style ?? undefined} data-no-orbit>
-      <p class="pl-prompt">{ask.prompt}</p>
+      <p class="pl-prompt">
+        <Rich text={ask.prompt} />
+      </p>
       {hint}
       {ask.kind === 'choice' ? (
         <div class="pl-actions">
           {(ask.options ?? []).map((option) => (
             <button key={option} type="button" class={`pl-btn${wrong?.value === option ? ' is-wrong' : ''}`} onClick={() => onAnswer(option)}>
-              {option}
+              <Rich text={option} />
             </button>
           ))}
           {reveal}

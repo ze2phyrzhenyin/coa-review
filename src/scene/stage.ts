@@ -22,7 +22,7 @@ import type { Object3D } from 'three';
 import { makeMats, rethemeMats } from './kit';
 import type { Kit } from './kit';
 import { Motion, easeInOut } from './motion';
-import { currentScheme, palettes, prefersReducedMotion, timing } from './theme';
+import { currentScheme, palettes, prefersReducedMotion, sizes, timing } from './theme';
 import type { Scheme } from './theme';
 
 export interface CamPose {
@@ -67,7 +67,8 @@ export class Stage {
   height = 1;
 
   /** 点到了哪个部件（没点到部件时为 null）。 */
-  onPick: (id: string | null) => void = () => {};
+  /** bit 是点到的位片序号（点在 bits 部件的某一位上时）。 */
+  onPick: (id: string | null, bit?: number) => void = () => {};
   /** 学生转动或缩放停下来之后、以及尺寸变了之后：页面上跟着部件走的控件要重新摆。 */
   onView: () => void = () => {};
   onResize: () => void = () => {};
@@ -254,6 +255,11 @@ export class Stage {
     return this.width < 520 ? 50 : 44;
   }
 
+  /** 值牌上的字（sizes.value）不小于 14 像素时的比例。镜头缩小的下限。 */
+  get legibleScale(): number {
+    return 14 / sizes.value;
+  }
+
   /** 全景最多放大到这个程度。 */
   get maxScale(): number {
     return this.width < 520 ? 60 : 76;
@@ -333,9 +339,16 @@ export class Stage {
     let dist = (near + far) / 2 - cz;
     const target = eye.add(forward.clone().multiplyScalar(dist));
     const scale = this.height / (2 * dist * TAN);
-    const floor = this.minScale * (floorFactor === true ? 1 : floorFactor === false ? 0.62 : floorFactor);
+    let floor = this.minScale * (floorFactor === true ? 1 : floorFactor === false ? 0.62 : floorFactor);
     // 跟随焦点时只平移、几乎不放大：周围的部件尽量留在画面里。
-    const cap = follow ? this.minScale * 1.06 : this.maxScale;
+    // 整张台面横向装得下（字不小于 14 像素）时，不放大到左右被裁掉。
+    let cap = follow ? this.minScale * 1.06 : this.maxScale;
+    if (follow) {
+      const all = this.sceneBox();
+      const across = (this.width * 0.94) / Math.max(1, all.max.x - all.min.x);
+      if (across >= this.legibleScale) cap = Math.min(cap, across);
+    }
+    floor = Math.min(floor, cap);
     if (scale > cap) dist = this.distFor(cap);
     else if (scale < floor) dist = this.distFor(floor);
     return { target, dist, az, el };
@@ -624,7 +637,8 @@ export class Stage {
       lastTap = { x: event.clientX, y: event.clientY, time: now };
       // 点在页面按钮上的，由按钮自己处理。
       if (isControl(event.target)) return;
-      this.onPick(this.pickAt(event.clientX, event.clientY));
+      const hit = this.pickAt(event.clientX, event.clientY);
+      this.onPick(hit?.id ?? null, hit?.bit);
     };
     const onCancel = (event: PointerEvent) => {
       pointers.delete(event.pointerId);
@@ -676,15 +690,17 @@ export class Stage {
   }
 
   /** 屏幕上这一点下面的可点选部件。 */
-  pickAt(clientX: number, clientY: number): string | null {
+  pickAt(clientX: number, clientY: number): { id: string; bit?: number } | null {
     const rect = this.canvas.getBoundingClientRect();
     const point = new Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(point, this.camera);
     for (const hit of this.raycaster.intersectObjects(this.root.children, true)) {
       let object: Object3D | null = hit.object;
+      let bit: number | undefined;
       while (object && object !== this.root) {
+        if (bit === undefined && typeof object.userData.bit === 'number') bit = object.userData.bit as number;
         const id = object.userData.partId as string | undefined;
-        if (id && this.pickable.has(id)) return id;
+        if (id && this.pickable.has(id)) return bit === undefined ? { id } : { id, bit };
         object = object.parent;
       }
     }

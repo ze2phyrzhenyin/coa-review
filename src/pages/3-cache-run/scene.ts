@@ -23,7 +23,13 @@ export interface CacheStage {
   bind: Binding<State>;
   moves: (step: Step<State>) => Move[];
   names: (path: string) => string;
+  values: (path: string, value: string) => string;
 }
+
+/** 两行两列摆 cache：带计数器时一排放不下桌面舞台，手机上四行一排也装不进画面。 */
+const GRID_X = [-2.05, 2.05];
+const GRID_DZ = 2.35;
+const SIDE = 4.45;
 
 const rowName = (i: number): string => `行 ${i}`;
 const indexTitle = (g: Layout): string => (g.mapping === '直接' ? '行号' : '组号');
@@ -75,10 +81,12 @@ function memorySpec(g: Layout, params: Params): PartSpec {
 }
 
 /** 一个参数组合对应一张台面。引用要稳定：同样的参数请用 useMemo 缓存。 */
-export function cacheStage(params: Params): CacheStage {
+export function cacheStage(params: Params, narrow = false): CacheStage {
   const g = layout(params);
   const full = g.mapping === '全相联';
-  const xs = counted(params) ? XC : X;
+  const grid = (narrow || counted(params)) && g.rows === 4;
+  const xs = grid ? [GRID_X[0]!, GRID_X[1]!, GRID_X[0]!, GRID_X[1]!] : counted(params) ? XC : X;
+  const zRow = (i: number) => (grid && i >= 2 ? Z_ROWS + GRID_DZ : Z_ROWS);
 
   const parts: PartSpec[] = [
     { id: 'addr', kind: 'register', position: [-4.9, Z_ADDR], props: { name: '主存地址', value: '', ink: 'addr', width: 2.2 } },
@@ -92,14 +100,14 @@ export function cacheStage(params: Params): CacheStage {
     memorySpec(g, params),
     { id: 'hit', kind: 'label', position: [1.3, -2.95], props: { text: '命中 0', plate: true, size: 0.34, weight: 600 }, pick: true, title: '命中' },
     { id: 'miss', kind: 'label', position: [3.25, -2.95], props: { text: '缺失 0', plate: true, size: 0.34, weight: 600 }, pick: true, title: '缺失' },
-    { id: 'out', kind: 'register', position: [counted(params) ? 6.0 : 4.95, -1.25], props: { name: '换出', value: '', width: 2.2 } },
-    { id: 'bus', kind: 'bus', position: [0, Z_BUS], props: { name: '块传送', length: counted(params) ? 16.0 : 12.2, value: '', tileAt: -2.2 } },
+    { id: 'out', kind: 'register', position: [counted(params) && !grid ? 6.0 : 4.95, -1.25], props: { name: '换出', value: '', width: 2.2 } },
+    { id: 'bus', kind: 'bus', position: [0, Z_BUS], props: { name: '块传送', length: counted(params) && !grid ? 16.0 : 12.2, value: '', tileAt: -2.2, idleText: '' } },
   );
   for (let i = 0; i < g.rows; i++) {
     parts.push({
       id: `r${i}`,
       kind: 'memory',
-      position: [xs[i] ?? 0, Z_ROWS],
+      position: [xs[i] ?? 0, zRow(i)],
       props: { name: rowName(i), columns: rowColumns(params), rows: [rowCells(params, { tag: null, block: null, modified: 0, count: 0 })] },
       pick: true,
     });
@@ -109,7 +117,13 @@ export function cacheStage(params: Params): CacheStage {
     { id: 'mem-bus', from: 'mem', to: 'bus' },
     { id: 'bus-out', from: 'bus', to: 'out' },
   ];
-  for (let i = 0; i < g.rows; i++) wires.push({ id: `bus-r${i}`, from: 'bus', to: `r${i}` });
+  for (let i = 0; i < g.rows; i++) {
+    // 两行两列时，后一排从两侧绕过前一排接进来。
+    if (grid && i >= 2) {
+      const x = i === 2 ? -SIDE : SIDE;
+      wires.push({ id: `bus-r${i}`, from: 'bus', to: `r${i}.${i === 2 ? 'w' : 'e'}`, via: [[x, Z_BUS + 0.3], [x, zRow(i)]] });
+    } else wires.push({ id: `bus-r${i}`, from: 'bus', to: `r${i}` });
+  }
 
   const shown = (c: BindContext<State>): boolean => c.state.access.n > 0;
   const table: Record<string, Record<string, string | ReturnType<typeof from<State>> | ((c: BindContext<State>) => unknown)>> = {
@@ -154,11 +168,11 @@ export function cacheStage(params: Params): CacheStage {
       hidden: (c: BindContext<State>) => !shown(c) || g.indexBits === 0,
     };
   }
+  // 主存板上只框出当前访问的那一块。
   table['mem'] = {
-    active: (c: BindContext<State>) => (shown(c) && c.state.access.block !== null ? Math.floor(c.state.access.block / PER_LINE) : -1),
-    changedCells: (c: BindContext<State>) => {
+    cell: (c: BindContext<State>) => {
       const block = c.state.access.block;
-      return shown(c) && block !== null ? [`${Math.floor(block / PER_LINE)}.${block % PER_LINE}`] : [];
+      return shown(c) && block !== null ? `${Math.floor(block / PER_LINE)}.${block % PER_LINE}` : '';
     },
   };
   const keys = ['tag', 'modified', ...(counted(params) ? ['count'] : []), 'block'];
@@ -179,11 +193,13 @@ export function cacheStage(params: Params): CacheStage {
     const row = a.row;
     if (row === null || a.block === null) return [];
     if (!step.changes.some((change) => change.at === `rows.${row}.block`)) return [];
-    const out: Move[] = [{ value: `块 ${a.block}`, from: 'mem', to: `r${row}`, via: ['mem-bus', `bus-r${row}`] }];
+    // 块从主存板上它自己的格子出发；写回时落回它自己的格子。
+    const cellOf = (block: number) => `mem.${Math.floor(block / PER_LINE)}.${block % PER_LINE}`;
+    const out: Move[] = [{ value: `块 ${a.block}`, from: cellOf(a.block), to: `r${row}`, via: ['mem-bus', `bus-r${row}`] }];
     if (a.evicted !== null) {
       out.push(
         a.writeBack
-          ? { value: `块 ${a.evicted}`, from: `r${row}`, to: 'mem', via: [`bus-r${row}`, 'mem-bus'] }
+          ? { value: `块 ${a.evicted}`, from: `r${row}`, to: cellOf(a.evicted), via: [`bus-r${row}`, 'mem-bus'] }
           : { value: `块 ${a.evicted}`, from: `r${row}`, to: 'out', via: [`bus-r${row}`, 'bus-out'] },
       );
     }
@@ -219,7 +235,9 @@ export function cacheStage(params: Params): CacheStage {
     return path;
   };
 
-  return { scene: { parts, wires }, bind, moves, names };
+  const values = (_path: string, value: string): string => (value === 'true' ? '是' : value === 'false' ? '否' : value);
+
+  return { scene: { parts, wires }, bind, moves, names, values };
 }
 
 /**

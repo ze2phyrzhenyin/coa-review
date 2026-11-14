@@ -41,6 +41,8 @@ export interface BusProps extends CommonProps {
   tileAt?: number;
   /** 在值牌旁写「X 驱动」，默认写。 */
   showDriver?: boolean;
+  /** 没有部件驱动时导轨左端的字，默认「没有部件驱动」；空串不写。 */
+  idleText?: string;
 }
 
 export interface GateProps extends CommonProps {
@@ -62,6 +64,8 @@ export interface MemoryColumn {
 }
 
 export interface MemoryProps extends CommonProps {
+  /** 单独框出一个格子，写成 '行.列'。 */
+  cell?: string;
   name: string;
   columns: MemoryColumn[];
   /** 每行各列的文字。 */
@@ -76,8 +80,10 @@ export interface MemoryProps extends CommonProps {
 
 export interface BitsProps extends CommonProps {
   name?: string;
-  /** 位串，只含 0 和 1，左边是高位。 */
+  /** 位串，左边是高位。0、1 以外的字符（空格、下划线）是还没写的空槽。 */
   bits: string;
+  /** 相邻两位的中心距，默认 0.56。要和别的部件的列对齐时用。 */
+  pitch?: number;
   /** 产生进位的列（从左数，0 起）。进位牌落在它左边一列的上方。 */
   carry?: number | null;
   /** 每几位空一格，默认 4。 */
@@ -140,6 +146,8 @@ export type PartSpec = {
     pick?: boolean;
     /** 给读屏和平面模式的说法，默认用 props.name。 */
     title?: string;
+    /** 原地翻面时晚多少毫秒开始。一排部件同时变时逐个错开 20–40 毫秒。 */
+    delay?: number;
   };
 }[PartKind];
 
@@ -160,7 +168,8 @@ export interface SceneSpec {
   wires: WireSpec[];
 }
 
-/** 一次值的移动：哪个值，从哪个部件，沿哪些连线，到哪个部件。同一步里的几个移动一起动。 */
+/** 一次值的移动：哪个值，从哪个部件，沿哪些连线，到哪个部件。同一步里的几个移动一起动。
+ * from、to 可以写成存储阵列的一个格子：'mem.3.1'（部件 id.行.列）。 */
 export interface Move {
   value: string;
   from: string;
@@ -170,6 +179,8 @@ export interface Move {
   ink?: Ink;
   /** 先后次序：0 先走，1 等 0 落下再走，依此类推。同一个数的几个移动一起走。 */
   phase?: number;
+  /** 不沿连线时抬高再落下（例如进位跳到左边一列）。 */
+  arc?: boolean;
 }
 
 export interface BindContext<S> {

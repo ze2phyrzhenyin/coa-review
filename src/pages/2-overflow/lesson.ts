@@ -11,11 +11,11 @@ export type Lesson =
   | ({ ok: true; trace: Trace<OverflowParams, OverflowState>; solution: OverflowSolution } & OverflowScene)
   | { ok: false; error: string };
 
-export function lesson(params: OverflowParams): Lesson {
+export function lesson(params: OverflowParams, compact = false): Lesson {
   try {
     const trace = adaptTrace(run(params));
     const solution = solve(params);
-    return { ok: true, trace, solution, ...overflowScene(trace, solution) };
+    return { ok: true, trace, solution, ...overflowScene(trace, solution, compact) };
   } catch (error) {
     if (error instanceof BitsError) return { ok: false, error: error.message };
     throw error;

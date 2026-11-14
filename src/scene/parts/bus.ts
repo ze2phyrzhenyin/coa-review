@@ -122,7 +122,7 @@ export class Bus extends Part<BusProps> {
     const caption = !show || shown === '' ? '' : clash ? `${drivers.join('、')} 同时驱动` : drivers.length ? `${drivers[0]} 驱动` : '';
     this.caption.set(caption, { tone: clash ? 'accent' : 'text' });
     this.caption.place(this.tile.width / 2 + 0.14, sizes.tileHeight / 2);
-    this.idle.set(show && shown === '' ? '没有部件驱动' : '');
+    this.idle.set(shown === '' ? (next.idleText ?? (show ? '没有部件驱动' : '')) : '');
     if (clash && animate && !(previous && driverList(previous.drivers).length > 1)) this.shake();
   }
 

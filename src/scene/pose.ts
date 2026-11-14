@@ -122,8 +122,9 @@ export function frameAt<P, S>(input: PoseInput<P, S>, index: number): string[] {
   const last = Math.max(0, ...moves.map((move) => move.phase ?? 0));
   for (const move of moves) {
     if ((move.phase ?? 0) !== last) continue;
-    ids.add(move.from);
-    ids.add(move.to);
+    // 'mem.3.1' 这样的格子按它所在的部件算。
+    ids.add(move.from.split('.')[0]!);
+    ids.add(move.to.split('.')[0]!);
   }
   return [...ids].filter((id) => known.has(id));
 }

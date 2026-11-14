@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 逐页检查（手机 360×740、桌面 1280×800）：控制台无报错、只有一个标题、不横向滚动、触控目标不小于 44 px、
-// 输入框文字不小于 16 px。带播放器的页面（[data-player]，见 specs/_player-contract.md）再查：
+// 输入框文字不小于 16 px、看得见的文字里没有 S_f1、2^3 这类没排版的上下标记号。带播放器的页面（[data-player]，见 specs/_player-contract.md）再查：
 // 键盘前进与后退、回退后画面与当初一致、步数写进网址且刷新后还原、Home 回到开头、减少动态效果时没有位移动画。
 // 用法：PORT=4631 node scripts/qa-pages.mjs [页面编号…]
 import { finish, implementedIds, launch, open, pageIds } from './qa-lib.mjs';
@@ -48,12 +48,15 @@ for (const size of sizes) {
         small,
         tiny,
         player: !!document.querySelector('[data-player]'),
+        // 上下标要排成 <sub>/<sup>，不能把下划线和尖号直接给学生看。
+        raw: [...(document.getElementById('main')?.innerText ?? '').matchAll(/[A-Za-z0-9)\]][_^](?:\{|\(|[-−]?[A-Za-z0-9])/g)].map((m) => m[0]).slice(0, 3),
       };
     });
     if (errors.length) failures.push(`${where}：控制台报错 ${errors[0].slice(0, 140)}`);
     if (facts.h1 !== 1) failures.push(`${where}：h1 有 ${facts.h1} 个，应为 1 个`);
     if (facts.overflow > 1 || facts.mainOverflow > 1) failures.push(`${where}：横向溢出 ${Math.max(facts.overflow, facts.mainOverflow)} px；宽图放进自己的滚动容器或按步骤切局部`);
     if (size.isMobile && facts.small.length) failures.push(`${where}：触控目标小于 44 px：${facts.small.slice(0, 4).join('、')}`);
+    if (facts.raw.length) failures.push(`${where}：文字里有没排版的上下标记号：${facts.raw.join('、')}（用 <sub>/<sup>，播放器里用 Rich）`);
     if (size.isMobile && facts.tiny) failures.push(`${where}：${facts.tiny} 个输入框文字小于 16 px（iOS 会放大页面）`);
 
     if (facts.player) {

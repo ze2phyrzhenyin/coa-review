@@ -12,6 +12,10 @@ const TILE = 0.5;
 const GAP = 0.06;
 const GROUP_GAP = 0.2;
 
+/** 一位的样子：0 白面，1 深色面，其余是还没写的空槽。 */
+const face = (char: string | undefined): { text: string; kind: 'tile' | 'chip' | 'slot' } =>
+  char === '1' ? { text: '1', kind: 'chip' } : char === '0' ? { text: '0', kind: 'tile' } : { text: '', kind: 'slot' };
+
 /**
  * 位串：一排翻片，白面是 0，深色面是 1。多位同时变时从低位起逐位错开翻。
  * 进位是一张强调色的小牌，从产生进位的那一列跳到左边一列的上方。
@@ -30,7 +34,7 @@ export class BitRow extends Part<BitsProps> {
     let x = 0;
     for (let i = 0; i < n; i++) {
       // 从右往左每 group 位空一格。
-      if (i > 0) x += TILE + GAP + ((n - i) % group === 0 ? GROUP_GAP : 0);
+      if (i > 0) x += props.pitch ?? TILE + GAP + ((n - i) % group === 0 ? GROUP_GAP : 0);
       this.xs.push(x);
     }
     const span = x;
@@ -40,9 +44,11 @@ export class BitRow extends Part<BitsProps> {
     this.group.add(solid(new Mesh(blockGeometry(width, 0.3, 0.9), kit.mats.block)));
     this.face.position.set(0, 0.33, 0.2);
     for (let i = 0; i < n; i++) {
-      const bit = props.bits[i] === '1' ? '1' : '0';
-      const tile = new Card(kit, bit, { kind: bit === '1' ? 'chip' : 'tile', width: TILE, height: sizes.tileHeight, size: 0.38, mono: true, weight: 600 });
+      const look = face(props.bits[i]);
+      const tile = new Card(kit, look.text, { kind: look.kind, width: TILE, height: sizes.tileHeight, size: 0.38, mono: true, weight: 600 });
       tile.group.position.set(this.xs[i]!, sizes.tileHeight / 2, 0);
+      // 点在这张片上时，点选能知道是第几位（翻位片作答用）。
+      tile.group.traverse((object) => (object.userData.bit = i));
       this.tiles.push(tile);
       this.face.add(tile.group);
     }
@@ -70,16 +76,14 @@ export class BitRow extends Part<BitsProps> {
     const n = this.tiles.length;
     const order: number[] = [];
     for (let i = 0; i < n; i++) {
-      const bit = next.bits[i] === '1' ? '1' : '0';
-      if (this.tiles[i]!.text !== bit) order.push(i);
+      if (this.tiles[i]!.text !== face(next.bits[i]).text) order.push(i);
     }
     if ((next.from ?? 'right') === 'right') order.reverse();
     order.forEach((i, k) => {
-      const bit = next.bits[i] === '1' ? '1' : '0';
-      const kind = bit === '1' ? 'chip' : 'tile';
-      if (animate) this.tiles[i]!.flipTo(bit, k * timing.stagger, kind);
+      const { text, kind } = face(next.bits[i]);
+      if (animate) this.tiles[i]!.flipTo(text, k * timing.stagger, kind);
       else {
-        this.tiles[i]!.set(bit);
+        this.tiles[i]!.set(text);
         this.tiles[i]!.setKind(kind);
       }
     });

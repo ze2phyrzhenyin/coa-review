@@ -1,6 +1,6 @@
 /**
- * 把引擎的 Trace 交给播放器之前做的一处改动：预测两个符号位的题（bits）改成点选场景里的四个候选。
- * 答案、提示原样保留，只换作答方式。题面末尾的问号去掉，播放器会在后面接「点场景里的部件作答」。
+ * 把引擎的 Trace 交给播放器之前做的一处改动：题面末尾的问号去掉（题目栏下面另有一行作答说明）。
+ * 预测两个符号位的题（bits）保持原样，学生在结果行的两个符号位上翻位片作答。
  */
 import type { Trace } from '../../engines/trace';
 
@@ -13,9 +13,7 @@ export function adaptTrace<P, S>(trace: Trace<P, S>): Trace<P, S> {
       const ask = step.ask;
       if (!ask) return step;
       const prompt = ask.prompt.replace(/[？?]\s*$/, '');
-      if (ask.kind === 'bits' && ask.answer.length === 2) return { ...step, ask: { ...ask, kind: 'choice', options: [...SIGN_OPTIONS], prompt } };
-      if (ask.kind === 'choice') return { ...step, ask: { ...ask, prompt } };
-      return step;
+      return { ...step, ask: { ...ask, prompt } };
     }),
   };
 }

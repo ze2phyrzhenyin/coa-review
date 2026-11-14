@@ -17,6 +17,8 @@ import {
 import type { BufferGeometry, Object3D, PerspectiveCamera } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { Motion } from './motion';
+import { parseRich } from './rich';
+import type { Run } from './rich';
 import { fonts, mix } from './theme';
 import type { Ink, Palette } from './theme';
 
@@ -158,6 +160,8 @@ export interface TextStyle {
 }
 
 const MAX_CANVAS = 2048;
+/** 下标、上标的字号比例。 */
+const SMALL = 0.68;
 
 /**
  * 正对屏幕的一行字：系统字体画到 canvas，按设备分辨率出贴图。挂在已经正对屏幕的组里。
@@ -214,30 +218,37 @@ export class TextPlane {
     this.mesh.visible = value > 0.001 && this.text !== '';
   }
 
-  /** 量一段字的宽度（世界单位），不改当前内容。 */
+  /** 量一段字的宽度（世界单位），不改当前内容。下标、上标按小字算。 */
   measure(text: string): number {
     const px = this.style.size * this.kit.textScale;
-    const context = this.canvas.getContext('2d')!;
-    context.font = this.font(px);
-    return context.measureText(text).width / this.kit.textScale;
+    return this.runsWidth(this.canvas.getContext('2d')!, parseRich(text), px) / this.kit.textScale;
   }
 
   private font(px: number): string {
     return `${this.style.weight ?? 500} ${px}px ${this.style.mono ? fonts.mono : fonts.sans}`;
   }
 
+  /** 一串文字段的总宽（像素）。下标、上标用 0.68 倍字号。 */
+  private runsWidth(context: CanvasRenderingContext2D, runs: Run[], px: number): number {
+    let width = 0;
+    for (const run of runs) {
+      context.font = this.font(run.kind === 'base' ? px : px * SMALL);
+      width += context.measureText(run.text).width + (run.kind === 'base' ? 0 : px * 0.04);
+    }
+    return width;
+  }
+
   redraw(): void {
     const { kit, style, canvas } = this;
     let scale = kit.textScale;
     const context = canvas.getContext('2d')!;
+    const runs = parseRich(this.text || ' ');
     let px = style.size * scale;
-    context.font = this.font(px);
-    let textWidth = context.measureText(this.text || ' ').width;
+    let textWidth = this.runsWidth(context, runs, px);
     if (textWidth + px > MAX_CANVAS) {
       scale *= MAX_CANVAS / (textWidth + px);
       px = style.size * scale;
-      context.font = this.font(px);
-      textWidth = context.measureText(this.text || ' ').width;
+      textWidth = this.runsWidth(context, runs, px);
     }
     const pad = Math.ceil(px * 0.12);
     const w = Math.max(2, Math.ceil(textWidth) + pad * 2);
@@ -246,12 +257,24 @@ export class TextPlane {
     if (canvas.width !== w || canvas.height !== h) this.texture.dispose();
     canvas.width = w;
     canvas.height = h;
-    context.font = this.font(px);
     context.fillStyle = kit.palette[style.tone];
-    context.textAlign = 'center';
+    context.textAlign = 'left';
     context.textBaseline = 'alphabetic';
     // 以大写字母的高度居中：数字、字母、汉字的视觉中心都落在中线附近。
-    context.fillText(this.text, w / 2, h / 2 + px * 0.355);
+    const baseline = h / 2 + px * 0.355;
+    let x = (w - textWidth) / 2;
+    for (const run of runs) {
+      if (run.kind === 'base') {
+        context.font = this.font(px);
+        context.fillText(run.text, x, baseline);
+        x += context.measureText(run.text).width;
+      } else {
+        context.font = this.font(px * SMALL);
+        x += px * 0.02;
+        context.fillText(run.text, x, baseline + (run.kind === 'sub' ? px * 0.2 : -px * 0.42));
+        x += context.measureText(run.text).width + px * 0.02;
+      }
+    }
     this.texture.needsUpdate = true;
     this.width = w / scale;
     this.height = h / scale;

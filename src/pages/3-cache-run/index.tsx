@@ -4,6 +4,7 @@ import { useParam } from '../../app/url-state';
 import { run, validateParams } from '../../engines/cache/model';
 import type { Params } from '../../engines/cache/model';
 import { Player } from '../../player/Player';
+import { useNarrow } from '../../app/media';
 import { BreakIt } from './BreakIt';
 import { Paper } from './Paper';
 import { cacheStage, withRowAsks } from './scene';
@@ -33,17 +34,18 @@ const tabs = [
 /** 一份参数 → 引擎 Trace（加上点选行的题）和台面。参数不变时引用不变。 */
 function useRun(params: Params) {
   const key = JSON.stringify(params);
+  const narrow = useNarrow();
   return useMemo(() => {
     const trace = withRowAsks(run(params));
-    return { trace, stage: cacheStage(params) };
+    return { trace, stage: cacheStage(params, narrow) };
     // key 就是 params 的内容。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, narrow]);
 }
 
 function Walkthrough() {
   const { trace, stage } = useRun(exampleParams);
-  return <Player trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} />;
+  return <Player trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} />;
 }
 
 const defaultSeq = encodeSequence(trySequence);
@@ -153,7 +155,7 @@ function Try() {
         </form>
       </div>
 
-      <Player key={JSON.stringify(params)} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} />
+      <Player key={JSON.stringify(params)} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} />
       <div class="cr-compare-wrap">
         <table class="cr-compare">
           <caption>同一串地址，换映射和替换算法</caption>

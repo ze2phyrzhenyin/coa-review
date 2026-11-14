@@ -31,6 +31,10 @@ export class MemoryArray extends Part<MemoryProps> {
   private readonly chip: Card;
   private readonly frame: Mesh;
   private readonly rowY: number[] = [];
+  private readonly colX: number[] = [];
+  private readonly colW: number[] = [];
+  /** 单独框出的格子。 */
+  private cellFrame: Mesh | null = null;
 
   constructor(kit: Kit, id: string, position: Vec2, props: MemoryProps) {
     super(kit, id, position);
@@ -56,6 +60,8 @@ export class MemoryArray extends Part<MemoryProps> {
       xs.push(x + w / 2);
       x += w + GAP;
     }
+    this.colX.push(...xs);
+    this.colW.push(...widths);
     props.columns.forEach((column, c) => {
       const head = new TextPlane(kit, column.title, { size: 0.22, tone: column.ink ?? 'muted' });
       head.place(xs[c]!, H - HEAD / 2 - 0.02);
@@ -106,6 +112,7 @@ export class MemoryArray extends Part<MemoryProps> {
         cell.setChanged(changed.has(`${r}.${c}`));
       });
     });
+    this.markCell(next.cell);
     const active = next.active ?? -1;
     const y = this.rowY[active];
     const wasVisible = this.frame.visible;
@@ -117,6 +124,31 @@ export class MemoryArray extends Part<MemoryProps> {
     } else {
       this.frame.position.y = y;
     }
+  }
+
+  private markCell(cell: string | undefined): void {
+    const [r, c] = (cell ?? '').split('.').map(Number);
+    const y = r === undefined ? undefined : this.rowY[r];
+    const x = c === undefined ? undefined : this.colX[c];
+    const w = c === undefined ? undefined : this.colW[c];
+    if (y === undefined || x === undefined || w === undefined || !cell) {
+      if (this.cellFrame) this.cellFrame.visible = false;
+      return;
+    }
+    if (!this.cellFrame) {
+      this.cellFrame = new Mesh(undefined, this.kit.mats.chip);
+      this.face.add(this.cellFrame);
+    }
+    this.cellFrame.geometry = cardGeometry(w + 0.12, ROW + 0.12, 0.02, 0.09);
+    this.cellFrame.position.set(x, y, -0.025);
+    this.cellFrame.visible = true;
+  }
+
+  /** 一个格子中心的世界坐标。移动的值可以从这里出发、落到这里。 */
+  cellAnchor(r: number, c: number) {
+    const y = this.rowY[r];
+    const x = this.colX[c];
+    return y === undefined || x === undefined ? null : this.faceToWorld(x, y);
   }
 
   override dispose(): void {

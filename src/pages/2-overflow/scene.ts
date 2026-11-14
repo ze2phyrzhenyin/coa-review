@@ -12,7 +12,7 @@ import type { OverflowParams, OverflowSolution, OverflowState } from '../../engi
 import { formatDecimal, formatValue } from '../../lib/bits';
 import { bindTable, from } from '../../scene';
 import type { Binding, Move, PartSpec, SceneSpec } from '../../scene';
-import { SIGN_OPTIONS, signAskIndex } from './adapt';
+import { signAskIndex } from './adapt';
 
 type RowKey = 'y' | 'inverted' | 'carry' | 'x' | 'negY' | 'sum';
 type Table = Parameters<typeof bindTable<OverflowState>>[0];
@@ -22,10 +22,12 @@ export interface OverflowScene {
   bind: Binding<OverflowState>;
   moves: (step: Step<OverflowState>) => Move[];
   names: (path: string) => string;
+  values: (path: string, value: string) => string;
+  /** 符号位题在结果行的两个符号位上翻位片作答。 */
+  flipPart: (ask: unknown, index: number) => string | null;
 }
 
-/** 列距、符号位与数值位之间多空的一点、行距。 */
-const PITCH = 1.0;
+/** 符号位与数值位之间多空的一点、行距。列距宽屏 1.0，窄屏 0.9（整张竖式不出左右边）。 */
 const SIGN_GAP = 0.35;
 const ROW = 1.3;
 const HALF_TILE = 0.45;
@@ -41,7 +43,8 @@ function textWidth(text: string, size: number): number {
   return w;
 }
 
-export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solution: OverflowSolution): OverflowScene {
+export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solution: OverflowSolution, compact = false): OverflowScene {
+  const PITCH = compact ? 0.9 : 1.0;
   const { width: W, n, notation, op } = solution;
   const point = notation === '小数';
   const subtract = op === '减';
@@ -81,7 +84,8 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
       const placeholder = final === '1' ? '0' : '1';
       const id = `${key}-${c}`;
       const title = key === 'carry' ? (c === 0 ? '最高符号位向外的进位' : `进入 ${colName(c)} 的进位`) : `${label} ${colName(c)}`;
-      parts.push({ id, kind: 'bits', position: [cx(c), rz(key)], props: { bits: placeholder }, title });
+      // 一行同时写出时从右往左逐格错开 25 毫秒。
+      parts.push({ id, kind: 'bits', position: [cx(c), rz(key)], props: { bits: placeholder }, title, delay: (W - c) * 25 });
       const dropsHere = key === 'carry' && c === 0;
       table[id] = {
         bits: from(path, (ctx) => ctx.flat[path] || placeholder),
@@ -91,37 +95,30 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
     if (point && key !== 'carry') {
       parts.push({ id: `dot-${key}`, kind: 'label', position: [(cx(2) + cx(3)) / 2, rz(key) + 0.18], props: { text: '.', size: 0.5, weight: 700 } });
     }
-    const labelSize = 0.28;
+    const labelSize = compact ? 0.24 : 0.28;
     const shown = label;
     parts.push({
       id: `label-${key}`,
       kind: 'label',
-      position: [cx(W) + HALF_TILE + 0.35 + textWidth(shown, labelSize) / 2, rz(key)],
+      position: [cx(W) + HALF_TILE + (compact ? 0.22 : 0.35) + textWidth(shown, labelSize) / 2, rz(key)],
       props: { text: shown, size: labelSize, tone: key === 'carry' ? 'muted' : 'text' },
     });
   });
 
-  // 丢掉的进位落进最左边的托盘。
+  // 丢掉的进位落进最左边的托盘；窄屏上放到列头上方，不加宽台面。
   const trayWidth = 2.3;
   parts.push({
     id: 'drop',
     kind: 'register',
-    position: [cx(0) - HALF_TILE - 0.3 - trayWidth / 2, rz('carry')],
+    position: compact ? [cx(0) - HALF_TILE + trayWidth / 2, zHead - 1.45] : [cx(0) - HALF_TILE - 0.3 - trayWidth / 2, rz('carry')],
     props: { name: '丢掉的进位', value: '', width: trayWidth },
   });
   table.drop = { value: from('dropped', (ctx) => (ctx.state.dropped === '1' ? `1，权 ${modulus}` : ctx.state.dropped === '0' ? '无' : '')) };
 
-  // 预测两个符号位：四个候选排在结果行下面，只在出题那一步出现（那时判定牌还没有出现）。
+  // 预测两个符号位：就在结果行的两个符号位上翻位片，只在出题那一屏出现（那时这两格还没写）。
   const asking = signAskIndex(trace);
-  const candidateWidth = 1.46;
-  const candidateGap = 0.35;
-  const row = SIGN_OPTIONS.length * candidateWidth + (SIGN_OPTIONS.length - 1) * candidateGap;
-  const start = (cx(1) + cx(W)) / 2 - row / 2 + candidateWidth / 2;
-  SIGN_OPTIONS.forEach((bits, k) => {
-    const id = `pick-${bits}`;
-    parts.push({ id, kind: 'bits', position: [start + k * (candidateWidth + candidateGap), zSum + 1.35], props: { bits }, pick: true, title: bits });
-    table[id] = { hidden: (ctx) => ctx.index !== asking };
-  });
+  parts.push({ id: 'sign', kind: 'bits', position: [(cx(1) + cx(2)) / 2, zSum], props: { bits: '  ', pitch: cx(2) - cx(1), group: 8 }, pick: true, title: '结果的两个符号位' });
+  table.sign = { hidden: (ctx) => ctx.index !== asking };
 
   // 两个符号位读出来的判定，贴在结果的符号位下面。
   parts.push({ id: 'verdict', kind: 'label', position: [(cx(1) + cx(2)) / 2, zSum + 1.0], props: { text: '', plate: true, size: 0.3, weight: 600 } });
@@ -131,7 +128,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   };
 
   // 两个判定式并排。
-  const formulaWidth = 3.4;
+  const formulaWidth = compact ? Math.min(3.4, (span + 0.6) / 2) : 3.4;
   const zFormula = zSum + 3.1;
   parts.push({ id: 'vs', kind: 'register', position: [-(formulaWidth / 2 + 0.25), zFormula], props: { name: 'V = S_f1 ⊕ S_f2', value: '', width: formulaWidth } });
   parts.push({ id: 'vc', kind: 'register', position: [formulaWidth / 2 + 0.25, zFormula], props: { name: 'V = C_f ⊕ C_0', value: '', width: formulaWidth } });
@@ -140,7 +137,9 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
 
   // 数轴：三段，宽度按 −2^(n+1) 到 2^(n+1) 等比例摆，能表示的范围正好占中间一半。
   const sideText = Math.max(textWidth(`< ${low}`, 0.36), textWidth(`> ${high}`, 0.36));
-  const L = Math.max(10, span + 2.4, 4 * (sideText + 0.8), 2 * (textWidth(`${low} 到 ${high}`, 0.36) + 0.8));
+  const midText = textWidth(`${low} 到 ${high}`, 0.36);
+  // 窄屏上数轴不比竖式宽，三段都能同时入画。
+  const L = compact ? Math.max(span + 0.9, 4 * (sideText * 0.75 + 0.4), 2 * (midText * 0.75 + 0.4)) : Math.max(10, span + 2.4, 4 * (sideText + 0.8), 2 * (midText + 0.8));
   const zLine = zFormula + 1.75;
   const zones: { id: string; title: '负溢' | '无溢出' | '正溢'; x: number; w: number; value: string }[] = [
     { id: 'zone-neg', title: '负溢', x: (-3 * L) / 8, w: L / 4 - 0.12, value: `< ${low}` },
@@ -180,16 +179,16 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
       // 进位从右边一列的上方跳到左边一列。最低位右边没有进位，起点是那一列上方的空位。
       if (match && to === '1') {
         const k = Number(match[1]);
-        out.push({ value: '1', from: `carry-${k + 1}`, to: `carry-${k}` });
+        out.push({ value: '1', from: `carry-${k + 1}`, to: `carry-${k}`, arc: true });
       }
     }
-    if (changed.get('dropped') === '1') out.push({ value: '1', from: 'carry-0', to: 'drop' });
-    if (changed.has('verdict')) out.push({ value: `${s.sf1}${s.sf2}`, from: 'sum-1', to: 'verdict' });
+    if (changed.get('dropped') === '1') out.push({ value: '1', from: 'carry-0', to: 'drop', arc: true });
+    if (changed.has('verdict')) out.push({ value: `${s.sf1}${s.sf2}`, from: 'sum-1', to: 'verdict', arc: true });
     if (changed.has('vByCarry') && step.focus.includes('rows.carry.cells.1')) {
-      out.push({ value: `C_f = ${s.cf}`, from: 'carry-1', to: 'vc' });
-      out.push({ value: `C_0 = ${s.c0}`, from: 'carry-2', to: 'vc' });
+      out.push({ value: `C_f = ${s.cf}`, from: 'carry-1', to: 'vc', arc: true });
+      out.push({ value: `C_0 = ${s.c0}`, from: 'carry-2', to: 'vc', arc: true });
     }
-    if (changed.has('conclusion')) out.push({ value: exactText, from: 'vs', to: 'mark' });
+    if (changed.has('conclusion')) out.push({ value: exactText, from: 'vs', to: 'mark', arc: true });
     return out;
   };
 
@@ -217,5 +216,9 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
     return plain[path] ?? path;
   };
 
-  return { scene, bind, moves, names };
+  /** 「变化」里的值：判定用的位直接写，空写成「空」由播放器处理。 */
+  const values = (_path: string, value: string): string => value;
+  const flipPart = (_ask: unknown, index: number): string | null => (index === asking ? 'sign' : null);
+
+  return { scene, bind, moves, names, values, flipPart };
 }

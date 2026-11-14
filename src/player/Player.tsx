@@ -9,6 +9,8 @@ import type { Ask, Step, StepLevel, Trace } from '../engines/trace';
 import { accentName, canUseWebGL, currentScheme, frameAt, hashPose, inkNames, loadRuntime, palettes, poseAt, revealedRows } from '../scene';
 import type { Binding, Ink, Move, Patch, PartSpec, Pose, Rect, SceneSpec, SceneView, Scheme } from '../scene';
 import { Answer } from './Answer';
+import { Rich } from './Rich';
+import { plainRich } from '../scene/rich';
 import { FlatStage, partTitle, readout } from './FlatStage';
 import './player.css';
 
@@ -38,6 +40,10 @@ export interface PlayerProps<P, S> {
   caption?: ((state: S) => string) | undefined;
   /** 当前状态下能不能「弄坏它」。part 是学生点的部件，null 表示按钮。 */
   breakIt?: ((state: S, part: string | null) => Breakage | null) | undefined;
+  /** 答错时按学生的答案演后果（填数题、选择题、点选题都行）。返回 null 时用播放器自己的演法。 */
+  onWrong?: ((ask: Ask, value: string, state: S) => Breakage | null) | undefined;
+  /** 翻位片作答：bits 题由哪个 bits 部件来答。学生点位片翻面，再按确定。 */
+  flipPart?: ((ask: Ask, index: number) => string | null) | undefined;
   /** 舞台上方的控件（选例题、选粒度）。 */
   children?: ComponentChildren;
 }
@@ -73,7 +79,7 @@ function pickTargets(scene: SceneSpec, ask: Ask | undefined): Map<string, string
 const onStage = (rect: Rect | undefined, size: { width: number; height: number }): boolean =>
   !!rect && rect.x + rect.w / 2 > 0 && rect.x + rect.w / 2 < size.width && rect.y + rect.h / 2 > 0 && rect.y + rect.h / 2 < size.height;
 
-export function Player<P, S>({ trace, scene, bind, moves, names, values, caption, breakIt, children }: PlayerProps<P, S>) {
+export function Player<P, S>({ trace, scene, bind, moves, names, values, caption, breakIt, onWrong, flipPart, children }: PlayerProps<P, S>) {
   const show = (path: string, value: string) => (value === '' || value === 'null' ? '空' : values ? values(path, value) : value);
   const total = trace.steps.length;
   const [index, setIndex] = useIntParam('s', 0, 0, total);
@@ -99,6 +105,11 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
   const pending = next?.ask;
   const picking = useMemo(() => pickTargets(scene, pending), [scene, pending]);
   const breakage = broken?.index === index ? broken.breakage : null;
+  // 翻位片作答：要翻的部件和学生翻出来的位串（空格是还没翻的位）。
+  const flipId = pending?.kind === 'bits' && flipPart ? flipPart(pending, index) : null;
+  const slots = pending ? pending.answer.replace(/[\s_]/g, '').length : 0;
+  const [draft, setDraft] = useState<{ index: number; bits: string } | null>(null);
+  const flipBits = flipId ? (draft?.index === index ? draft.bits : ' '.repeat(slots)) : '';
 
   /** 每一步的目标画面。等学生点选时，可选的部件多一个标记。 */
   const poseFor = useCallback(
@@ -112,11 +123,12 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
   );
   const pose = useMemo(() => {
     const base = poseFor(index);
+    if (flipId) base.parts[flipId] = { ...base.parts[flipId], bits: flipBits, pickable: true, hidden: false };
     if (!breakage) return base;
     const parts = { ...base.parts };
     for (const [id, patch] of Object.entries(breakage.patch)) parts[id] = { ...parts[id], ...patch, changed: true };
     return { ...base, parts };
-  }, [poseFor, index, breakage]);
+  }, [poseFor, index, breakage, flipId, flipBits]);
 
   // 场景：按需加载 three.js，建一次，换 Trace 时重建。
   useEffect(() => {
@@ -130,20 +142,22 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
         const extras: string[][] = [];
         const poses: Pose[] = [];
         const targets: string[][] = [];
+        const picks: string[][] = [];
         for (let i = 0; i <= total; i++) {
           const planned = i > 0 && moves ? moves(trace.steps[i - 1]!) : [];
           const last = Math.max(0, ...planned.map((move) => move.phase ?? 0));
-          targets.push([...new Set(planned.filter((move) => (move.phase ?? 0) === last).map((move) => move.to))]);
+          targets.push([...new Set(planned.filter((move) => (move.phase ?? 0) === last).map((move) => move.to.split('.')[0]!))]);
           frames.push(frameAt(input, i));
           // 等学生作答时，接下来要动的部件装得下就一起留在画面里。
           extras.push(trace.steps[i]?.ask ? frameAt(input, i + 1) : []);
+          picks.push([...(pickTargets(scene, trace.steps[i]?.ask)?.values() ?? [])]);
           poses.push(poseFor(i));
         }
         const start = index;
         made = new View(stage.current, canvasHost.current, scene, poseFor(start));
         made.onRects = setRects;
-        made.stage.onPick = (id) => pickRef.current(id);
-        made.plan(frames, extras, poses, targets);
+        made.stage.onPick = (id, bit) => pickRef.current(id, bit);
+        made.plan(frames, extras, poses, targets, picks);
         made.show(start, poseFor(start), { animate: false, forward: false, moves: [] });
         view.current = made;
         shown.current = `${start}`;
@@ -163,7 +177,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
   }, [input, mode === 'flat']);
 
   // 换步，或者「弄坏它」开始、收回。
-  const key = `${index}${breakage ? '!' : ''}`;
+  const key = `${index}${breakage ? '!' : ''}${flipBits}`;
   const lastIndex = useRef(index);
   useEffect(() => {
     const current = view.current;
@@ -225,22 +239,39 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
       }
       setAttempt((before) => ({ index, wrong: (before?.index === index ? before.wrong : 0) + 1, picked: value }));
       setNotice(`不对。${pending.hint ?? ''}`);
+      // 页面能演后果的，交给页面：画面上盖一层，说明写在舞台下面，「恢复」收回。
+      const acted = onWrong?.(pending, value, state);
+      if (acted) {
+        view.current?.hold();
+        setBroken({ index, breakage: acted });
+        return;
+      }
       if (!partId) return;
       // 按学生的答案演一遍：本该去答案那里的值，去了他点的部件。
       const right = picking?.get(pending.answer);
       const planned = next && moves ? moves(next) : [];
-      const into = planned.find((move) => move.to === right);
-      const out = planned.find((move) => move.from === right);
+      const base = (ref: string) => ref.split('.')[0];
+      const into = planned.find((move) => base(move.to) === right);
+      const out = planned.find((move) => base(move.from) === right);
       if (into) view.current?.rehearse(into.value, into.from, partId, into.ink);
       else if (out) view.current?.rehearse(out.value, partId, out.to, out.ink);
       else view.current?.shake(partId);
     },
-    [pending, go, total, index, picking, next, moves],
+    [pending, go, total, index, picking, next, moves, onWrong, state],
   );
 
   const onPick = useCallback(
-    (id: string | null) => {
+    (id: string | null, bit?: number) => {
       if (!id) return;
+      if (flipId && id === flipId) {
+        // 点一下翻一位：空槽先翻成 0，之后 0、1 交替。
+        const at = bit ?? flipBits.indexOf(' ');
+        if (at < 0 || at >= slots) return;
+        const was = flipBits[at];
+        const next = was === '0' ? '1' : '0';
+        setDraft({ index, bits: flipBits.slice(0, at) + next + flipBits.slice(at + 1) });
+        return;
+      }
       if (picking) {
         const option = [...picking].find(([, partId]) => partId === id)?.[0];
         if (option !== undefined) answer(option, id);
@@ -256,7 +287,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
       const part = scene.parts.find((item) => item.id === id);
       if (part) setNotice(readout(part, pose.parts[id] ?? {}));
     },
-    [picking, answer, scene, pose, breakIt, state, breakage, index],
+    [picking, answer, scene, pose, breakIt, state, breakage, index, flipId, flipBits, slots],
   );
   const pickRef = useRef(onPick);
   pickRef.current = onPick;
@@ -319,7 +350,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
         <div class="pl-left">
           {status ? (
             <p class="pl-status" aria-hidden="true">
-              {status}
+              <Rich text={status} />
             </p>
           ) : null}
           <div class="pl-stage" data-stage ref={stage} {...(flat ? { 'data-settled': 'true', 'data-scene-hash': hashPose(pose) } : {})}>
@@ -362,12 +393,16 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
                 if (id) answer(option, id);
               }}
               onReveal={() => go((i) => Math.min(total, i + 1))}
+              onLook={() => picking && view.current?.lookAt([...picking].filter(([option]) => offStage.includes(option)).map(([, id]) => id))}
+              flip={flipId ? { bits: flipBits, toggle: (i) => onPick(flipId, i) } : undefined}
             />
           ) : null}
 
           {breakage ? (
             <div class="pl-break is-on" role="status">
-              <p>{breakage.message}</p>
+              <p>
+                <Rich text={breakage.message} />
+              </p>
               <button type="button" class="pl-btn" onClick={() => {
                   view.current?.hold();
                   setBroken(null);
@@ -418,12 +453,12 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
             {index === 0 ? `共 ${total} 步` : `第 ${index} 步，共 ${total} 步`}
             {step ? <span class="pl-level">{levelNames[step.level]}</span> : null}
           </p>
-          <h2 class="pl-title">{step ? step.title : '初始状态'}</h2>
+          <h2 class="pl-title">{step ? <Rich text={step.title} /> : '初始状态'}</h2>
           {step && (
             <>
               <h3>为什么</h3>
               <p class="pl-why">
-                {step.why}
+                <Rich text={step.why} />
                 {step.ref ? <span class="pl-ref">{step.ref}</span> : null}
               </p>
               {step.changes.length > 0 && (
@@ -432,12 +467,18 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
                   <ul class="pl-changes">
                     {step.changes.map((change) => (
                       <li key={change.at}>
-                        <span class="pl-at">{names ? names(change.at) : change.at}</span>
-                        <span class="pl-old">{show(change.at, change.from)}</span>
+                        <span class="pl-at">
+                          <Rich text={names ? names(change.at) : change.at} />
+                        </span>
+                        <span class="pl-old">
+                          <Rich text={show(change.at, change.from)} />
+                        </span>
                         <span class="pl-to">
                           <span class="pl-sr">变为</span>
                         </span>
-                        <span class="pl-new">{show(change.at, change.to)}</span>
+                        <span class="pl-new">
+                          <Rich text={show(change.at, change.to)} />
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -452,8 +493,12 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
         <dl class="pl-given">
           {trace.conditions.map((condition) => (
             <div key={condition.label}>
-              <dt>{condition.label}</dt>
-              <dd>{condition.value}</dd>
+              <dt>
+                <Rich text={condition.label} />
+              </dt>
+              <dd>
+                <Rich text={condition.value} />
+              </dd>
             </div>
           ))}
         </dl>
@@ -468,7 +513,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
                 <tr>
                   {trace.table.columns.map((column) => (
                     <th key={column} scope="col">
-                      {column}
+                      <Rich text={column} />
                     </th>
                   ))}
                 </tr>
@@ -493,10 +538,10 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
                                 jump();
                               }}
                             >
-                              {cell}
+                              <Rich text={cell} />
                             </button>
                           ) : (
-                            cell
+                            <Rich text={cell} />
                           )}
                         </td>
                       ))}
@@ -510,9 +555,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
       )}
 
       <div class="pl-sr" aria-live="polite">
-        {notice ? `${notice} ` : ''}
-        {step ? `第 ${index} 步：${step.title}。${step.why}` : '初始状态。'}
-        {pending ? ` 题目：${pending.prompt}。` : ''}
+        {plainRich(`${notice ? `${notice} ` : ''}${step ? `第 ${index} 步：${step.title}。${step.why}` : '初始状态。'}${pending ? ` 题目：${pending.prompt}。` : ''}`)}
       </div>
     </div>
   );

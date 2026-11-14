@@ -66,9 +66,11 @@ export class SceneView {
 
   private readonly parts = new Map<string, AnyPart>();
   private readonly kinds = new Map<string, PartSpec['kind']>();
+  private readonly delays = new Map<string, number>();
   private readonly wires = new Map<string, Wire>();
   private frames: string[][] = [[]];
   private extras: string[][] = [];
+  private picks: string[][] = [];
   private targets: string[][] = [];
   private poses: Pose[] = [];
   private cams: CamPose[] = [];
@@ -89,6 +91,7 @@ export class SceneView {
       const part = create(kit, partSpec, initial.parts[partSpec.id] ?? {});
       this.parts.set(partSpec.id, part);
       this.kinds.set(partSpec.id, partSpec.kind);
+      if (partSpec.delay) this.delays.set(partSpec.id, partSpec.delay);
       this.stage.root.add(part.group);
       this.stage.register(partSpec.id, part, !!partSpec.pick);
     }
@@ -132,19 +135,33 @@ export class SceneView {
     return { part: this.parts.get(id ?? ''), side: side === 'n' || side === 's' || side === 'e' || side === 'w' ? side : null };
   }
 
-  /** 值牌停在某个部件上时的位置：比部件自己的值牌略靠前。 */
-  private dock(at: string): Vector3 | null {
-    const part = this.parts.get(at);
-    if (!part) return null;
-    const toward = new Vector3(0, 0, 0.07).applyQuaternion(this.stage.camera.quaternion);
-    return part.anchor().add(toward);
+  /** 'mem.3.1' → 部件 mem 和格子 (3, 1)；普通 id 没有格子。 */
+  private ref(at: string): { part: AnyPart | undefined; id: string; cell: [number, number] | null } {
+    const [id = '', r, c] = at.split('.');
+    return { part: this.parts.get(id), id, cell: r !== undefined && c !== undefined ? [Number(r), Number(c)] : null };
   }
 
-  /** 从一个部件到另一个部件、依次经过这些连线的路。相邻两条线之间走直线；进出总线时沿导轨走。 */
-  private pathFor(from: string, to: string, via: string[]): Path | null {
-    const source = this.parts.get(from);
-    const target = this.parts.get(to);
+  /** 值牌停在某个部件（或存储阵列的一个格子）上时的位置：比部件自己的值牌略靠前。 */
+  private dock(at: string): Vector3 | null {
+    const { part, cell } = this.ref(at);
+    if (!part) return null;
+    const toward = new Vector3(0, 0, 0.07).applyQuaternion(this.stage.camera.quaternion);
+    const spot = cell && part instanceof MemoryArray ? part.cellAnchor(cell[0], cell[1]) : null;
+    return (spot ?? part.anchor()).add(toward);
+  }
+
+  /** 从一个部件到另一个部件、依次经过这些连线的路。相邻两条线之间走直线；进出总线时沿导轨走。arc 时不沿线，抬高再落下。 */
+  private pathFor(from: string, to: string, via: string[], arc = false): Path | null {
+    const source = this.ref(from).part;
+    const target = this.ref(to).part;
     if (!source || !target) return null;
+    const a = this.dock(from)!;
+    const b = this.dock(to)!;
+    if (arc && via.length === 0) {
+      const mid = a.clone().lerp(b, 0.5);
+      mid.y = Math.max(a.y, b.y) + Math.min(1.2, 0.35 + a.distanceTo(b) * 0.25);
+      return new Path([a, mid, b], 1.2);
+    }
     let cursor = source.center;
     const points: Vector3[] = [];
     for (const id of via) {
@@ -160,7 +177,7 @@ export class SceneView {
       if (source instanceof Bus) points.unshift(new Vector3(points[0]!.x, 0, source.center.z));
       if (target instanceof Bus) points.push(new Vector3(points[points.length - 1]!.x, 0, target.center.z));
     }
-    return flightPath(this.dock(from)!, points, this.dock(to)!);
+    return flightPath(a, points, b);
   }
 
   // ---------- 镜头 ----------
@@ -171,7 +188,8 @@ export class SceneView {
    * frames[i] 装不下时，只看住 targets[i]（值最后落下的部件；没给时取这一步变了的部件）：镜头从出发的地方移过去，正好跟着值走。
    * 镜头位置按步数从头推出来，所以回到第 n 步时与第一次到第 n 步时相同。
    */
-  plan(frames: string[][], extras: string[][] = [], poses: Pose[] = [], targets: string[][] = []): void {
+  plan(frames: string[][], extras: string[][] = [], poses: Pose[] = [], targets: string[][] = [], picks: string[][] = []): void {
+    this.picks = picks;
     this.frames = frames;
     this.targets = targets;
     this.extras = extras;
@@ -185,7 +203,8 @@ export class SceneView {
     const boxesAt = (i: number, ids: string[]) => stage.boxesOf(ids, true, this.poses[i]?.parts);
     // 全景：整张台面装得下、字只比最小字号小一点时，镜头一直停在这里。完整的画面比略大的字要紧。
     const whole = stage.fit(all, false);
-    const wholeFits = stage.scaleOf(whole) >= stage.minScale * 0.88 && stage.sees(whole, all, 0);
+    // 差一点点也算装得下（值牌的字约 13 像素以上）：整张图比放大的局部更好读。
+    const wholeFits = stage.scaleOf(whole) >= stage.legibleScale * 0.94 && stage.sees(whole, all, 0);
     const follow = (boxes: Box3[]) => this.follow(boxes);
     let pose = whole;
     if (!wholeFits) {
@@ -197,6 +216,18 @@ export class SceneView {
     for (let i = 1; i < this.frames.length; i++) {
       const main = boxesAt(i, this.frames[i] ?? []);
       const more = boxesAt(i, this.extras[i] ?? []);
+      // 点选题：全部候选（和这一步的焦点）在字不小于 14 像素时装得下，就一起放进画面。
+      const choices = boxesAt(i, this.picks[i] ?? []);
+      if (!wholeFits && choices.length > 0) {
+        const both = [...main, ...choices];
+        const all = follow(both);
+        const only = all.fits ? all : follow(choices);
+        if (only.fits) {
+          if (!stage.sees(pose, all.fits ? both : choices, 0.03)) pose = only.pose;
+          this.cams.push(pose);
+          continue;
+        }
+      }
       if (!wholeFits && main.length > 0) {
         const both = [...main, ...more];
         if (!stage.sees(pose, both, 0.03)) {
@@ -220,21 +251,33 @@ export class SceneView {
     if (resized) this.emitRects();
   }
 
-  /** 看住这些范围：先按正常字号；装不下时字最多缩到 0.84 倍。画面不滑出台面。 */
+  /** 看住这些范围：先按正常字号；装不下时缩小，但值牌上的字不小于 14 像素。画面不滑出台面。 */
   private follow(boxes: Box3[]): { pose: CamPose; fits: boolean } {
     const { stage } = this;
     let pose = stage.fit(boxes, 1, 0, true);
-    if (!stage.sees(pose, boxes, 0)) pose = stage.fit(boxes, 0.84, 0, true);
+    if (!stage.sees(pose, boxes, 0)) pose = stage.fit(boxes, stage.legibleScale / stage.minScale, 0, true);
     return { pose: stage.keepInScene(pose), fits: stage.sees(pose, boxes, 0) };
   }
 
   /** 临时把这些部件放进画面（已经都在画面里就不动）。返回镜头要走多久。 */
   private peek(ids: string[], parts?: Record<string, Record<string, unknown>>): number {
     const { stage } = this;
-    const boxes = stage.boxesOf(ids, true, parts);
+    const boxes = stage.boxesOf(ids.map((at) => this.ref(at).id), true, parts);
     if (boxes.length === 0 || stage.sees(stage.goal, boxes, 0.03)) return 0;
     stage.moveTo(this.follow(boxes).pose, true);
+    this.emitRects();
     return stage.kit.reduced ? 0 : timing.camera;
+  }
+
+  /** 让学生看这些部件（例如装不下的其余候选）。下一次换步时回到那一步的镜头。 */
+  lookAt(ids: string[]): void {
+    this.peek(ids, this.pose.parts);
+  }
+
+  /** 这些部件在当前镜头下是否都在画面里。 */
+  seesAll(ids: string[]): boolean {
+    const boxes = this.stage.boxesOf(ids, true, this.pose.parts);
+    return boxes.length > 0 && this.stage.sees(this.stage.goal, boxes, 0);
   }
 
   private cam(): CamPose {
@@ -244,7 +287,8 @@ export class SceneView {
   /** 每个部件在画面上的位置，按这一步镜头的目标位置算（不等镜头走到）。 */
   rects(): Record<string, Rect> {
     const out: Record<string, Rect> = {};
-    const cam = this.cam();
+    // 按镜头正要去的位置算（临时看别处时也对得上）。
+    const cam = this.stage.goal;
     for (const id of this.parts.keys()) {
       const rect = this.stage.rectOf(id, cam);
       if (rect) out[id] = { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.w), h: Math.round(rect.h) };
@@ -280,18 +324,18 @@ export class SceneView {
     if (options.frame) this.peek(options.frame, pose.parts);
     this.emitRects();
 
-    const moves = options.forward ? options.moves.filter((move) => this.parts.has(move.from) && this.parts.has(move.to)) : [];
+    const moves = options.forward ? options.moves.filter((move) => this.ref(move.from).part && this.ref(move.to).part) : [];
     if (!animate) {
       this.applyAll(pose, false);
     } else if (moves.length === 0) {
       this.applyAll(pose, 'flip');
     } else {
       // 起因（门、信号）→ 值沿线走 → 落进接收的部件 → 其余读数更新。同一步里的几个移动一起走。
-      const arriving = new Set(moves.map((move) => move.to));
+      const arriving = new Set(moves.map((move) => this.ref(move.to).id));
       const pending = new Set<string>();
       for (const [id, part] of this.parts) {
         const kind = this.kinds.get(id);
-        if (!arriving.has(id) && (kind === 'gate' || kind === 'label')) part.update(pose.parts[id] ?? {}, 'flip');
+        if (!arriving.has(id) && (kind === 'gate' || kind === 'label')) this.flip(id, pose);
         else {
           pending.add(id);
           // 台面上的标记（焦点、可点选）不等值走到，一开始就换成这一步的。
@@ -301,32 +345,55 @@ export class SceneView {
       // 先放好总线上值牌的位置，走动的值才落在牌该停的地方。
       for (const [id, part] of this.parts) part.place(pose.parts[id] ?? {});
       // 按先后分批：一批落下，下一批才出发。同一部件在后面还要接收时，先显示这一批带来的值。
+      // 一批的两头不在这一步的镜头里时，镜头先移过去，值不在画面外走。
       const phases = [...new Set(moves.map((move) => move.phase ?? 0))].sort((x, y) => x - y);
       const lastFor = new Map<string, Move>();
-      for (const move of moves) lastFor.set(move.to, move);
+      for (const move of moves) lastFor.set(this.ref(move.to).id, move);
+      // 两头装不下时看落点：镜头和值一起出发，值从上一批停下的地方飞进来，镜头跟着它走到落点。
+      const views = phases.map((phase) => {
+        const batch = moves.filter((move) => (move.phase ?? 0) === phase);
+        const boxes = stage.boxesOf(batch.flatMap((move) => [this.ref(move.from).id, this.ref(move.to).id]), true, pose.parts);
+        if (boxes.length === 0 || stage.sees(cam, boxes, 0)) return cam;
+        const both = this.follow(boxes);
+        if (both.fits) return both.pose;
+        const landing = stage.boxesOf(batch.map((move) => this.ref(move.to).id), true, pose.parts);
+        return landing.length > 0 && stage.sees(cam, landing, 0) ? cam : this.follow(landing.length ? landing : boxes).pose;
+      });
       let start = timing.cause;
-      for (const phase of phases) {
+      let looking = cam;
+      phases.forEach((phase, k) => {
+        const view = views[k]!;
+        if (view !== looking) {
+          if (k === 0) stage.moveTo(view, true);
+          else motion.after(start, () => generation === this.generation && stage.moveTo(view, true));
+          looking = view;
+        }
         let longest = 0;
         for (const move of moves.filter((item) => (item.phase ?? 0) === phase)) {
-          const path = this.pathFor(move.from, move.to, move.via ?? []);
+          const path = this.pathFor(move.from, move.to, move.via ?? [], move.arc);
           if (!path) continue;
-          motion.after(start, () => {
+          const at = start;
+          motion.after(at, () => {
             for (const id of move.via ?? []) this.wires.get(id)?.setActive(true);
           });
-          const took = sendValue(kit, stage.root, move.value, move.ink ?? 'data', path, start, () => {
+          const target = this.ref(move.to).id;
+          const took = sendValue(kit, stage.root, move.value, move.ink ?? 'data', path, at, () => {
             if (generation !== this.generation) return;
-            const final = lastFor.get(move.to) === move;
-            if (final) pending.delete(move.to);
-            const props = pose.parts[move.to] ?? {};
-            this.parts.get(move.to)?.update(final || !('value' in props) ? props : { ...props, value: move.value }, 'land');
+            const final = lastFor.get(target) === move;
+            if (final) pending.delete(target);
+            const props = pose.parts[target] ?? {};
+            this.parts.get(target)?.update(final || !('value' in props) ? props : { ...props, value: move.value }, 'land');
           });
           longest = Math.max(longest, took);
         }
         start += longest + 60;
+      });
+      if (looking !== cam) {
+        motion.after(start, () => generation === this.generation && stage.moveTo(cam, true));
       }
       motion.after(start, () => {
         if (generation !== this.generation) return;
-        for (const id of pending) this.parts.get(id)?.update(pose.parts[id] ?? {}, 'flip');
+        for (const id of pending) this.flip(id, pose);
         for (const [id, wire] of this.wires) wire.setActive(!!pose.wires[id]);
       });
     }
@@ -345,7 +412,24 @@ export class SceneView {
     }, 150);
   }
 
+  /** 原地翻面；部件声明了 delay 时晚一点开始。 */
+  private flip(id: string, pose: Pose): void {
+    const delay = this.delays.get(id) ?? 0;
+    const part = this.parts.get(id);
+    if (!part) return;
+    const generation = this.generation;
+    if (delay > 0 && !this.stage.kit.reduced) {
+      part.setMarks(!!pose.parts[id]?.focus, !!pose.parts[id]?.pickable);
+      this.stage.motion.after(delay, () => generation === this.generation && part.update(pose.parts[id] ?? {}, 'flip'));
+    } else part.update(pose.parts[id] ?? {}, 'flip');
+  }
+
   private applyAll(pose: Pose, animate: Animate): void {
+    if (animate === 'flip') {
+      for (const id of this.parts.keys()) this.flip(id, pose);
+      for (const [id, wire] of this.wires) wire.setActive(!!pose.wires[id]);
+      return;
+    }
     for (const [id, part] of this.parts) part.update(pose.parts[id] ?? {}, animate);
     for (const [id, wire] of this.wires) wire.setActive(!!pose.wires[id]);
   }
@@ -358,6 +442,7 @@ export class SceneView {
       const hash = hashPose(this.pose);
       this.host.dataset.sceneHash = hash;
       this.host.dataset.settled = 'true';
+      this.emitRects();
       this.onSettle(hash);
     });
   }
