@@ -2,7 +2,8 @@
 // 导航状态检查（AGENTS.md › Navigation，负责人 2026-11-08 的硬要求）：
 //  1. 点侧栏换页后，侧栏滚动位置不变，当前项可见；
 //  2. 新会话直接打开深层页面，当前项自动在视野内；
-//  3. 页内标签页（role=tab）刷新后仍是刚才选中的那个（状态在网址里）。
+//  3. 页内标签页（role=tab）刷新后仍是刚才选中的那个（状态在网址里）；
+//  4. 浏览器返回、前进回到带参数的页面时，网址参数和步数不变。
 // 用法：PORT=4631 node scripts/qa-navigation.mjs      线上：ORIGIN=https://… node scripts/qa-navigation.mjs
 // 需要侧栏够长才测得出滚动：本地用 VITE_SHOW_PLANNED=1 的构建（gate.sh --build 已这样做）。
 import { finish, implementedIds, launch, open, pageIds } from './qa-lib.mjs';
@@ -72,5 +73,42 @@ for (const id of deep) {
   }
   await context.close();
 }
+// 4. 浏览器返回、前进：回到带参数的页面时，网址参数和步数与离开时一样（离开的那一页不许改写新页面的网址）。
+{
+  const withPlayer = implementedIds.filter((id) => id !== '');
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  for (const id of withPlayer) for (const other of withPlayer.filter((item) => item !== id)) {
+    // 停在靠后的一步（别的页面步数上限更小时，最容易把参数改掉）。
+    await open(page, `${id}?s=999`);
+    if (!(await page.locator('[data-player]').count())) continue;
+    await page.locator('[data-player]').first().focus();
+    await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(300);
+    const leftUrl = page.url();
+    const leftStep = await page.locator('[data-player]').first().getAttribute('data-step-index');
+    const link = page.locator(`#nav a[href="/${other}"]`).first();
+    if (await link.count()) await link.click();
+    else await page.evaluate((path) => { history.pushState(null, '', path); dispatchEvent(new PopStateEvent('popstate')); }, `/${other}`);
+    await page.locator('#main h1').first().waitFor();
+    await page.waitForTimeout(400);
+    await page.goBack();
+    await page.locator('[data-player]').first().waitFor();
+    await page.waitForTimeout(500);
+    const backUrl = page.url();
+    const backStep = await page.locator('[data-player]').first().getAttribute('data-step-index');
+    if (backUrl !== leftUrl) failures.push(`/${id}：去 /${other} 再按返回，网址从 ${new URL(leftUrl).search || '(空)'} 变成 ${new URL(backUrl).search || '(空)'}`);
+    if (backStep !== leftStep) failures.push(`/${id}：按返回后步数是 ${backStep}，离开时是 ${leftStep}`);
+    await page.goForward();
+    await page.locator('#main h1').first().waitFor();
+    await page.waitForTimeout(300);
+    await page.goBack();
+    await page.locator('[data-player]').first().waitFor();
+    await page.waitForTimeout(500);
+    if (page.url() !== leftUrl) failures.push(`/${id}：前进再返回后网址变成 ${new URL(page.url()).search || '(空)'}`);
+  }
+  await context.close();
+}
+
 await browser.close();
 finish('qa-navigation', failures);

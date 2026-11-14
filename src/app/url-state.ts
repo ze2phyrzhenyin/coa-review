@@ -23,7 +23,10 @@ export function useParam(name: string, fallback: string, normal?: (raw: string) 
   latest.current = value;
 
   useEffect(() => {
+    // 只管自己这一页：浏览器返回、前进到别的页面时，这个钩子还没卸载，不许按自己的规则改写别人的网址。
+    const home = location.pathname;
     const sync = () => {
+      if (location.pathname !== home) return;
       const raw = read(name, fallback);
       const current = fix(raw);
       if (current !== raw) {

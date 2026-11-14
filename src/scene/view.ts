@@ -247,7 +247,11 @@ export class SceneView {
       }
       if (!wholeFits && main.length > 0 && this.pinned[i]) {
         // 页面指定的部件放在画面正中，不为了台面边上的留白或切边再挪。
-        if (!stage.sees(pose, main, 0.03)) pose = stage.fit(main, stage.legibleScale / stage.minScale, 0, true);
+        // 字号不变时一起装不下，就只看最后一个（页面把收值的部件放在最后），不让两头都被切掉一半。
+        if (!stage.sees(pose, main, 0.03)) {
+          const both = stage.fit(main, stage.legibleScale / stage.minScale, 0, true);
+          pose = main.length > 1 && !stage.sees(both, main, 0) ? stage.fit(main.slice(-1), stage.legibleScale / stage.minScale, 0, true) : both;
+        }
         this.cams.push(pose);
         continue;
       }

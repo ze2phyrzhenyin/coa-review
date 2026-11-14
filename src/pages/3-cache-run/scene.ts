@@ -26,6 +26,7 @@ export interface CacheStage {
   names: (path: string) => string;
   values: (path: string, value: string) => string;
   frame: (step: Step<State>) => string[] | null;
+  askFrame: (trace: Trace<Params, State>) => (ask: unknown, index: number) => string[];
 }
 
 /** 两行两列摆 cache：带计数器时一排放不下桌面舞台，手机上四行一排也装不进画面。 */
@@ -257,13 +258,17 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
     path === 'access.action' && value === '命中' ? '不调块（命中）' : value === 'true' ? '是' : value === 'false' ? '否' : value;
   /** 计数器那一步：镜头看这一组的几行（手机上主存和统计牌在别处，计数器的变化要看得到）。 */
   const frame = (step: Step<State>): string[] | null => {
-    const counted = step.changes.filter((change) => /^rows\.\d+\.count$/.test(change.at)).map((change) => `r${change.at.split('.')[1]}`);
-    if (counted.length === 0) return null;
-    const rows = [...new Set([...counted, ...step.state.access.candidates.map((i) => `r${i}`)])];
-    return rows;
+    // 比标记、命中或缺失、换出、计数器这几步：看这一组（直接映射是这一行）的全部候选行。
+    const candidates = step.state.access.candidates.map((i) => `r${i}`);
+    const about = step.changes.some((change) => /^rows\.\d+\.(count|tag|block|modified)$/.test(change.at) || change.at === 'access.result' || change.at === 'access.action');
+    if (candidates.length === 0 || !about) return null;
+    const touched = step.changes.filter((change) => /^rows\.\d+\./.test(change.at)).map((change) => `r${change.at.split('.')[1]}`);
+    return [...new Set([...candidates, ...touched])];
   };
+  /** 出题时看这一组的候选行（比标记、选换出行都要看它们）。 */
+  const askFrame = (trace: Trace<Params, State>) => (_ask: unknown, index: number): string[] => (trace.steps[index]?.state.access.candidates ?? []).map((i) => `r${i}`);
 
-  return { scene: { parts, wires }, bind, moves, names, values, frame };
+  return { scene: { parts, wires }, bind, moves, names, values, frame, askFrame };
 }
 
 /**

@@ -387,6 +387,12 @@ export function machineWrong(trace: Trace<Params, State>) {
  * 值走到 ALU 时镜头会跟过去）。
  */
 export function machineFrame(step: Step<State>): string[] | null {
+  const changed = (path: string) => step.changes.some((change) => change.at === path || change.at.startsWith(`${path}.`));
+  // 标志存进 PSWR：停在 ALU 和 PSWR 上（DR 收到结果时镜头已经跟着值去过）。
+  if (changed('reg.PSWR')) return ['ALU', 'PSWR'];
+  // DR 打入通用寄存器：DR 和接收的寄存器一起看。
+  const into = GENERAL_REGISTERS.find((r) => changed(`reg.${r}`));
+  if (into && step.focus.includes('DR')) return ['DR', into];
   const selected = (['left', 'right'] as const).filter((side) => step.changes.some((change) => change.at === `sel.${side}`)).map((side) => step.state.sel[side]);
   const regs = [...new Set(selected.filter((r): r is GeneralRegister => r !== null))];
   return regs.length > 0 && step.focus.includes('ALU') ? regs : null;

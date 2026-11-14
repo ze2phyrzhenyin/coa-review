@@ -57,7 +57,7 @@ export const pages: PageMeta[] = [
   p('3-refresh', 'DRAM 刷新', '集中式和分散式刷新，哪段时间不能读写', 'second'),
   p('3-interleave', '交叉存储器', '读 4 个字为什么是 T+3τ', 'second'),
   p('3-cache-addr', 'cache 地址划分', '同一个地址，三种映射各切成哪几段', 'first'),
-  p('3-cache-run', 'cache 逐次访问', '主存块落到哪一行，为什么被换出', 'sample'),
+  p('3-cache-run', 'cache 逐次访问', '主存块落到哪一行，为什么被换出', 'sample', true),
   p('3-cache-perf', '命中率与访问效率', 'h、ta、e、r 怎么互相求', 'first'),
   p('3-cache-write', 'cache 写策略', '写命中、写未命中时谁被改', 'second'),
   p('3-cache-l2', '多级 cache', '加了二级 cache，CPI 怎么算', 'second'),
