@@ -218,6 +218,11 @@ export class TextPlane {
     this.mesh.visible = value > 0.001 && this.text !== '';
   }
 
+  /** 字高（世界单位）。 */
+  get size(): number {
+    return this.style.size;
+  }
+
   /** 量一段字的宽度（世界单位），不改当前内容。下标、上标按小字算。 */
   measure(text: string): number {
     const px = this.style.size * this.kit.textScale;

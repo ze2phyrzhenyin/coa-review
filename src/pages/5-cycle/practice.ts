@@ -41,6 +41,8 @@ export interface Row {
   beat: string;
   op: string;
   signals: string[];
+  /** 其中的脉冲信号（注节拍的那些）。 */
+  pulse: string[];
 }
 
 /** 引擎给的标准表，摊成一行一个微操作。译码不占节拍，节拍写「—」。 */
@@ -51,22 +53,49 @@ export function answerRows(ins: Instruction, names: SignalNames): Row[] {
       beat: micro.op === '译码' ? '—' : micro.beat,
       op: micro.op,
       signals: [...micro.hold, ...micro.pulse],
+      pulse: micro.pulse,
     })),
   );
 }
 
 export interface Entry {
+  cycle?: string;
   beat: string;
   op: string;
   signals: string;
 }
 
-/** 控制信号一格的写法：逗号、顿号、空格都算分隔；脉冲后面的 (T3) 写不写都行；大小写不论。 */
-export function signalSet(text: string): string[] {
-  return text
+/** 一个信号的写法：名字和（可选的）节拍。 */
+interface Written {
+  name: string;
+  beat: string | null;
+}
+
+/**
+ * 控制信号一格的读法：全角括号、全角逗号、空格都认；括号里是中文的说明（例如「（由 IR 的寄存器字段选中）」）不算信号；
+ * 脉冲后面的 (T3) 写不写都行，写了要和这一行的节拍一致；大小写不论。
+ */
+export function readSignals(text: string): Written[] {
+  const plain = text
+    .replace(/（/g, '(')
+    .replace(/）/g, ')')
+    .replace(/\([^()]*[\u4e00-\u9fff][^()]*\)/g, ' ')
+    .replace(/\(\s*(T[1-4])\s*\)/gi, '($1)')
+    .replace(/\s+\(/g, '(');
+  return plain
     .split(/[,，、;；\s]+/)
-    .map((item) => item.replace(/\(T[1-4]\)$/i, '').trim().toUpperCase())
+    .map((item) => item.trim())
     .filter(Boolean)
+    .map((item) => {
+      const m = /^(.*?)\((T[1-4])\)$/i.exec(item);
+      return m ? { name: m[1]!.toUpperCase(), beat: m[2]!.toUpperCase() } : { name: item.toUpperCase(), beat: null };
+    });
+}
+
+/** 兼容旧的调用：只要名字。 */
+export function signalSet(text: string): string[] {
+  return readSignals(text)
+    .map((item) => item.name)
     .sort();
 }
 
@@ -74,13 +103,16 @@ export interface Grade {
   ok: boolean;
   /** 第一处错：第几行、哪一格。 */
   row: number;
-  cell: 'beat' | 'op' | 'signals' | null;
+  cell: 'cycle' | 'beat' | 'op' | 'signals' | null;
   message: string;
 }
 
-export function grade(rows: Row[], entries: Entry[]): Grade {
+export function grade(rows: Row[], entries: Entry[], pulses: (row: Row) => string[] = () => []): Grade {
   for (const [i, row] of rows.entries()) {
-    const entry = entries[i] ?? { beat: '', op: '', signals: '' };
+    const entry = entries[i] ?? { cycle: '', beat: '', op: '', signals: '' };
+    if ((entry.cycle ?? row.cycle) !== row.cycle) {
+      return { ok: false, row: i, cell: 'cycle', message: `第 ${i + 1} 行属于哪个 CPU 周期不对。数一数这条指令要让 DBUS 送几次数，每次占一个 CPU 周期，另加取指的一个。` };
+    }
     if (entry.op !== row.op) {
       const lead = i === 0 || rows[i - 1]!.cycle !== row.cycle ? `${row.cycle}周期的第一个操作是什么` : '上一行之后，数要往哪走';
       return { ok: false, row: i, cell: 'op', message: `第 ${i + 1} 行（${row.cycle}）的操作不对。想一想：${lead}。` };
@@ -93,17 +125,20 @@ export function grade(rows: Row[], entries: Entry[]): Grade {
         message: row.beat === '—' ? `第 ${i + 1} 行：译码不占节拍。` : `第 ${i + 1} 行的节拍不对。电位信号从 T1 起有效；DR 和数存写入在 T3，AR、PC、通用寄存器在 T4 打入。`,
       };
     }
-    const want = row.signals.map((name) => name.toUpperCase()).sort();
-    const got = signalSet(entry.signals);
-    if (want.join('|') !== got.join('|')) {
-      const missing = want.filter((name) => !got.includes(name));
-      const extra = got.filter((name) => !want.includes(name));
-      return {
-        ok: false,
-        row: i,
-        cell: 'signals',
-        message: `第 ${i + 1} 行的控制信号不对。${missing.length ? `少了 ${missing.length} 个。` : ''}${extra.length ? `${extra.join('、')} 这一步不发。` : ''}${want.length === 0 ? '这一步不发信号，这一格空着。' : ''}`,
-      };
+    const want = row.signals.map((name) => name.toUpperCase());
+    const written = readSignals(entry.signals);
+    const got = written.map((item) => item.name);
+    const missing = want.filter((name) => !got.includes(name)).length;
+    const extra = [...new Set(got.filter((name) => !want.includes(name)))];
+    const pulseNames = pulses(row).map((name) => name.toUpperCase());
+    const offBeat = written.filter((item) => item.beat !== null && pulseNames.includes(item.name) && item.beat !== row.beat).map((item) => `${item.name}(${item.beat})`);
+    if (missing || extra.length || offBeat.length) {
+      const parts: string[] = [];
+      if (missing) parts.push(`少写了 ${missing} 个信号`);
+      if (extra.length) parts.push(`${extra.join('、')} 这一步不发`);
+      if (offBeat.length) parts.push(`${offBeat.join('、')} 的节拍和这一行对不上`);
+      if (want.length === 0 && !offBeat.length) parts.push('这一步不发信号，这一格空着');
+      return { ok: false, row: i, cell: 'signals', message: `第 ${i + 1} 行的控制信号不对：${parts.join('；')}。` };
     }
   }
   return { ok: true, row: -1, cell: null, message: '全对。' };

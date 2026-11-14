@@ -223,7 +223,7 @@ function loadDraft(key: string, rows: number): Entry[] {
   } catch {
     // 读不到就从空表开始。
   }
-  return Array.from({ length: rows }, () => ({ beat: '', op: '', signals: '' }));
+  return Array.from({ length: rows }, () => ({ cycle: '', beat: '', op: '', signals: '' }));
 }
 
 /** 练习：按种子出一条指令，学生在答题纸上填每个微操作的操作、节拍和控制信号，按引擎的表逐格判。 */
@@ -261,7 +261,7 @@ function Quiz() {
         <SignalChoice />
       </div>
       <p class="cy-task">
-        指令 <strong>{describe(ins)}</strong>。按图 5.1 的模型机，逐个微操作填出操作、节拍和控制信号（{signalNames[sig as SignalNames]}的写法）。脉冲信号的节拍写不写都行，没有信号的格子空着。
+        指令 <strong>{describe(ins)}</strong>。按图 5.1 的模型机，逐个微操作填出它属于哪个 CPU 周期、操作、节拍和控制信号（{signalNames[sig as SignalNames]}的写法）。脉冲信号的节拍写不写都行，写了要对；没有信号的格子空着。
       </p>
       <div class="cy-sheet" role="group" aria-label="答题纸">
         <div class="cy-row cy-head" aria-hidden="true">
@@ -271,11 +271,18 @@ function Quiz() {
           <span>控制信号</span>
         </div>
         {rows.map((row, i) => {
-          const entry = entries[i] ?? { beat: '', op: '', signals: '' };
+          const entry = entries[i] ?? { cycle: '', beat: '', op: '', signals: '' };
           const bad = result && !result.ok && result.row === i ? result.cell : null;
           return (
             <div key={i} class={`cy-row${bad ? ' is-bad' : ''}`}>
-              <span class="cy-cycle">{i === 0 || rows[i - 1]!.cycle !== row.cycle ? row.cycle : ''}</span>
+              <select aria-label={`第 ${i + 1} 行属于哪个 CPU 周期`} class={`cy-cycle${bad === 'cycle' ? ' is-bad' : ''}`} value={entry.cycle ?? ''} onChange={(e) => update(i, { cycle: e.currentTarget.value })}>
+                <option value="">周期</option>
+                {['取指', '执行', '执行一', '执行二'].map((cycle) => (
+                  <option key={cycle} value={cycle}>
+                    {cycle}
+                  </option>
+                ))}
+              </select>
               <select aria-label={`第 ${i + 1} 行的操作`} class={bad === 'op' ? 'is-bad' : ''} value={entry.op} onChange={(e) => update(i, { op: e.currentTarget.value })}>
                 <option value="">选操作</option>
                 {ops.map((op) => (
@@ -295,7 +302,7 @@ function Quiz() {
               <input aria-label={`第 ${i + 1} 行的控制信号`} class={bad === 'signals' ? 'is-bad' : ''} spellcheck={false} autoComplete="off" value={entry.signals} onInput={(e) => update(i, { signals: e.currentTarget.value })} />
               {shown ? (
                 <span class="cy-key">
-                  {row.op}，{row.beat === '—' ? '不占节拍' : row.beat}，{row.signals.join('、') || '无'}
+                  {row.cycle}，{row.op}，{row.beat === '—' ? '不占节拍' : row.beat}，{row.signals.join('、') || '无'}
                 </span>
               ) : null}
             </div>
@@ -303,7 +310,7 @@ function Quiz() {
         })}
       </div>
       <div class="pl-actions">
-        <button type="button" class="pl-btn is-primary" onClick={() => setResult(grade(rows, entries))}>
+        <button type="button" class="pl-btn is-primary" onClick={() => setResult(grade(rows, entries, (row) => row.pulse))}>
           判分
         </button>
         <button type="button" class="pl-btn" onClick={() => setShown(true)}>

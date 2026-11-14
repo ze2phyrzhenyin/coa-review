@@ -4,7 +4,7 @@
  * 部件位置固定，不随步骤变。所有数都取自 Trace 的状态或引擎的 layout/splitAddress。
  */
 import type { Step, Trace } from '../../engines/trace';
-import { layout, splitAddress } from '../../engines/cache/model';
+import { layout, rowsOf, splitAddress } from '../../engines/cache/model';
 import type { Layout, Params, Row, State } from '../../engines/cache/model';
 import { bindTable, from } from '../../scene';
 import type { Breakage } from '../../player/Player';
@@ -12,7 +12,7 @@ import type { BindContext, Binding, MemoryColumn, Move, PartSpec, SceneSpec, Vec
 
 /** 主存画成一块 4×4 的板：一行 4 个块。直接映射时一行就是一个区，列号就是区内块号。 */
 const PER_LINE = 4;
-const X = [-4.62, -1.54, 1.54, 4.62];
+const X = [-5.6, -1.87, 1.87, 5.6];
 const XC = [-6.15, -2.05, 2.05, 6.15];
 const Z_ADDR = -6.35;
 const Z_MEM = -1.9;
@@ -46,11 +46,12 @@ function rowCells(params: Params, row: Row): string[] {
 
 function rowColumns(params: Params): MemoryColumn[] {
   const columns: MemoryColumn[] = [
-    { title: '标记', ink: 'addr', width: 0.64 },
-    { title: '修改位', width: 0.8 },
+    // 列宽按列名的字定：列名 0.33 高，三个字约 1.0 宽。
+    { title: '标记', ink: 'addr', width: 0.8 },
+    { title: '修改位', width: 1.1 },
   ];
-  if (counted(params)) columns.push({ title: '计数器', width: 0.8 });
-  columns.push({ title: '数据', width: 1.0 });
+  if (counted(params)) columns.push({ title: '计数器', width: 1.1 });
+  columns.push({ title: '数据', width: 1.1 });
   return columns;
 }
 
@@ -63,20 +64,20 @@ function memorySpec(g: Layout, params: Params): PartSpec {
   let columns: MemoryColumn[];
   let labels: string[];
   if (g.mapping === '直接') {
-    columns = firstLine.map((block) => ({ title: `区内块号 ${fieldOf(block).set}`, width: 1.2 }));
+    columns = firstLine.map((block) => ({ title: `${fieldOf(block).set}`, width: 1.2 }));
     labels = grid.map((line) => `区 ${fieldOf(line[0] ?? 0).tag}`);
   } else if (g.mapping === '组相联') {
-    columns = firstLine.map((block) => ({ title: `组 ${fieldOf(block).set}`, width: 1.0 }));
+    columns = firstLine.map((block) => ({ title: `组 ${fieldOf(block).set}`, width: 1.2 }));
     labels = grid.map((line) => [...new Set(line.map((block) => fieldOf(block).tag))].map((tag) => `区 ${tag}`).join('、'));
   } else {
-    columns = firstLine.map(() => ({ title: '', width: 1.0 }));
+    columns = firstLine.map(() => ({ title: '', width: 1.2 }));
     labels = grid.map(() => '');
   }
   return {
     id: 'mem',
     kind: 'memory',
     position: [g.mapping === '直接' ? -3.0 : -3.7, Z_MEM],
-    props: { name: '主存', columns, rows: grid.map((line) => line.map((block) => `块 ${block}`)), labels },
+    props: { name: g.mapping === '直接' ? '主存（列是区内块号）' : '主存', columns, rows: grid.map((line) => line.map((block) => `块 ${block}`)), labels },
   };
 }
 
@@ -88,12 +89,14 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
   // 窄屏版式：从后往前是 主存板 → 地址和切出的字段 → 两个算式 → 命中、缺失、换出 → 块传送 → 两行两列的 cache。
   // 主存板最高，放在最后面，不挡别的部件；整张台面宽 8.4，手机上字不小于 14 像素时左右都装得下。
   const compact = narrow && g.rows === 4;
-  const side = compact ? (counted(params) ? 3.95 : 3.75) : SIDE;
+  // 窄屏带计数器时一行太宽，四行排成一列；其余两行两列。
+  const column = compact && counted(params);
+  const side = compact ? 3.75 : counted(params) ? 5.0 : SIDE;
   const zBus = compact ? -1.2 : Z_BUS;
   const zRows = compact ? 1.3 : Z_ROWS;
-  const gx = compact ? (counted(params) ? 1.85 : 1.8) : 1.95;
-  const xs = grid ? [-gx, gx, -gx, gx] : counted(params) ? XC : X;
-  const zRow = (i: number) => (grid && i >= 2 ? zRows + GRID_DZ : zRows);
+  const gx = compact ? 1.8 : counted(params) ? 2.5 : 1.95;
+  const xs = column ? [0, 0, 0, 0] : grid ? [-gx, gx, -gx, gx] : counted(params) ? XC : X;
+  const zRow = (i: number) => (column ? zRows + i * 2.4 : grid && i >= 2 ? zRows + GRID_DZ : zRows);
   const at = (wide: Vec2, small: Vec2): Vec2 => (compact ? small : wide);
   const mem = memorySpec(g, params);
   if (compact) mem.position = [0, -9.6];
@@ -105,8 +108,8 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
   if (!full) parts.push({ id: 'idx', kind: 'bits', position: at([1.5, Z_ADDR], [0.3, -6.1]), props: { name: indexTitle(g), bits: '0'.repeat(g.indexBits), ink: 'addr' } });
   parts.push(
     { id: 'word', kind: 'bits', position: at(full ? [3.0, Z_ADDR] : [4.5, Z_ADDR], full ? [2.0, -6.1] : [2.9, -6.1]), props: { name: '字地址', bits: '0'.repeat(g.wordBits), ink: 'addr' } },
-    { id: 'calcJ', kind: 'label', position: at([3.3, -4.95], [0, -4.85]), props: { text: '', plate: true, size: 0.26, mono: true } },
-    { id: 'calcI', kind: 'label', position: at([3.3, -4.05], [0, -4.1]), props: { text: '', plate: true, size: 0.26, mono: true } },
+    { id: 'calcJ', kind: 'label', position: at([3.3, -4.95], [0, -4.85]), props: { text: '', plate: true, size: 0.31, mono: true } },
+    { id: 'calcI', kind: 'label', position: at([3.3, -4.05], [0, -4.1]), props: { text: '', plate: true, size: 0.31, mono: true } },
     mem,
     { id: 'hit', kind: 'label', position: at([1.3, -2.95], [-2.6, -2.4]), props: { text: '命中 0', plate: true, size: 0.34, weight: 600 }, pick: true, title: '命中' },
     { id: 'miss', kind: 'label', position: at([3.25, -2.95], [-0.6, -2.4]), props: { text: '缺失 0', plate: true, size: 0.34, weight: 600 }, pick: true, title: '缺失' },
@@ -118,8 +121,9 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
       id: `r${i}`,
       kind: 'memory',
       position: [xs[i] ?? 0, zRow(i)],
-      props: { name: rowName(i), columns: rowColumns(params), rows: [rowCells(params, { tag: null, block: null, modified: 0, count: 0 })] },
+      props: { name: g.mapping === '组相联' ? `${rowName(i)} · 组 ${Math.floor(i / g.ways)}` : rowName(i), columns: rowColumns(params), rows: [rowCells(params, { tag: null, block: null, modified: 0, count: 0 })] },
       pick: true,
+      title: rowName(i),
     });
   }
 
@@ -130,7 +134,10 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
   ];
   for (let i = 0; i < g.rows; i++) {
     // 两行两列时，后一排从两侧绕过前一排接进来。
-    if (grid && i >= 2) {
+    if (column && i >= 1) {
+      // 一列时，后面几行从左侧的竖线接进来。
+      wires.push({ id: `bus-r${i}`, from: 'bus', to: `r${i}.w`, via: [[-side + 0.25, zBus + 0.3], [-side + 0.25, zRow(i)]] });
+    } else if (grid && i >= 2) {
       const x = i === 2 ? -side : side;
       wires.push({ id: `bus-r${i}`, from: 'bus', to: `r${i}.${i === 2 ? 'w' : 'e'}`, via: [[x, zBus + 0.3], [x, zRow(i)]] });
     } else wires.push({ id: `bus-r${i}`, from: 'bus', to: `r${i}` });
@@ -308,7 +315,16 @@ export function polish(trace: Trace<Params, State>): Trace<Params, State> {
     });
   }
   const conditions = trace.conditions.map((item) => ({ ...item, value: reword(item.value) }));
-  if (trace.params.mapping === '直接') conditions.push({ label: '行号', value: '地址中间的行号字段就是 j mod m：块号的低几位正好是除以行数的余数' });
+  const g = layout(trace.params);
+  conditions.push({ label: '区', value: `主存按 cache 的大小分成区，一区有 ${g.mapping === '直接' ? `m = ${g.rows}` : `u = ${g.sets}`} 块，区号就是标记，区内块号就是${g.mapping === '直接' ? '行号' : '组号'}` });
+  if (trace.params.mapping === '直接') {
+    conditions.push({ label: '行号', value: '地址中间的行号字段就是 j mod m：块号的低几位正好是除以行数的余数' });
+    conditions.push({ label: '计数器', value: '直接映射一个块只有一行可放，用不上计数器；它是给组相联、全相联选换出行用的' });
+  } else {
+    const groups = Array.from({ length: g.sets }, (_, q) => `组 ${q} 是${rowsOf(g, q).map(rowName).join('、')}`).join('；');
+    conditions.push({ label: '组', value: `${groups}。u 是组数，v 是每组的行数。块 j 放进第 q 组，q = j mod u，组里哪一行都行。组号字段比直接映射的行号字段少几位，标记就多几位` });
+    if (trace.params.replacement === 'LRU') conditions.push({ label: 'LRU 计数器', value: '每次访问后，被访问的那一行计数器清零，同组里其余有块的行加 1。计数器越大，越久没用到；要换出时换计数器最大的那一行' });
+  }
   return { ...trace, steps, conditions };
 }
 

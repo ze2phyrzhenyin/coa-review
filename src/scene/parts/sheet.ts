@@ -9,7 +9,7 @@ import type { Animate } from './base';
 import { estimateWidth } from './memory';
 
 const ROW = 0.44;
-const TEXT = 0.22;
+const TEXT = 0.31;
 const PAD = 0.22;
 
 /**
@@ -47,7 +47,7 @@ export class Sheet extends Part<SheetProps> {
     }
     const top = H - PAD - titleHeight;
     if (props.title) {
-      const title = new TextPlane(kit, props.title, { size: 0.26, tone: 'tileText', weight: 600, align: 'left' });
+      const title = new TextPlane(kit, props.title, { size: 0.33, tone: 'tileText', weight: 600, align: 'left' });
       title.place(left, H - PAD - 0.16);
       this.all.push(title);
       this.face.add(title.mesh);
@@ -58,7 +58,7 @@ export class Sheet extends Part<SheetProps> {
       this.face.add(line);
     };
     props.columns.forEach((title, c) => {
-      const head = new TextPlane(kit, title, { size: TEXT * 0.9, tone: 'tileText', weight: 600, align: 'left' });
+      const head = new TextPlane(kit, title, { size: TEXT, tone: 'tileText', weight: 600, align: 'left' });
       head.place(xs[c]!, top - ROW / 2);
       this.all.push(head);
       this.face.add(head.mesh);

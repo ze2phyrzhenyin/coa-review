@@ -27,6 +27,7 @@
 }
 .pl-given dt {
   color: var(--pl-muted);
+  white-space: nowrap;
 }
 .pl-given dd {
   margin: 0;

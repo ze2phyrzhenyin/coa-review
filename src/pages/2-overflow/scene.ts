@@ -74,7 +74,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   const zHead = -0.95;
   for (let c = 1; c <= W; c++) {
     const name = colName(c);
-    parts.push({ id: `head-${c}`, kind: 'label', position: [cx(c), zHead], props: { text: name, size: compact ? 0.32 : c < 3 ? 0.26 : 0.23, tone: c < 3 ? 'text' : 'muted', weight: c < 3 ? 600 : 500 } });
+    parts.push({ id: `head-${c}`, kind: 'label', position: [cx(c), zHead], props: { text: name, size: compact ? 0.36 : c < 3 ? 0.34 : 0.31, tone: c < 3 ? 'text' : 'muted', weight: c < 3 ? 600 : 500 } });
   }
 
   keys.forEach((key, i) => {
@@ -97,7 +97,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
     if (point && key !== 'carry') {
       parts.push({ id: `dot-${key}`, kind: 'label', position: [(cx(2) + cx(3)) / 2, rz(key) + 0.18], props: { text: '.', size: 0.5, weight: 700 } });
     }
-    const labelSize = compact ? 0.3 : 0.28;
+    const labelSize = compact ? 0.32 : 0.31;
     const shown = label;
     parts.push({
       id: `label-${key}`,
@@ -111,13 +111,14 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   // 不加宽台面，也不会在舞台上沿外。
   const trayWidth = compact ? 1.1 : 2.3;
   const below = keys[keys.indexOf('carry') + 1] ?? 'x';
-  parts.push({
-    id: 'drop',
-    kind: 'register',
-    position: compact ? [cx(0) - 0.1, rz(below)] : [cx(0) - HALF_TILE - 0.3 - trayWidth / 2, rz('carry')],
-    props: { name: compact ? '出界' : '丢掉的进位', value: '', width: trayWidth },
-  });
-  table.drop = { value: from('dropped', (ctx) => (ctx.state.dropped === '1' ? (compact ? '1' : `1，权 ${modulus}`) : ctx.state.dropped === '0' ? '无' : '')) };
+  if (compact) {
+    // 窄屏：一块小牌「出界 1」「出界 无」，没有名牌，不会压到上面那一格。
+    parts.push({ id: 'drop', kind: 'label', position: [cx(0) - 0.1, rz(below)], props: { text: '', plate: true, size: 0.32 } });
+    table.drop = { text: from('dropped', (ctx) => (ctx.state.dropped === '1' ? '出界 1' : ctx.state.dropped === '0' ? '出界 无' : '')), hidden: from('dropped', (ctx) => ctx.state.dropped === '' || ctx.state.dropped === null) };
+  } else {
+    parts.push({ id: 'drop', kind: 'register', position: [cx(0) - HALF_TILE - 0.3 - trayWidth / 2, rz('carry')], props: { name: '丢掉的进位', value: '', width: trayWidth } });
+    table.drop = { value: from('dropped', (ctx) => (ctx.state.dropped === '1' ? `1，权 ${modulus}` : ctx.state.dropped === '0' ? '无' : '')) };
+  }
 
   // 预测两个符号位：就在结果行的两个符号位上翻位片，只在出题那一屏出现（那时这两格还没写）。
   const asking = signAskIndex(trace);
@@ -143,7 +144,8 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   const sideText = Math.max(textWidth(`< ${low}`, 0.36), textWidth(`> ${high}`, 0.36));
   const midText = textWidth(`${low} 到 ${high}`, 0.36);
   // 窄屏上数轴不比竖式宽，三段都能同时入画。
-  const L = compact ? Math.max(span + 0.9, 4 * (sideText * 0.75 + 0.4), 2 * (midText * 0.75 + 0.4)) : Math.max(10, span + 2.4, 4 * (sideText + 0.8), 2 * (midText + 0.8));
+  // 窄屏上数轴三段的字不缩小：分区宽度按字来定，必要时比竖式宽一点。
+  const L = compact ? Math.max(span + 0.9, 4 * (sideText + 0.3), 2 * (midText + 0.3)) : Math.max(10, span + 2.4, 4 * (sideText + 0.8), 2 * (midText + 0.8));
   const zLine = zFormula + 1.75;
   const zones: { id: string; title: '负溢' | '无溢出' | '正溢'; x: number; w: number; value: string }[] = [
     { id: 'zone-neg', title: '负溢', x: (-3 * L) / 8, w: L / 4 - 0.12, value: `< ${low}` },

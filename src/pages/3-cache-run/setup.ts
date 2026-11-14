@@ -41,6 +41,19 @@ export const trySequence: Access[] = [
 
 export const exampleParams: Params = makeParams('直接', 'LRU', exampleSequence);
 
+/**
+ * 讲解的第二个例题：2 路组相联、LRU。块 3、块 5 落进同一组；读 6 命中块 3；
+ * 读 22（块 11）时组满了，按计数器换出最久没用的块 5（写过，要写回）；再读 11（块 5）又换出块 3。
+ */
+export const setSequence: Access[] = [
+  { address: 7, op: '读' },
+  { address: 10, op: '写' },
+  { address: 6, op: '读' },
+  { address: 22, op: '读' },
+  { address: 11, op: '读' },
+];
+export const setExampleParams: Params = makeParams('组相联', 'LRU', setSequence);
+
 /** 网址里的写法 ↔ 引擎的取值。 */
 export const mappingKeys: { key: string; mapping: Mapping; label: string }[] = [
   { key: 'direct', mapping: '直接', label: '直接映射' },

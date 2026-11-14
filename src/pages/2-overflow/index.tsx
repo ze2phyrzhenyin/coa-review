@@ -190,7 +190,11 @@ function Try() {
       {[['x', x], ['y', y]].some(([, text]) => text && !/^[+\-−]/.test(text.trim())) ? (
         <p class="ovf-note">没写正负号的数按正数算。负数前面写 −。</p>
       ) : null}
-      {made.ok ? (
+      {!x.trim() || !y.trim() ? (
+        <p class="ovf-error" role="alert">
+          {!x.trim() ? 'x 的真值还没填。' : 'y 的真值还没填。'}
+        </p>
+      ) : made.ok ? (
         <>
           <dl class="ovf-formulas">
             <div>

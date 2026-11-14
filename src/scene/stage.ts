@@ -47,6 +47,8 @@ interface Boxed {
 }
 
 const FOV = 20;
+/** 场景里字的最小字高（世界单位）。部件不要用更小的字。 */
+export const MIN_TEXT = 0.31;
 const TAN = Math.tan((FOV * Math.PI) / 360);
 export const HOME_EL = (52 * Math.PI) / 180;
 const LIMIT = { az: 0.42, elUp: 0.2, elDown: 0.16, zoomIn: 2.4, zoomOut: 0.6 };
@@ -257,7 +259,14 @@ export class Stage {
 
   /** 值牌上的字（sizes.value）不小于 14 像素时的比例。镜头缩小的下限。 */
   get legibleScale(): number {
-    return 14 / sizes.value;
+    // 场景里最小的字是 0.31（名牌、说明）：这个比例下它是 12 像素，值牌上的字约 14 像素。
+    // 手机上再留 20%：台面后排离镜头远，透视下字会小一些。
+    return (12 / MIN_TEXT) * (this.width < 600 ? 1.2 : 1);
+  }
+
+  /** 宽屏上为了整张台面入画，可以比下限再小一点（字约 10–12 像素）；手机上不行。 */
+  get wholeSlack(): number {
+    return this.width >= 600 ? 0.9 : 1;
   }
 
   /** 全景最多放大到这个程度。 */
@@ -306,7 +315,7 @@ export class Stage {
       }
     }
     if (points.length === 0) return this.goalPose;
-    const margin = this.width < 520 ? 0.9 : 0.86;
+    const margin = this.width < 520 ? 0.9 : 0.93;
     const tx = TAN * (this.width / this.height) * margin;
     // top：画面上方被题目栏占掉的像素。上半边能用的视角相应变小。
     const tyDown = TAN * margin;
@@ -347,7 +356,7 @@ export class Stage {
       const all = this.sceneBox();
       const across = (this.width * 0.94) / Math.max(1, all.max.x - all.min.x);
       // 差一点（值牌的字约 13.5 像素）也算装得下：左右不裁比字大一点要紧。
-      if (across >= this.legibleScale * 0.96) cap = Math.min(cap, across);
+      if (across >= this.legibleScale * this.wholeSlack) cap = Math.min(cap, across);
     }
     floor = Math.min(floor, cap);
     if (scale > cap) dist = this.distFor(cap);
@@ -383,6 +392,37 @@ export class Stage {
       out = { ...out, target };
     }
     return out;
+  }
+
+  /**
+   * 画面上看得见的字里，最小的字号（CSS 像素）。字号按字高在那个位置投到屏幕上的长度算；
+   * 不在画面里、隐藏、透明、没有字的不算；下标、上标按 0.68 倍另算在内的不计。
+   */
+  minTextPx(): { px: number; text: string } {
+    this.draw();
+    const camera = this.camera;
+    const up = new Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    const a = new Vector3();
+    const b = new Vector3();
+    let min = Infinity;
+    let which = '';
+    for (const text of this.kit.texts) {
+      if (!text.text || text.opacity < 0.5) continue;
+      let shown = true;
+      for (let node: Object3D | null = text.mesh; node; node = node.parent) if (!node.visible) shown = false;
+      if (!shown) continue;
+      text.mesh.getWorldPosition(a);
+      b.copy(a).addScaledVector(up, text.size);
+      a.project(camera);
+      b.project(camera);
+      if (Math.abs(a.x) > 1 || Math.abs(a.y) > 1 || a.z > 1) continue;
+      const px = Math.hypot(((b.x - a.x) / 2) * this.width, ((b.y - a.y) / 2) * this.height);
+      if (px < min) {
+        min = px;
+        which = text.text;
+      }
+    }
+    return { px: Number.isFinite(min) ? Math.round(min * 10) / 10 : 0, text: which };
   }
 
   /** 在这个镜头位置下，这些范围是否都在画面里。 */

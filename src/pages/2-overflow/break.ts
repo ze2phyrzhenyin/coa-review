@@ -134,7 +134,7 @@ export function breakScene(trace: Trace<null, BreakState>, compact = false) {
     const placeholder = ' '.repeat(final.cases[i]?.sum.length ?? N + 1);
     const at = (wide: [number, number], small: [number, number]): [number, number] => (compact ? small : wide);
     // 算式写在这一行位片的上方；和的位片在下面翻出来，丢掉的进位落在它的左边。
-    parts.push({ id: `expr-${i}`, kind: 'label', position: at([-3.0, z - 0.95], [-1.3, z - 0.95]), props: { text: `(${minus(item.x)}) + (${minus(item.y)})`, size: 0.3, mono: true, tone: 'muted' } });
+    parts.push({ id: `expr-${i}`, kind: 'label', position: at([-3.0, z - 0.95], [-1.3, z - 0.95]), props: { text: `(${minus(item.x)}) + (${minus(item.y)})`, size: 0.31, mono: true, tone: 'muted' } });
     parts.push({ id: `sum-${i}`, kind: 'bits', position: at([-3.0, z], [-1.3, z]), props: { bits: placeholder, group: N }, title: `例 ${i + 1} 的和` });
     table[`sum-${i}`] = {
       bits: from(sumPath, (c) => c.state.cases[i]?.sum || placeholder),

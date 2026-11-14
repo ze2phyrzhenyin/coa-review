@@ -3,7 +3,7 @@
  * 画面只取决于传进来的 Pose；转场只是从上一个 Pose 走到下一个 Pose 的过程，任何时候都可以立刻到位。
  */
 import { Vector3 } from 'three';
-import type { Box3 } from 'three';
+import { Box3 } from 'three';
 import { hashPose } from './pose';
 import { Stage } from './stage';
 import type { CamPose, Rect } from './stage';
@@ -204,7 +204,7 @@ export class SceneView {
     // 全景：整张台面装得下、字只比最小字号小一点时，镜头一直停在这里。完整的画面比略大的字要紧。
     const whole = stage.fit(all, false);
     // 差一点点也算装得下（值牌的字约 13 像素以上）：整张图比放大的局部更好读。
-    const wholeFits = stage.scaleOf(whole) >= stage.legibleScale * 0.9 && stage.sees(whole, all, 0);
+    const wholeFits = stage.scaleOf(whole) >= stage.legibleScale * stage.wholeSlack && stage.sees(whole, all, 0);
     const follow = (boxes: Box3[]) => this.follow(boxes);
     let pose = whole;
     if (!wholeFits) {
@@ -219,11 +219,11 @@ export class SceneView {
       // 点选题：全部候选（和这一步的焦点）在字不小于 14 像素时装得下，就一起放进画面。
       const choices = boxesAt(i, this.picks[i] ?? []);
       if (!wholeFits && choices.length > 0) {
+        // 这一步变了的部件优先：候选和它们一起装得下才一起看，否则先看这一步，候选靠「看其余部件」。
         const both = [...main, ...choices];
         const all = follow(both);
-        const only = all.fits ? all : follow(choices);
-        if (only.fits) {
-          if (!stage.sees(pose, all.fits ? both : choices, 0.03)) pose = only.pose;
+        if (all.fits) {
+          if (!stage.sees(pose, both, 0.03)) pose = all.pose;
           this.cams.push(pose);
           continue;
         }
@@ -266,7 +266,9 @@ export class SceneView {
     if (boxes.length === 0 || stage.sees(stage.goal, boxes, 0.03)) return 0;
     // 两头装不下时看最后一个（值落下的地方），不让它落在画面外。
     const both = this.follow(boxes);
-    const last = stage.boxesOf([this.ref(ids[ids.length - 1]!).id], true, parts);
+    // 落点：值牌停靠的位置附近（空着的总线没有范围，也要能看到值落在哪）。
+    const spot = this.dock(ids[ids.length - 1]!);
+    const last = spot ? [new Box3(spot.clone().add(new Vector3(-1.2, -0.6, -0.9)), spot.clone().add(new Vector3(1.2, 0.6, 0.9)))] : [];
     const pose = both.fits || last.length === 0 ? both.pose : stage.sees(stage.goal, last, 0.03) ? null : this.follow(last).pose;
     if (!pose) return 0;
     stage.moveTo(pose, true);
@@ -322,11 +324,14 @@ export class SceneView {
     this.pose = pose;
     this.host.dataset.settled = 'false';
 
+    // 摘要是目标画面的，换步一开始就写上（稳定后 data-settled 才变 true）。
+    this.host.dataset.sceneHash = hashPose(pose);
     const animate = options.animate && !kit.reduced;
-    const cam = this.cam();
-    stage.ensureVisible(cam, stage.boxesOf(this.frames[index] ?? [], true, pose.parts));
-    stage.moveTo(cam, animate);
+    stage.ensureVisible(this.cam(), stage.boxesOf(this.frames[index] ?? [], true, pose.parts));
+    stage.moveTo(this.cam(), animate);
     if (options.frame) this.peek(options.frame, pose.parts);
+    // 临时看别处（弄坏它）时，演完停在那里，不回到这一步本来的镜头。
+    const cam = options.frame ? stage.goal : this.cam();
     this.emitRects();
 
     const moves = options.forward ? options.moves.filter((move) => this.ref(move.from).part && this.ref(move.to).part) : [];
@@ -446,6 +451,10 @@ export class SceneView {
       this.applyAll(this.pose, false);
       const hash = hashPose(this.pose);
       this.host.dataset.sceneHash = hash;
+      // 画面上最小的字号，自动检查用（手机上不应小于 12 像素）。
+      const smallest = this.stage.minTextPx();
+      this.host.dataset.minText = String(smallest.px);
+      this.host.dataset.minTextLabel = smallest.text;
       this.host.dataset.settled = 'true';
       this.emitRects();
       this.onSettle(hash);

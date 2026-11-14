@@ -196,8 +196,9 @@ function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
   /** 去试一试看这一次访问：同一组参数，停在这次访问的第一步之前。 */
   const demo = (r: number) => {
     // 停在这一次访问的第一步之前：找第一个属于第 r+1 次访问的步。
+    // 停在这一次访问的第一步（切地址那一步）上。
     const first = trace.steps.findIndex((step) => step.state.access.n === r + 1);
-    const startOf = Math.max(0, first);
+    const startOf = Math.max(0, first + 1);
     setMap(mappingKey(params.mapping));
     if (params.replacement) setRep(policyKey(params.replacement));
     setSeq(encodeSequence(params.accesses));
@@ -317,6 +318,10 @@ function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
       <p class="cr-verdict is-wrong" role="status">
         第 {result.first + 1} 行起有错：{bad.map((c) => names[c]).join('、')}。
         {bad.includes(1) && g.mapping !== '全相联' ? `${indexTitle}看块号除以${g.mapping === '直接' ? '行数' : '组数'}的余数。` : ''}
+        {bad.includes(0) ? '块号是地址除以每块的字数取整。' : ''}
+        {bad.includes(2) ? '标记是块号除以组数（直接映射时除以行数）的商。' : ''}
+        {bad.includes(3) ? '结果看候选行里有没有标记相同的块。' : ''}
+        {bad.includes(4) ? (g.mapping === '直接' ? '换出看这一行原来装的块；修改过的块换出时要写回。' : `换出看这一组里要腾出的行：${params.replacement === 'LFU' ? 'LFU 换计数器最小的' : 'LRU 换计数器最大的'}；修改过的块换出时要写回。`) : ''}
         <button type="button" class="pl-btn" onClick={() => demo(result.first)}>
           看这次访问的演示
         </button>

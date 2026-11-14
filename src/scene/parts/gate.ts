@@ -41,8 +41,8 @@ export class Gate extends Part<GateProps> {
     pad.receiveShadow = true;
     this.group.add(pad, this.pivot);
 
-    this.chip = new Card(kit, props.name, { kind: 'chip', height: 0.4, size: 0.3, weight: 600, minWidth: 0.5 });
-    this.state = new Card(kit, '', { kind: 'tile', height: 0.4, size: 0.29, minWidth: 0.42 });
+    this.chip = new Card(kit, props.name, { kind: 'chip', height: 0.4, size: 0.31, weight: 600, minWidth: 0.5 });
+    this.state = new Card(kit, '', { kind: 'tile', height: 0.4, size: 0.31, minWidth: 0.42 });
     this.face.add(this.chip.group, this.state.group);
     this.face.position.set((along ? BASE / 2 : REACH) + 0.22, 0.04, along ? 0.12 : BASE / 2 + 0.45);
     this.faceHeight = 0.4;

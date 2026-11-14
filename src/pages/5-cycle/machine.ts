@@ -32,6 +32,8 @@ function rowsOf(trace: Trace<Params, State>): { imem: string[]; dmem: string[] }
   const dmem = new Set(Object.keys(trace.initial.dmem));
   for (const step of trace.steps) for (const key of Object.keys(step.state.dmem)) dmem.add(key);
   const byNumber = (a: string, b: string) => Number(a) - Number(b);
+  // 数存一个单元都没列出时也画出数存（没列出的单元读出 0），连线才有落点。
+  if (dmem.size === 0) dmem.add('0');
   return { imem: imem.sort(byNumber), dmem: [...dmem].sort(byNumber) };
 }
 
@@ -72,13 +74,13 @@ export function machineScene(trace: Trace<Params, State>): SceneSpec {
     bus('ABUS_D', 6.2, -5.5, 3.0, { ink: 'addr', showDriver: false }),
     reg('AR', 6.2, -3.9),
     gate('C3', -5.8, -2.35),
-    bus('DBUS', DBUS_X, DBUS_Z, 21.4),
+    bus('DBUS', DBUS_X, DBUS_Z, 20.6),
     reg('DR', -9.0, 1.3),
     ...GENERAL_REGISTERS.map((r) => reg(r, REG_X[r], REG_Z, 2.0)),
     gate('C2', X.C2!, 0.15),
     reg('ALU', 5.4, 3.0, 2.6),
     gate('C1', 5.4, 0.3),
-    reg('PSWR', 9.0, 3.0, 2.8),
+    reg('PSWR', 8.6, 3.0, 2.6),
   ];
   const wires: WireSpec[] = [
     { id: 'pc-abusi', from: 'PC.n', to: 'ABUS_I.s', ink: 'addr' },
@@ -316,16 +318,23 @@ export function machineValues(path: string, value: string): string {
  * 依据：教材 p150 图 5.1、p156、p178 图 5.30。
  */
 export const MACHINE_NOTES: { label: string; value: string }[] = [
-  { label: '四条总线', value: 'ABUS(I)：PC 送指令地址到指存；IBUS：指存读出的指令送 IR；DBUS：其余的数和地址都走它；ABUS(D)：AR 送数据地址到数存。指存和数存是两个存储器' },
-  { label: '三态门', value: '能往 DBUS 送数的部件各有一道门：C1 管 ALU 的输出，C2 管通用寄存器的输出（不经 ALU），C3 管 IR 的地址码。门关着时输出是高阻，同一时刻最多开一道，数存读出也算一个来源' },
-  { label: '信号名', value: 'LDxx 把总线上的数打入寄存器 xx（脉冲，注节拍）；RD、C1–C3 是电位信号，从 T1 起保持整个 CPU 周期。选哪个通用寄存器由 IR 的寄存器字段决定，教材不给信号名，解析书写 LRi' },
-  { label: '为什么在 T3、T4 打入', value: '电位信号在 T1 打开通路，数要在总线上稳定一段时间才能打入。DR 在 T3 打入，T4 才能再从 DR 打入通用寄存器；AR、PC 和通用寄存器在 T4 打入，是这个 CPU 周期的最后一拍；数存写入 WE(D) 在 T3（图 5.30）' },
+  { label: '四条总线', value: 'ABUS(I)：PC 送指令地址到指存（指令存储器）；IBUS：指存读出的指令送 IR；DBUS：其余的数和地址都走它；ABUS(D)：AR 送数据地址到数存（数据存储器）。指存和数存是两个存储器。DBUS 和通用寄存器之间没有直接的连线：送进 R0–R3 的数先进 DR' },
+  { label: '三态门', value: '能往 DBUS 送数的部件各有一道门：C1 管 ALU 的输出，C2 管通用寄存器的输出（不经 ALU），C3 管 IR 的地址码。门关着时输出端像断开一样（高阻），不影响总线。同一时刻最多开一道，数存读出也算一个来源' },
+  { label: '电位和脉冲', value: '电位信号从 T1 起保持整个 CPU 周期，打开通路：RD(I)、RD(D)（统称 RD）和 C1–C3。脉冲信号只在某一拍出现，把总线上的数打入寄存器：LDxx 打入 xx（LDIR、LDAR、LDDR、LDPC，LDR0–LDR3 打入通用寄存器），表里注上节拍，例如 LDDR(T3)。PC+1 让 PC 加 1，LDPC 把结果打入 PC，取指的 T4 两个都写' },
+  { label: '选哪个寄存器', value: '让哪个通用寄存器送出（送 C2 或送 ALU）由 IR 的寄存器字段直接选，教材不给信号名，表里写「（由 IR 的寄存器字段选中）」；解析书（教材配套的习题解析）把读出写成 LRi、打入写成 SRi。打入 R0 的 LDR0 是另一回事：它是把 DR 的数打入 R0 的脉冲' },
+  { label: 'T2 和 T3、T4', value: '电位信号在 T1 打开通路，数经过总线要一段时间才稳定，所以 T2 不打入任何寄存器，表里 T2 这一格不写（图 5.30）。DR 和数存写入 WE(D) 在 T3；AR、PC 和通用寄存器在 T4，是这个 CPU 周期的最后一拍。DR 在 T3 打入，T4 才能再从 DR 打入通用寄存器' },
+  { label: 'PSWR', value: '程序状态字寄存器，存运算结果的标志：C 进位、V 溢出、Z 结果为 0、N 结果为负' },
   { label: '操作数的先后', value: 'MOV Rx,Ry：Ry→Rx；NOT Rx,Ry：Ry 取反→Rx；ADD Rx,Ry：Rx+Ry→Ry；LAD Rx,A：数存 A→Rx；STO Rx,(Ry)：Rx→数存 (Ry)；JMP A：A→PC' },
+  { label: '数 CPU 周期', value: '数一数这条指令要让 DBUS 送几次数，每次占一个 CPU 周期，另加取指的一个' },
 ];
 
 /** 在 Trace 的条件后面接上页面的说明。不改步骤。 */
-export function withNotes<P, S>(trace: Trace<P, S>): Trace<P, S> {
-  return { ...trace, conditions: [...trace.conditions, ...MACHINE_NOTES] };
+export function withNotes(trace: Trace<Params, State>): Trace<Params, State> {
+  const listing = Object.entries(trace.initial.imem)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([addr, cell]) => `${addr} 号 ${cell.op} ${cell.operands}`)
+    .join('；');
+  return { ...trace, conditions: [...trace.conditions, { label: '指存里的程序', value: listing }, ...MACHINE_NOTES] };
 }
 
 /**

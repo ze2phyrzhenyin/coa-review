@@ -4,7 +4,7 @@ import type { TargetedEvent } from 'preact';
 import { formatValue } from '../../lib/bits';
 import type { OverflowKind } from '../../lib/bits';
 import { Rich } from '../../player/Rich';
-import { checkRow, checkValue, columnName, compact, followThrough, makeProblem, show } from './practice';
+import { checkRow, checkValueFollow, columnName, compact, followThrough, makeProblem, show } from './practice';
 import { modifiedOverflow } from '../../lib/bits';
 import type { RowCheck, RowKind } from './practice';
 
@@ -50,7 +50,7 @@ export function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
     const sumWritten = compact(values.sum ?? '');
     const basis = sumWritten.length === solution.width && /^[01]+$/.test(sumWritten) ? sumWritten : solution.sumBits;
     const verdictOk = verdict === modifiedOverflow(basis);
-    return { rows, verdictOk, value: checkValue(solution, values.value ?? '') };
+    return { rows, verdictOk, value: checkValueFollow(solution, basis, values.value ?? '') };
     // lines 只由 problem 决定。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checked, values, verdict, problem]);

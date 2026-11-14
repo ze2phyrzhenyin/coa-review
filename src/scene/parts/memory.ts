@@ -8,11 +8,11 @@ import { Part, solid } from './base';
 import type { Animate } from './base';
 import { Card } from './card';
 
-const ROW = 0.52;
+const ROW = 0.54;
 const GAP = 0.05;
-const HEAD = 0.42;
+const HEAD = 0.46;
 const PAD = 0.14;
-const CELL = 0.3;
+const CELL = 0.35;
 
 /** 估一段字的宽度（世界单位）：汉字按一个字高，其余按等宽字符。 */
 export function estimateWidth(text: string, size: number): number {
@@ -40,9 +40,9 @@ export class MemoryArray extends Part<MemoryProps> {
     super(kit, id, position);
     const rows = props.rows.length;
     const widths = props.columns.map((column, c) =>
-      Math.max(0.62, column.width ?? Math.max(estimateWidth(column.title, 0.26), ...props.rows.map((row) => estimateWidth(row[c] ?? '', CELL))) + 0.26),
+      Math.max(0.62, column.width ?? Math.max(estimateWidth(column.title, 0.33), ...props.rows.map((row) => estimateWidth(row[c] ?? '', CELL))) + 0.26),
     );
-    const labelWidth = props.labels ? Math.max(...props.labels.map((label) => estimateWidth(label, 0.27))) + 0.16 : 0;
+    const labelWidth = props.labels ? Math.max(...props.labels.map((label) => estimateWidth(label, 0.33))) + 0.16 : 0;
     const gridWidth = widths.reduce((sum, w) => sum + w, 0) + GAP * (widths.length - 1);
     const W = gridWidth + labelWidth + PAD * 2;
     const H = HEAD + rows * (ROW + GAP) + PAD;
@@ -63,7 +63,7 @@ export class MemoryArray extends Part<MemoryProps> {
     this.colX.push(...xs);
     this.colW.push(...widths);
     props.columns.forEach((column, c) => {
-      const head = new TextPlane(kit, column.title, { size: 0.26, tone: column.ink ?? 'muted' });
+      const head = new TextPlane(kit, column.title, { size: 0.33, tone: column.ink ?? 'muted' });
       head.place(xs[c]!, H - HEAD / 2 - 0.02);
       this.texts.push(head);
       this.face.add(head.mesh);
@@ -72,7 +72,7 @@ export class MemoryArray extends Part<MemoryProps> {
       const y = H - HEAD - (r + 0.5) * (ROW + GAP);
       this.rowY.push(y);
       if (props.labels?.[r] !== undefined) {
-        const label = new TextPlane(kit, props.labels[r]!, { size: 0.27, tone: 'muted', mono: true, align: 'right' });
+        const label = new TextPlane(kit, props.labels[r]!, { size: 0.33, tone: 'muted', mono: true, align: 'right' });
         label.place(left - 0.1, y);
         this.texts.push(label);
         this.face.add(label.mesh);

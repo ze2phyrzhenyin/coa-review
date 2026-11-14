@@ -53,7 +53,7 @@ export class BitRow extends Part<BitsProps> {
       this.face.add(tile.group);
     }
     this.carryY = sizes.tileHeight + 0.06 + 0.17;
-    this.carry = new Card(kit, '1', { kind: 'accent', width: 0.34, height: 0.34, size: 0.22, mono: true, weight: 600 });
+    this.carry = new Card(kit, '1', { kind: 'accent', width: 0.42, height: 0.42, size: 0.31, mono: true, weight: 600 });
     this.carry.group.visible = false;
     this.face.add(this.carry.group);
     this.chip = props.name ? new Card(kit, props.name, { kind: 'chip', height: sizes.chipHeight, size: sizes.name, weight: 600, minWidth: 0.62 }) : null;

@@ -4,7 +4,7 @@
  */
 import { solve } from '../../engines/overflow/model';
 import type { Operation, OverflowParams, OverflowSolution } from '../../engines/overflow/model';
-import { BitsError, codeRange, formatBits, formatValue, parseValue } from '../../lib/bits';
+import { BitsError, codeRange, decodeModified, formatBits, formatValue, modifiedOverflow, parseValue } from '../../lib/bits';
 import type { Notation, OverflowKind } from '../../lib/bits';
 
 /** mulberry32：同一个种子出同一道题。 */
@@ -144,4 +144,26 @@ export function followThrough(problem: Problem, written: Record<string, string>)
     return { negY: solution.negYBits, sum: solution.sumBits, basedOnStudent: false };
   }
   return { negY, sum, basedOnStudent: based };
+}
+
+/**
+ * 真值一栏也按学生自己写的和来判（和判定一栏一致）：按他的和有溢出就不该填，没有溢出就按他的和读出真值。
+ * 读法用位串库的 decodeModified、modifiedOverflow，不另算。
+ */
+export function checkValueFollow(solution: OverflowSolution, basis: string, written: string): RowCheck {
+  if (basis === solution.sumBits) return checkValue(solution, written);
+  const text = written.trim();
+  if (modifiedOverflow(basis) !== '无溢出') {
+    return text === '' ? { ok: true, wrongAt: -1, message: '按你写的和有溢出，不填真值，对' } : { ok: false, wrongAt: -1, message: '按你写的和，两个符号位不同，有溢出，不用填真值。' };
+  }
+  if (text === '') return { ok: false, wrongAt: -1, message: '没填' };
+  try {
+    const units = parseValue(text, solution.n, solution.notation);
+    return units === decodeModified(basis)
+      ? { ok: true, wrongAt: -1, message: '按你写的和，真值读对了' }
+      : { ok: false, wrongAt: -1, message: '按你写的和读出的真值不对。符号位 11 时，数值位要取反加 1 才是绝对值。' };
+  } catch (error) {
+    if (error instanceof BitsError) return { ok: false, wrongAt: -1, message: error.message };
+    throw error;
+  }
 }

@@ -11,6 +11,7 @@ import { cacheStage, cacheWrong, polish, withRowAsks } from './scene';
 import {
   encodeSequence,
   exampleParams,
+  setExampleParams,
   trySequence,
   makeParams,
   mappingKey,
@@ -43,9 +44,41 @@ function useRun(params: Params) {
   }, [key, narrow]);
 }
 
+const examples = [
+  { key: 'direct', label: '直接映射', params: exampleParams },
+  { key: 'set', label: '2 路组相联 LRU', params: setExampleParams },
+] as const;
+
+/** 讲解：两道例题，直接映射和 2 路组相联（LRU）。所选例题在网址参数 ex。 */
 function Walkthrough() {
-  const { trace, stage, wrong } = useRun(exampleParams);
-  return <Player trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} onWrong={wrong} />;
+  const [ex, setEx] = useParam('ex', 'direct', (raw) => (examples.some((item) => item.key === raw) ? raw : 'direct'));
+  const [, setStep] = useParam('s', '0');
+  const example = examples.find((item) => item.key === ex) ?? examples[0];
+  const { trace, stage, wrong } = useRun(example.params);
+  return (
+    <>
+      <div class="cr-controls">
+      <div class="cr-choice" role="group" aria-label="例题">
+        {examples.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            class={`pl-btn${item.key === example.key ? ' is-on' : ''}`}
+            aria-pressed={item.key === example.key}
+            onClick={() => {
+              if (item.key === example.key) return;
+              setStep('0');
+              setEx(item.key);
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      </div>
+      <Player key={example.key} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} onWrong={wrong} />
+    </>
+  );
 }
 
 const defaultSeq = encodeSequence(trySequence);
