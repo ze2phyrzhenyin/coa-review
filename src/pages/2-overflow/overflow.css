@@ -1,18 +1,12 @@
 /* 2-overflow 页面自己的控件：标签页、例题、试一试的参数、答题纸。颜色沿用外壳的 --ink、--paper、--line、--mark。 */
 .ovf {
-  --ovf-muted: color-mix(in srgb, var(--ink) 62%, var(--paper));
-  --ovf-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
-  --ovf-ok: #2f7a4b;
+  --ovf-muted: var(--c-muted);
+  --ovf-mono: var(--font-mono);
+  --ovf-ok: var(--c-ok);
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
-@media (prefers-color-scheme: dark) {
-  .ovf {
-    --ovf-ok: #7cc79a;
-  }
-}
-
 .ovf-tabs {
   display: flex;
   gap: 0.25rem;
@@ -134,9 +128,9 @@
 .ovf-error {
   margin: 0;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--mark);
+  border: 1px solid var(--c-bad);
   border-radius: 8px;
-  color: var(--mark);
+  color: var(--c-bad);
 }
 
 /* 练习：答题纸 */
@@ -186,7 +180,7 @@
   border-color: var(--ovf-ok);
 }
 .ovf-bits.is-bad {
-  border-color: var(--mark);
+  border-color: var(--c-bad);
 }
 .ovf-cells {
   display: flex;
@@ -199,8 +193,8 @@
   border-bottom: 2px solid transparent;
 }
 .ovf-cells span.is-bad {
-  color: var(--mark);
-  border-bottom-color: var(--mark);
+  color: var(--c-bad);
+  border-bottom-color: var(--c-bad);
 }
 .ovf-note,
 .ovf-key,
@@ -213,7 +207,7 @@
   color: var(--ovf-ok);
 }
 .ovf-note.is-bad {
-  color: var(--mark);
+  color: var(--c-bad);
 }
 .ovf-key {
   font-family: var(--ovf-mono);

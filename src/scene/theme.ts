@@ -34,6 +34,9 @@ export interface Palette {
   accent: string;
   /** 值牌上表示变化的字（值牌在两种模式下都是浅色）。 */
   accentOnTile: string;
+  /** 正确、错误：答对的确认、答错的回弹用它们，不用「变化」的强调色表示错（docs/DESIGN.md）。 */
+  ok: string;
+  bad: string;
   /** 阴影的浓度，0–1。 */
   shadow: number;
 }
@@ -55,6 +58,8 @@ export const palettes: Record<Scheme, Palette> = {
     ctrl: '#7a5195',
     accent: '#d4472a',
     accentOnTile: '#c53d21',
+    ok: '#3b7a1c',
+    bad: '#b0184d',
     shadow: 0.2,
   },
   dark: {
@@ -73,6 +78,8 @@ export const palettes: Record<Scheme, Palette> = {
     ctrl: '#b998d4',
     accent: '#f0795c',
     accentOnTile: '#c53d21',
+    ok: '#9acb6b',
+    bad: '#f27a9e',
     shadow: 0.42,
   },
 };
@@ -81,10 +88,10 @@ export const inkNames: Record<Ink, string> = { data: '数据', addr: '地址', c
 export const accentName = '变化';
 
 /** 系统字体，不下载。位串用等宽，中文落到黑体。 */
-const sans = "'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC',system-ui,sans-serif";
+// 与 src/styles/tokens.css 的 --font-sans、--font-mono 是同一串。
 export const fonts = {
-  sans,
-  mono: `ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',${sans}`,
+  sans: "'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','Source Han Sans SC','Microsoft YaHei',sans-serif",
+  mono: "ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono','PingFang SC','Microsoft YaHei',monospace",
 };
 
 /** 时长（毫秒）。对应动效标准第 3、5 条。 */

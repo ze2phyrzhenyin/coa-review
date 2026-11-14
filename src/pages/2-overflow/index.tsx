@@ -95,6 +95,7 @@ function Learn() {
           flipPart={made.flipPart}
           onWrong={made.wrong}
           askFrame={made.askFrame}
+          frame={made.frame}
           question={OVERFLOW_QUESTION}
           conclusion={OVERFLOW_CONCLUSION}
           needs={OVERFLOW_NEEDS}

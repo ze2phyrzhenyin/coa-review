@@ -552,20 +552,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
             </button>
           </div>
 
-          {mistakes && mistakes.length > 0 ? (
-            <details class="pl-mistakes">
-              <summary>常见错误</summary>
-              <ul>
-                {mistakes.map((mistake) => (
-                  <li key={mistake.text}>
-                    <button type="button" class="pl-mistake" onClick={() => actMistake(mistake)}>
-                      <Rich text={mistake.text} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
+
         </div>
 
         <section class="pl-step" aria-label="这一步">
@@ -618,6 +605,20 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
               <span class="pl-badge">结论</span>
               <Rich text={conclusion} />
             </p>
+          ) : null}
+          {mistakes && mistakes.length > 0 ? (
+            <details class="pl-mistakes">
+              <summary>常见错误</summary>
+              <ul>
+                {mistakes.map((mistake) => (
+                  <li key={mistake.text}>
+                    <button type="button" class="pl-mistake" onClick={() => actMistake(mistake)}>
+                      <Rich text={mistake.text} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
           ) : null}
         </section>
       </div>

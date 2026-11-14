@@ -1,7 +1,7 @@
 /* 播放器。颜色沿用外壳的 --ink、--paper、--line；场景的墨色由 Player 从 src/scene/theme.ts 写到 --pl-*。 */
 .pl {
-  --pl-muted: color-mix(in srgb, var(--ink) 62%, var(--paper));
-  --pl-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --pl-muted: var(--c-muted);
+  --pl-mono: var(--font-mono);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -9,9 +9,10 @@
 }
 /* 根元素只是接键盘，不是按钮：焦点框用细线，不抢画面。 */
 .pl:focus-visible {
-  outline: 1px solid var(--line);
-  outline-offset: 8px;
-  border-radius: 6px;
+  outline: none;
+}
+.pl:focus-visible .pl-stage {
+  border-color: var(--c-ink);
 }
 
 .pl-given {
@@ -49,8 +50,8 @@
   overflow: hidden;
   height: clamp(380px, 62vh, 560px);
   background: var(--pl-paper);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  border: var(--bw) solid var(--c-border);
+  border-radius: var(--r-lg);
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
@@ -88,8 +89,8 @@
   display: grid;
   gap: 0.5rem;
   padding: 0.625rem 0.75rem;
-  background: var(--paper);
-  border: 1px solid var(--line);
+  background: var(--c-page);
+  border: var(--bw) solid var(--c-border);
   border-radius: 10px;
   cursor: auto;
   user-select: text;
@@ -100,7 +101,7 @@
 }
 .pl-ask.is-anchored {
   position: absolute;
-  box-shadow: 0 1px 0 var(--line);
+  box-shadow: 0 1px 0 var(--c-line);
 }
 .pl-prompt,
 .pl-hint,
@@ -112,10 +113,10 @@
 }
 .pl-note {
   color: var(--pl-muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
 }
 .pl-hint {
-  color: var(--pl-accent);
+  color: var(--c-change-text);
 }
 .pl-actions {
   display: flex;
@@ -132,11 +133,11 @@
   min-width: 0;
   min-height: 44px;
   padding: 0 0.75rem;
-  font: 1rem/1.2 var(--pl-mono);
-  color: var(--ink);
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  font: var(--fs-md) / 1.2 var(--pl-mono);
+  color: var(--c-ink);
+  background: var(--c-raised);
+  border: var(--bw) solid var(--c-border);
+  border-radius: var(--r-md);
 }
 
 /* 舞台上方的一行读数：CPU 周期、节拍、有效的信号 */
@@ -144,7 +145,7 @@
   margin: 0 0 0.375rem;
   min-height: 1.5em;
   font: 0.875rem/1.5 var(--pl-mono);
-  color: var(--ink);
+  color: var(--c-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -182,17 +183,17 @@
   min-height: 44px;
   padding: 0 1rem;
   font: inherit;
-  color: var(--ink);
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  color: var(--c-ink);
+  background: var(--c-page);
+  border: var(--bw) solid var(--c-border);
+  border-radius: var(--r-md);
   cursor: pointer;
   touch-action: manipulation;
 }
 .pl-btn.is-primary {
   color: var(--paper);
   background: var(--ink);
-  border-color: var(--ink);
+  border-color: var(--c-ink);
 }
 .pl-btn.is-quiet {
   border-color: transparent;
@@ -222,7 +223,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   color: var(--pl-muted);
 }
 .pl-legend li {
@@ -265,12 +266,12 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   color: var(--pl-muted);
 }
 .pl-level {
   padding: 0 0.4rem;
-  border: 1px solid var(--line);
+  border: var(--bw) solid var(--c-border);
   border-radius: 4px;
 }
 .pl .pl-title {
@@ -280,13 +281,13 @@
 }
 .pl-step h3 {
   margin-top: 0.875rem;
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--pl-muted);
 }
 .pl-ref {
   margin-left: 0.5rem;
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   color: var(--pl-muted);
 }
 .pl-changes {
@@ -300,7 +301,7 @@
   align-items: baseline;
   gap: 0 0.5rem;
   padding: 0.3rem 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: var(--bw) solid var(--c-line);
 }
 .pl-at {
   flex: 1 1 5rem;
@@ -314,7 +315,7 @@
   color: var(--pl-muted);
 }
 .pl-new {
-  color: var(--pl-accent);
+  color: var(--c-change-text);
   font-weight: 600;
 }
 .pl-to::before {
@@ -337,7 +338,7 @@
   margin-top: 0.75rem;
 }
 .pl .pl-sheet h2 {
-  font-size: 1rem;
+  font-size: var(--fs-md);
 }
 .pl-sheet-scroll {
   overflow-x: auto;
@@ -353,12 +354,12 @@
   height: 44px;
   padding: 0 0.75rem 0 0;
   text-align: left;
-  border-bottom: 1px solid var(--line);
+  border-bottom: var(--bw) solid var(--c-line);
   white-space: nowrap;
 }
 .pl-sheet th {
   font-weight: 600;
-  border-bottom-color: var(--ink);
+  border-bottom-color: var(--c-ink);
 }
 .pl-sheet td:first-child,
 .pl-sheet th:first-child {
@@ -418,17 +419,17 @@
   min-height: 56px;
   padding: 0.4rem 0.6rem;
   font: inherit;
-  color: var(--ink);
+  color: var(--c-ink);
   text-align: left;
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  background: var(--c-page);
+  border: var(--bw) solid var(--c-border);
+  border-radius: var(--r-md);
 }
 button.pl-part {
   cursor: pointer;
 }
 .pl-part.is-focus {
-  border-color: var(--ink);
+  border-color: var(--c-ink);
 }
 .pl-part.is-changed .pl-part-value,
 .pl-part td.is-changed {
@@ -436,7 +437,7 @@ button.pl-part {
   font-weight: 600;
 }
 .pl-part-name {
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 .pl-part-value {
@@ -453,7 +454,7 @@ button.pl-part {
 .pl-part th,
 .pl-part td {
   padding: 0.2rem 0.6rem;
-  border: 1px solid var(--line);
+  border: var(--bw) solid var(--c-border);
 }
 .pl-part tr.is-current th {
   background: var(--ink);
@@ -498,7 +499,7 @@ button.pl-part {
     order: 1;
     height: min(48dvh, 420px);
     min-height: 300px;
-    margin-inline: -1rem;
+    margin-inline: calc(-1 * var(--gutter));
     border-radius: 0;
     border-inline: 0;
   }
@@ -522,12 +523,12 @@ button.pl-part {
     order: 5;
     margin-top: 0.75rem;
   }
-  .pl-legend {
+  .pl-foot {
     order: 6;
     margin-top: 0.75rem;
   }
   .pl-given {
-    font-size: 0.875rem;
+    font-size: var(--fs-sm);
   }
 }
 
@@ -540,7 +541,7 @@ button.pl-part {
 }
 .pl-choice-label {
   margin-right: 0.25rem;
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   color: var(--pl-muted);
 }
 .pl-chip {
@@ -549,17 +550,17 @@ button.pl-part {
   padding: 0 0.625rem;
   font: inherit;
   font-size: 0.9375rem;
-  color: var(--ink);
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  color: var(--c-ink);
+  background: var(--c-page);
+  border: var(--bw) solid var(--c-border);
+  border-radius: var(--r-md);
   cursor: pointer;
   touch-action: manipulation;
 }
 .pl-chip.is-on {
   color: var(--paper);
   background: var(--ink);
-  border-color: var(--ink);
+  border-color: var(--c-ink);
 }
 .pl-chip:focus-visible {
   outline: 2px solid var(--ink);
@@ -574,11 +575,11 @@ button.pl-part {
   min-height: 44px;
   padding: 0 0.5rem;
   font: inherit;
-  font-size: 1rem;
-  color: var(--ink);
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  font-size: var(--fs-md);
+  color: var(--c-ink);
+  background: var(--c-page);
+  border: var(--bw) solid var(--c-border);
+  border-radius: var(--r-md);
 }
 @media (max-width: 900px) {
   .pl-controls {
@@ -622,14 +623,14 @@ button.pl-part {
 /* 需要先会、常见错误、本站约定、结论、音效开关 */
 .pl-needs {
   margin: 0 0 0.5rem;
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   color: var(--pl-muted);
 }
 .pl-needs a {
   display: inline-block;
   min-height: 44px;
   line-height: 44px;
-  color: var(--ink);
+  color: var(--c-ink);
 }
 .pl-foot {
   display: flex;
@@ -642,20 +643,20 @@ button.pl-part {
   min-height: 44px;
   padding: 0 0.75rem;
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: var(--fs-xs);
   color: var(--pl-muted);
   background: none;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: var(--bw) solid var(--c-border);
+  border-radius: var(--r-md);
   cursor: pointer;
 }
 .pl-sound[aria-pressed='true'] {
-  color: var(--ink);
-  border-color: var(--ink);
+  color: var(--c-ink);
+  border-color: var(--c-ink);
 }
 .pl-mistakes {
   margin-top: 0.75rem;
-  border-top: 1px solid var(--line);
+  border-top: var(--bw) solid var(--c-line);
 }
 .pl-mistakes summary {
   min-height: 44px;
@@ -676,10 +677,10 @@ button.pl-part {
   padding: 0.5rem 0;
   font: inherit;
   text-align: left;
-  color: var(--ink);
+  color: var(--c-ink);
   background: none;
   border: 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: var(--bw) solid var(--c-line);
   cursor: pointer;
 }
 .pl-mistake:hover {
@@ -695,7 +696,7 @@ button.pl-part {
   border-radius: 4px;
 }
 .pl-convention {
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   color: var(--pl-muted);
 }
 .pl-conclusion {

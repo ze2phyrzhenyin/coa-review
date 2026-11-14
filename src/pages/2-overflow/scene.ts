@@ -32,6 +32,8 @@ export interface OverflowScene {
   askFrame: (ask: { kind: string }, index: number) => string[];
   /** 常见错误，点开时在场景里演。 */
   mistakes: Mistake<OverflowState>[];
+  /** 和写完的那一步镜头停在和这一行上（和送到刻度盘时镜头跟过去再回来）。 */
+  frame: (step: Step<OverflowState>) => string[] | null;
 }
 
 /** 第 0 步的问题、最后的结论、需要先会。 */
@@ -351,5 +353,10 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
       }),
     });
   }
-  return { scene, bind, moves, names, values, flipPart, wrong, askFrame, mistakes };
+  const frame = (step: Step<OverflowState>): string[] | null => {
+    const written = step.changes.some((change) => change.at.startsWith('rows.sum.cells.') && change.from === '');
+    if (!written || sumDone(step.state.rows.sum) === null) return null;
+    return Array.from({ length: W }, (_, c) => `sum-${c + 1}`);
+  };
+  return { scene, bind, moves, names, values, flipPart, wrong, askFrame, mistakes, frame };
 }
