@@ -154,8 +154,8 @@
       "id": "3-cache-run",
       "title": "主存块落到哪一行，为什么被换出",
       "batch": "sample",
-      "passes": false,
-      "evidence": ""
+      "passes": true,
+      "evidence": "evals/look/3-cache-run/report-r4.md"
     },
     {
       "id": "3-cache-perf",

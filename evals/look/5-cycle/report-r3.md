@@ -46,3 +46,25 @@
 
 ## 没查到的
 解析书写法下的练习判分；平面模式；真机帧率、触控、软键盘；动效 10 条这一轮没有逐条重做（只看了 ADD 7→8、s=3、s=9 的转场）。
+
+## 第 4 轮回归（2026-11-14，只看手机）
+
+预览 127.0.0.1:4840（HEAD ac13d8a，`VITE_SHOW_PLANNED=1` 构建），`launch()`（Metal），390×844。脚本在 `.local/qa/r4/`。LAD（15 个画面）、ADD（14 个）逐步走完；MOV、NOT 看第 8、12、13 步；s=3 答错取 6 帧；ADD 7→8、MOV 7→8、ADD 11→12 取 0/25/50/75/100% 五帧。
+
+### 第 3 轮三个中等问题
+- **s=3 点 DBUS 答错看不到后果 —— 已修。** 镜头移到 DBUS，「LAD R0,9」落到 DBUS 上再淡出，约 1.3 s 后退回指存、PC、IR；提示「看指存的数据端接在哪条总线上，它和数存是分开的」；答错后 hash 回到出题时，点 IBUS 前进，回退 hash 相同（r4-m-s3-dbus-wrong-seq.png）。减少动态效果时也有后果（第 3 轮 L5 已修）：reduce 下 `?s=3` 点 DBUS、`?s=9` 点 R0，0–800 ms 舞台有变化，1.3 s 后复原。
+- **ADD、MOV、NOT 第 8 步看不到送出的寄存器 —— 已修（停下的画面）。** ADD s=8 画面里有 R0 5、R1 25；MOV s=8 有 R1、R2；NOT s=8 有 R0（三处 `button[data-pick]` 的 is-off 都不含送出的寄存器）。转场 7→8 还是先到 ALU，25 从左缘外飞进来，最后镜头才回到寄存器，出发点在动的时候看不到（r4-motion-m-add7-mov7-add11.png 前两行）。
+- **ADD s=11 PSWR 不在画面 —— 未修。** 「DBUS → DR，进位 → PSWR」画面里有 DR 30、R0，PSWR 在画面外（sweep 标出「变了不在画面[PSWR]」，r4-m-sheet-add.png 的 ym-add-11）。
+
+### 回归
+- **M1 中（新，回归）：手机上 ADD、MOV、NOT 第 12 步「DR → R1 / R2」DR 和接收的寄存器都不在画面。** 390×844 `/5-cycle?ins=ADD&s=12`：镜头停在指令译码器、操作控制器（「C1 LDR1」）、时序「执行 T4」，DR、R1 都在画面外（is-off 含 DR、R1）；`?ins=MOV&s=12`（R2）、`?ins=NOT&s=12`（R1）同样。第 3 轮同一步 R1 = 30 在画面里（r3-m-sheet-add.png 的 add-12），这一轮 11→12 的转场镜头从 DR 移到控制器就停下（r4-motion-m-add7-mov7-add11.png 第 3 行、r4-m-sheet-add.png 的 ym-add-12）。LAD 的同类步 s=13「DR → R0」正常，R0 48 在画面。疑为这一轮 `src/scene/view.ts` 镜头改动带出来的。
+- 浏览器返回会改掉上一页的参数（全站 `src/app/url-state.ts`，不是这一轮引入的）：`/5-cycle?ins=prog&s=50` 点到 3-cache-run 再返回 → `s=31`。详见 evals/look/3-cache-run/report-r4.md 的 M1。
+
+### 其余（没有回退）
+- LAD 全程：每一步变了的部件都在画面，最小字号 13.4 px；s=3、s=8、s=9 的题候选不在画面时有「看其余部件」（约定允许）。ADD 全程最小字号 14 px，除上面两步外变了的部件都在画面（r4-m-sheet-lad.png、r4-m-sheet-add.png）。
+- ?ins=ADD：→/空格交替 12 步、← 退 6 步 hash 全同（手机、桌面）；刷新、新上下文 hash 相同；连按 8 次停在第 8 步；Home 回 0；reduce 下每步 44–50 ms 稳定，hash 与正常模式相同，没有 CSS 动画。
+- 360×740：/5-cycle、?ins=ADD&s=11、试一试、练习 scrollWidth=360，没有小于 44 px 的可点元素，输入框和下拉 16 px；qa-pages ok；gate --build ok（evals/look/gate-build-r4.txt）。
+- 练习手机上 LAD 全对 →「全对。」；故意做错那几项这一轮没跑完（脚本点「判分」超时，机器内存紧），没复查。
+
+### 结论
+第 1–7 条没有一条被打破：M1 和 ADD s=11 PSWR 是镜头问题，验收条件不管镜头。`passes` 保持 true。M1 是新回归，和第 3 轮 M1 同一类（手机上本步部件不在画面），建议下一轮先修。
