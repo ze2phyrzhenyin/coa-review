@@ -82,14 +82,15 @@ export function makeValueCard(kit: Kit, value: string, ink: Ink): { group: Group
  * 让一个值沿路走一趟。走完调用 arrive，然后自己消失（落点的部件接着显示这个值）。
  * 返回用时。
  */
-export function sendValue(kit: Kit, root: Object3D, value: string, ink: Ink, path: Path, delay: number, arrive: () => void): number {
+export function sendValue(kit: Kit, root: Object3D, value: string, ink: Ink, path: Path, delay: number, arrive: () => void, shape: 'card' | 'pulse' | 'level' = 'card'): number {
   const duration = travelTime(path.length);
-  const { group, card } = makeValueCard(kit, value, ink);
+  const { group, card, facing } = shape === 'card' ? { ...makeValueCard(kit, value, ink), facing: null } : makeSignalShape(kit, value, ink, shape);
   group.visible = false;
   group.renderOrder = 5;
   path.at(0, group.position);
   root.add(group);
-  kit.facing.add(group);
+  if (facing) kit.facing.add(facing);
+  else kit.facing.add(group);
   kit.motion.add({
     delay,
     duration,
@@ -99,13 +100,31 @@ export function sendValue(kit: Kit, root: Object3D, value: string, ink: Ink, pat
       path.at(t, group.position);
     },
     done: () => {
-      kit.facing.delete(group);
+      kit.facing.delete(facing ?? group);
       group.removeFromParent();
       card.dispose();
       arrive();
     },
   });
   return duration;
+}
+
+/**
+ * 控制信号的样子：脉冲是一根窄而高的尖块，电位是一段扁平的长条。旁边一张小牌写信号名。
+ * 两种形状不靠颜色区分，读屏和色弱也分得清。
+ */
+export function makeSignalShape(kit: Kit, name: string, ink: Ink, shape: 'pulse' | 'level'): { group: Group; card: Card; facing: Group } {
+  const group = new Group();
+  const body = shape === 'pulse' ? box(kit.mats[ink], 0.13, 0.62, 0.13) : box(kit.mats[ink], 0.9, 0.12, 0.2);
+  body.position.y = shape === 'pulse' ? 0.0 : -0.25;
+  body.castShadow = true;
+  group.add(body);
+  const facing = new Group();
+  const card = new Card(kit, name, { kind: 'chip', height: 0.4, size: sizes.name, weight: 600, minWidth: 0.5 });
+  card.group.position.set(card.width / 2 + (shape === 'pulse' ? 0.16 : 0.52), 0.05, 0);
+  facing.add(card.group);
+  group.add(facing);
+  return { group, card, facing };
 }
 
 /**

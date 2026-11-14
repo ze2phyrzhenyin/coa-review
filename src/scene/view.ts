@@ -19,6 +19,17 @@ import { Label } from './parts/label';
 import { MemoryArray } from './parts/memory';
 import { Register } from './parts/register';
 import { Sheet } from './parts/sheet';
+import { Balance } from './parts/balance';
+import { CardStack } from './parts/stack';
+import { Chip } from './parts/chip';
+import { Compare } from './parts/compare';
+import { Conveyor } from './parts/conveyor';
+import { Decoder } from './parts/decoder';
+import { Dial } from './parts/dial';
+import { Grid } from './parts/grid';
+import { Signal } from './parts/signal';
+import { Track } from './parts/track';
+import { localPart } from './define';
 import { Path, Token, flightPath, sendValue } from './parts/token';
 import { Wire, route } from './parts/wire';
 import type { Kit } from './kit';
@@ -44,6 +55,31 @@ function create(kit: Kit, spec: PartSpec, props: Patch): AnyPart {
       return new Sheet(kit, spec.id, spec.position, merged as typeof spec.props);
     case 'label':
       return new Label(kit, spec.id, spec.position, merged as typeof spec.props);
+    case 'chip':
+      return new Chip(kit, spec.id, spec.position, merged as typeof spec.props);
+    case 'decoder':
+      return new Decoder(kit, spec.id, spec.position, merged as typeof spec.props);
+    case 'grid':
+      return new Grid(kit, spec.id, spec.position, merged as typeof spec.props);
+    case 'track':
+      return new Track(kit, spec.id, spec.position, merged as typeof spec.props);
+    case 'signal':
+      return new Signal(kit, spec.id, spec.position, merged as typeof spec.props);
+    case 'dial':
+      return new Dial(kit, spec.id, spec.position, merged as typeof spec.props);
+    case 'balance':
+      return new Balance(kit, spec.id, spec.position, merged as typeof spec.props);
+    case 'conveyor':
+      return new Conveyor(kit, spec.id, spec.position, merged as typeof spec.props);
+    case 'stack':
+      return new CardStack(kit, spec.id, spec.position, merged as typeof spec.props);
+    case 'compare':
+      return new Compare(kit, spec.id, spec.position, merged as typeof spec.props);
+    default: {
+      const factory = localPart(spec.kind);
+      if (!factory) throw new Error(`没有登记的部件种类 ${spec.kind}：在 SceneSpec.kinds 加载的模块里用 definePart 登记`);
+      return factory(kit, spec.id, spec.position, merged as typeof spec.props);
+    }
   }
 }
 
@@ -65,7 +101,6 @@ export class SceneView {
   onRects: (rects: Record<string, Rect>) => void = () => {};
 
   private readonly parts = new Map<string, AnyPart>();
-  private readonly kinds = new Map<string, PartSpec['kind']>();
   private readonly delays = new Map<string, number>();
   private readonly wires = new Map<string, Wire>();
   private frames: string[][] = [[]];
@@ -95,7 +130,6 @@ export class SceneView {
     for (const partSpec of spec.parts) {
       const part = create(kit, partSpec, initial.parts[partSpec.id] ?? {});
       this.parts.set(partSpec.id, part);
-      this.kinds.set(partSpec.id, partSpec.kind);
       if (partSpec.delay) this.delays.set(partSpec.id, partSpec.delay);
       this.stage.root.add(part.group);
       this.stage.register(partSpec.id, part, !!partSpec.pick);
@@ -107,7 +141,12 @@ export class SceneView {
       const via = (wire.via ?? []).map(([x, z]) => new Vector3(x, 0, z));
       let from;
       let to;
-      if (via.length > 0) {
+      if (a.pin || b.pin) {
+        // 接在具名引脚上：引脚的位置是定的，另一头朝它出线。
+        from = a.pin ?? a.part.port(a.side, via[0] ?? b.pin!.point);
+        to = b.pin ?? b.part.port(b.side, via[via.length - 1] ?? from.point);
+        if (!a.pin) from = a.part.port(a.side, via[0] ?? to.point);
+      } else if (via.length > 0) {
         // 有拐点时，两端各自朝最近的拐点出线。
         from = a.part.port(a.side, via[0]!);
         to = b.part.port(b.side, via[via.length - 1]!);
@@ -127,6 +166,10 @@ export class SceneView {
         part.pathBetween = (from, to, via) => this.pathFor(from, to, via);
         part.settle();
       }
+      if (part instanceof Signal) {
+        part.resolve = (props) => this.signalRoute(props.from, props.to, props.via ?? [], props.offset ?? 0);
+        part.connect();
+      }
     }
     this.stage.layout();
     this.stage.onResize = () => this.replan(true);
@@ -135,9 +178,32 @@ export class SceneView {
     this.settleSoon();
   }
 
-  private end(text: string): { part: AnyPart | undefined; side: Side | null } {
-    const [id, side] = text.split('.');
-    return { part: this.parts.get(id ?? ''), side: side === 'n' || side === 's' || side === 'e' || side === 'w' ? side : null };
+  private end(text: string): { part: AnyPart | undefined; side: Side | null; pin: { point: Vector3; side: Side } | null } {
+    const dot = text.indexOf('.');
+    const id = dot < 0 ? text : text.slice(0, dot);
+    const rest = dot < 0 ? '' : text.slice(dot + 1);
+    const part = this.parts.get(id);
+    const side = rest === 'n' || rest === 's' || rest === 'e' || rest === 'w' ? rest : null;
+    const pin = part && rest !== '' && side === null ? part.pin(rest) : null;
+    return { part, side, pin };
+  }
+
+  /** 信号线的路线：和连线一样按两端的边、引脚、拐点算；offset 让几根平行线错开。 */
+  private signalRoute(fromText: string, toText: string, via2: readonly (readonly [number, number])[], offset: number): Vector3[] {
+    const a = this.end(fromText);
+    const b = this.end(toText);
+    if (!a.part || !b.part) return [];
+    const via = via2.map(([x, z]) => new Vector3(x, 0, z));
+    let from = a.pin ?? a.part.port(a.side, via[0] ?? b.pin?.point ?? b.part.center);
+    const to = b.pin ?? b.part.port(b.side, via[via.length - 1] ?? from.point);
+    if (!a.pin) from = a.part.port(from.side, via[0] ?? to.point);
+    const shift = (end: { point: Vector3; side: Side }) => {
+      const point = end.point.clone();
+      if (end.side === 'n' || end.side === 's') point.x += offset;
+      else point.z += offset;
+      return { point, side: end.side };
+    };
+    return route(shift(from), shift(to), via);
   }
 
   /** 'mem.3.1' → 部件 mem 和格子 (3, 1)；普通 id 没有格子。 */
@@ -151,7 +217,7 @@ export class SceneView {
     const { part, cell } = this.ref(at);
     if (!part) return null;
     const toward = new Vector3(0, 0, 0.07).applyQuaternion(this.stage.camera.quaternion);
-    const spot = cell && part instanceof MemoryArray ? part.cellAnchor(cell[0], cell[1]) : null;
+    const spot = cell ? part.cellAnchor(cell[0], cell[1]) : null;
     return (spot ?? part.anchor()).add(toward);
   }
 
@@ -407,6 +473,7 @@ export class SceneView {
     const { kit, motion } = stage;
     // 输入优先：上一段动画立刻到位，再开始这一段。
     motion.finishAll();
+    for (const part of this.parts.values()) part.dim(false, true);
     this.applyAll(this.pose, false);
     const generation = ++this.generation;
     this.index = index;
@@ -433,8 +500,7 @@ export class SceneView {
       const arriving = new Set(moves.map((move) => this.ref(move.to).id));
       const pending = new Set<string>();
       for (const [id, part] of this.parts) {
-        const kind = this.kinds.get(id);
-        if (!arriving.has(id) && (kind === 'gate' || kind === 'label')) this.flip(id, pose);
+        if (!arriving.has(id) && part.cause) this.flip(id, pose);
         else {
           pending.add(id);
           // 台面上的标记（焦点、可点选）不等值走到，一开始就换成这一步的。
@@ -463,7 +529,16 @@ export class SceneView {
       }
       const phases = [...new Set(moves.map((move) => move.phase ?? 0))].sort((x, y) => x - y);
       const lastFor = new Map<string, Move>();
-      for (const move of moves) lastFor.set(this.ref(move.to).id, move);
+      // 同一个部件既收信号又收值时，以最后落下的值为准（脉冲先到、值落下时打入）。
+      for (const move of moves) {
+        const id = this.ref(move.to).id;
+        const card = !move.shape || move.shape === 'card';
+        const known = lastFor.get(id);
+        if (!known || card || (known.shape && known.shape !== 'card')) lastFor.set(id, move);
+      }
+      // 主角之外的部件变淡一点，走完恢复。
+      const cast = new Set(moves.flatMap((move) => [this.ref(move.from).id, this.ref(move.to).id]));
+      if (this.parts.size > cast.size + 2) for (const [id, part] of this.parts) if (!cast.has(id)) part.dim(true);
       // 两头装不下时看落点：镜头和值一起出发，值从上一批停下的地方飞进来，镜头跟着它走到落点。
       const views = phases.map((phase) => {
         const batch = moves.filter((move) => (move.phase ?? 0) === phase);
@@ -492,13 +567,22 @@ export class SceneView {
             for (const id of move.via ?? []) this.wires.get(id)?.setActive(true);
           });
           const target = this.ref(move.to).id;
-          const took = sendValue(kit, stage.root, move.value, move.ink ?? 'data', path, at, () => {
+          const signal = move.shape === 'pulse' || move.shape === 'level';
+          const took = sendValue(kit, stage.root, move.value, move.ink ?? (signal ? 'ctrl' : 'data'), path, at, () => {
             if (generation !== this.generation) return;
             const final = lastFor.get(target) === move;
+            if (signal) {
+              // 信号到了：没有值要落进这个部件时，它按这一步的样子变（门打开、芯片抬起）。
+              if (final) {
+                pending.delete(target);
+                this.parts.get(target)?.update(pose.parts[target] ?? {}, 'flip');
+              }
+              return;
+            }
             if (final) pending.delete(target);
             const props = pose.parts[target] ?? {};
             this.parts.get(target)?.update(final || !('value' in props) ? props : { ...props, value: move.value }, 'land');
-          });
+          }, move.shape ?? 'card');
           longest = Math.max(longest, took);
         }
         start += longest + 60;
@@ -507,6 +591,7 @@ export class SceneView {
         motion.after(start, () => generation === this.generation && stage.moveTo(cam, true));
       }
       motion.after(start, () => {
+        for (const part of this.parts.values()) part.dim(false);
         if (generation !== this.generation) return;
         for (const id of pending) this.flip(id, pose);
         for (const [id, wire] of this.wires) wire.setActive(!!pose.wires[id]);

@@ -1,0 +1,128 @@
+/*
+ * 全站视觉变量。规范在 docs/DESIGN.md，这里是唯一的定义处。
+ * 数据、地址、控制、变化四种墨色与 src/scene/theme.ts 的 palettes 一致（tokens.test.ts 会核对）。
+ */
+:root {
+  color-scheme: light;
+
+  /* 字体：两个家族。中文黑体（系统自带，不下载），数和位串用等宽。 */
+  --font-sans: 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'PingFang SC', 'Microsoft YaHei', monospace;
+
+  /* 字号阶梯（16 px 为正文）。页面 DOM 里最小 13 px。 */
+  --fs-xs: 0.8125rem; /* 13 图例、侧栏章名、出处 */
+  --fs-sm: 0.875rem; /* 14 说明、次要文字 */
+  --fs-md: 1rem; /* 16 正文、按钮、输入框 */
+  --fs-lg: 1.125rem; /* 18 这一步的标题、首页条目 */
+  --fs-xl: 1.25rem; /* 20 区块标题 */
+  --fs-h1: 1.625rem; /* 26 页面标题，手机 21 */
+  --lh-body: 1.7;
+  --lh-tight: 1.35;
+  --lh-ui: 1.25;
+  --fw-regular: 400;
+  --fw-strong: 600;
+
+  /* 间距：4 的倍数 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  /* 圆角、线、阴影 */
+  --r-sm: 4px; /* 标签、位格 */
+  --r-md: 8px; /* 按钮、输入框、分段控件 */
+  --r-lg: 12px; /* 舞台 */
+  --bw: 1px;
+  --shadow-float: 0 1px 2px rgb(40 36 28 / 0.08), 0 4px 14px rgb(40 36 28 / 0.1);
+
+  /* 触控 */
+  --target: 44px;
+
+  /* 动效：一族三次曲线。到达用减速，镜头和换位用先加速后减速。 */
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms; /* 颜色、按下 */
+  --dur-base: 200ms; /* 浮层出现、淡入淡出 */
+  --dur-move: 280ms; /* 最短的一次移动；长距离到 900ms，见 theme.ts timing */
+  --dur-camera: 760ms;
+
+  /* 版面 */
+  --nav-w: 15rem;
+  --measure: 42rem; /* 正文一行的最大宽度 */
+  --content-max: 76rem;
+  --gutter: clamp(16px, 3vw, 40px);
+  --bar-h: 52px;
+
+  /* 颜色：浅色 */
+  --c-page: #faf9f6; /* 页面底色 */
+  --c-surface: #f6f3ec; /* 台面，等于 theme.ts paper */
+  --c-raised: #fffefb; /* 浮层、输入框 */
+  --c-ink: #22211f; /* 正文，等于 theme.ts text */
+  --c-muted: #6f6a60; /* 次要文字，等于 theme.ts muted，对页面底色 5.1:1 */
+  --c-line: #e0dcd3; /* 细分隔线：列表、表格行 */
+  --c-border: #c9c3b6; /* 控件和舞台的边 */
+  --c-line-strong: #a8a294; /* 没接通的线、强调的分隔，等于 theme.ts line */
+  --c-tint: rgb(34 33 31 / 0.06); /* 悬停、当前项的底 */
+  --c-tint-strong: rgb(34 33 31 / 0.1);
+
+  --c-data: #2c63a8;
+  --c-addr: #1e7d6b;
+  --c-ctrl: #7a5195;
+  --c-change: #d4472a; /* 图形里的「变化」 */
+  --c-change-text: #c53d21; /* 文字里的「变化」，对台面 4.7:1 */
+  --c-ok: #3b7a1c;
+  --c-bad: #b0184d;
+
+  --c-focus: var(--c-ink);
+
+  /* 旧名，页面和播放器还在用。新代码用 --c-*。 */
+  --ink: var(--c-ink);
+  --paper: var(--c-page);
+  --line: var(--c-border);
+  --mark: var(--c-bad);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --c-page: #181715;
+    --c-surface: #1f1e1b;
+    --c-raised: #26251f;
+    --c-ink: #ece9e2;
+    --c-muted: #a8a397;
+    --c-line: #32302b;
+    --c-border: #4a4740;
+    --c-line-strong: #6b675e;
+    --c-tint: rgb(236 233 226 / 0.07);
+    --c-tint-strong: rgb(236 233 226 / 0.12);
+
+    --c-data: #78a9e6;
+    --c-addr: #5fbfa8;
+    --c-ctrl: #b998d4;
+    --c-change: #f0795c;
+    --c-change-text: #f0795c;
+    --c-ok: #9acb6b;
+    --c-bad: #f27a9e;
+
+    --shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px rgb(0 0 0 / 0.35);
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --fs-h1: 1.3125rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-move: 0ms;
+    --dur-camera: 0ms;
+  }
+}

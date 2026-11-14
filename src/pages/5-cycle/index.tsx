@@ -7,8 +7,8 @@ import { Player } from '../../player/Player';
 import { Rich } from '../../player/Rich';
 import { coarseMoves, coarsen, grainNames } from '../../player/coarsen';
 import type { Grain } from '../../player/coarsen';
-import { kitBind, kitMoves, kitScene, kitTrace } from './kit';
-import { machineBind, machineBreak, machineCaption, machineFrame, machineMoves, machineNames, machineScene, machineValues, machineWrong, withNotes } from './machine';
+import { Gallery } from '../../player/Gallery';
+import { MACHINE_CONCLUSION, MACHINE_NEEDS, MACHINE_QUESTION, machineBind, machineBreak, machineCaption, machineFrame, machineConvention, machineMistakes, machineMoves, machineNames, machineScene, machineValues, machineWrong, withNotes } from './machine';
 import { answerRows, describe, grade, makeInstruction } from './practice';
 import type { Entry, Grade } from './practice';
 import { TRY_DEFAULT, toParams } from './program';
@@ -83,7 +83,10 @@ function useMachine(params: Params | null, grain: Grain) {
   const coarse = useMemo(() => (full.trace ? coarsen(full.trace, grain) : null), [full, grain]);
   const moves = useMemo(() => (coarse ? coarseMoves(coarse.members, machineMoves) : undefined), [coarse]);
   const wrong = useMemo(() => (full.trace ? machineWrong(full.trace) : undefined), [full]);
-  return { ...full, scene, bind, coarse, moves, wrong };
+  const mistakes = useMemo(() => (coarse ? machineMistakes(coarse.trace) : undefined), [coarse]);
+  // 「选寄存器」这一步教材没有单独的信号名，是本站为讲清楚拆出来的：标「本站约定」。
+  const convention = useMemo(() => machineConvention, []);
+  return { ...full, scene, bind, coarse, moves, wrong, mistakes, convention };
 }
 
 function useGrain() {
@@ -127,6 +130,11 @@ function Machine({ params, error, controls }: { params: Params | null; error?: s
       breakIt={machineBreak}
       onWrong={made.wrong}
       frame={grain === 'explain' ? machineFrame : undefined}
+      question={MACHINE_QUESTION}
+      conclusion={MACHINE_CONCLUSION}
+      needs={MACHINE_NEEDS}
+      mistakes={made.mistakes}
+      convention={made.convention}
     >
       {controls}
       <Choice
@@ -362,10 +370,9 @@ function Machinery() {
   );
 }
 
-/** 模型机的指令周期。?demo=kit 是部件样张，给场景库自查用。 */
+/** 模型机的指令周期。?demo=parts（或 kit）是部件样张，给写页面的人对照部件用。 */
 export default function Page() {
   const [demo] = useParam('demo', '');
-  const kit = useMemo(() => kitTrace(), []);
-  if (demo === 'kit') return <Player key="kit" trace={kit} scene={kitScene} bind={kitBind} moves={kitMoves} />;
+  if (demo === 'parts' || demo === 'kit') return <Gallery />;
   return <Machinery />;
 }

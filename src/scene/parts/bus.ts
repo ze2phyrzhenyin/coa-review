@@ -6,6 +6,7 @@ import type { BusProps, Vec2 } from '../types';
 import { Part, solid } from './base';
 import type { Animate, Side } from './base';
 import { Card } from './card';
+import { burst } from './effects';
 
 export function driverList(drivers: BusProps['drivers']): string[] {
   if (!drivers) return [];
@@ -123,7 +124,28 @@ export class Bus extends Part<BusProps> {
     this.caption.set(caption, { tone: clash ? 'accent' : 'text' });
     this.caption.place(this.tile.width / 2 + 0.14, sizes.tileHeight / 2);
     this.idle.set(shown === '' ? (next.idleText ?? (show ? '没有部件驱动' : '')) : '');
-    if (clash && animate && !(previous && driverList(previous.drivers).length > 1)) this.shake();
+    if (clash && animate && !(previous && driverList(previous.drivers).length > 1)) this.collide();
+  }
+
+  /** 冲突：第二张牌从右边撞上来，崩出碎片，两张牌一起晃。 */
+  private collide(): void {
+    const { kit } = this;
+    if (kit.reduced) return;
+    const second = this.second.group;
+    const rest = second.position.clone();
+    second.position.x = rest.x + 1.6;
+    kit.motion.add({
+      duration: 220,
+      ease: (t) => t * t,
+      update: (t) => (second.position.x = rest.x + 1.6 * (1 - t)),
+      done: () => {
+        second.position.copy(rest);
+        const at = this.face.position.clone().add(new Vector3(this.tile.width / 2, sizes.tileHeight * 0.7, 0.1));
+        burst(kit, this.group, at);
+        kit.sound('crash');
+        this.shake();
+      },
+    });
   }
 
   /** 接在对方正对的位置。 */

@@ -1,0 +1,295 @@
+/*
+ * 共用控件。新页面直接用这些类；已有页面的 ovf-*、cr-*、cy-*、pl-* 按 docs/DESIGN.md「给场景和播放器」逐步换过来。
+ * 所有可点的东西不小于 44 × 44 px，输入框文字不小于 16 px。
+ */
+
+/* 按钮：默认描边，主按钮实心墨色（一屏最多一个），轻按钮只有下划线 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-width: var(--target);
+  min-height: var(--target);
+  padding: 0 var(--sp-4);
+  font-size: var(--fs-md);
+  line-height: var(--lh-ui);
+  color: var(--c-ink);
+  background: var(--c-page);
+  border: var(--bw) solid var(--c-border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .btn:hover {
+    background: var(--c-tint);
+  }
+}
+.btn:active {
+  background: var(--c-tint-strong);
+}
+.btn.is-primary {
+  color: var(--c-page);
+  background: var(--c-ink);
+  border-color: var(--c-ink);
+}
+@media (hover: hover) {
+  .btn.is-primary:hover {
+    background: color-mix(in srgb, var(--c-ink) 88%, var(--c-page));
+  }
+}
+.btn.is-quiet {
+  padding: 0 var(--sp-2);
+  background: none;
+  border-color: transparent;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 0.22em;
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: var(--c-page);
+}
+
+/* 分段控件：几个互斥的选项连成一条，选中的实心。选例题、选粒度、选映射方式用它 */
+.seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  padding: 2px;
+  gap: 2px;
+  background: var(--c-tint);
+  border-radius: calc(var(--r-md) + 2px);
+}
+.seg > button {
+  min-width: var(--target);
+  min-height: var(--target);
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--c-ink);
+  background: none;
+  border: 0;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .seg > button:hover {
+    background: var(--c-tint);
+  }
+}
+.seg > button[aria-pressed='true'],
+.seg > button[aria-checked='true'] {
+  color: var(--c-page);
+  background: var(--c-ink);
+  font-weight: var(--fw-strong);
+}
+.seg.is-mono > button {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 标签页：讲解、试一试、练习。下划线标出当前页 */
+.tabs {
+  display: flex;
+  gap: var(--sp-1);
+  border-bottom: var(--bw) solid var(--c-line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs > [role='tab'] {
+  flex: 0 0 auto;
+  min-height: var(--target);
+  padding: 0 var(--sp-4);
+  margin-bottom: -1px;
+  font-size: var(--fs-md);
+  color: var(--c-muted);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .tabs > [role='tab']:hover {
+    color: var(--c-ink);
+  }
+}
+.tabs > [role='tab'][aria-selected='true'] {
+  color: var(--c-ink);
+  font-weight: var(--fw-strong);
+  border-bottom-color: var(--c-ink);
+}
+.tabs > [role='tab']:focus-visible {
+  outline-offset: -2px;
+}
+
+/* 表单：标签在上，「可选」在标签旁，说明在标签下一行，错误在输入框下方 */
+.field {
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.field > label,
+.field-label {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-strong);
+}
+.field-help {
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+.field-error {
+  font-size: var(--fs-sm);
+  color: var(--c-bad);
+}
+.input,
+.select {
+  width: 100%;
+  min-height: var(--target);
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-md);
+  line-height: var(--lh-ui);
+  color: var(--c-ink);
+  background: var(--c-raised);
+  border: var(--bw) solid var(--c-border);
+  border-radius: var(--r-md);
+}
+.input.is-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+.input[aria-invalid='true'] {
+  border-color: var(--c-bad);
+}
+.input::placeholder {
+  color: var(--c-muted);
+}
+.select {
+  appearance: none;
+  padding-right: calc(var(--sp-3) * 2 + 10px);
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* 判分的结果：颜色之外总有字（「对」「不对」）和形状 */
+.is-ok-text {
+  color: var(--c-ok);
+}
+.is-bad-text {
+  color: var(--c-bad);
+}
+
+/* 考试版式的表：表头下一条墨线，行之间细线，数右对齐用等宽 */
+.sheet {
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.sheet th,
+.sheet td {
+  height: var(--target);
+  padding: 0 var(--sp-3);
+  text-align: left;
+  border-bottom: var(--bw) solid var(--c-line);
+  white-space: nowrap;
+}
+.sheet thead th {
+  font-weight: var(--fw-strong);
+  border-bottom: var(--bw) solid var(--c-ink);
+}
+.sheet .num {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+/* 术语卡（src/app/TermCard.tsx） */
+.term {
+  display: inline-block;
+  position: relative;
+  /* 字照常排，点的范围往外扩到 44 px 高、至少 44 px 宽 */
+  --pad-y: max(0px, calc((var(--target) - 1lh) / 2 + 1px));
+  --pad-x: max(2px, calc((var(--target) - var(--term-w, 2em)) / 2));
+  padding: var(--pad-y) var(--pad-x);
+  margin: calc(-1 * var(--pad-y)) calc(-1 * var(--pad-x));
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  text-align: inherit;
+  background: none;
+  border: 0;
+  cursor: help;
+  -webkit-tap-highlight-color: transparent;
+}
+.term-text {
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+  text-underline-offset: 0.25em;
+  border-radius: 2px;
+}
+.term:hover .term-text,
+.term[aria-expanded='true'] .term-text {
+  text-decoration-style: solid;
+  text-decoration-color: currentColor;
+}
+.term[aria-expanded='true'] .term-text {
+  background: var(--c-tint-strong);
+}
+.term:focus-visible {
+  outline: none;
+}
+.term:focus-visible .term-text {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 2px;
+}
+.term-card {
+  position: fixed;
+  z-index: 50;
+  display: grid;
+  gap: var(--sp-2);
+  width: min(20rem, calc(100vw - 2 * var(--sp-4)));
+  padding: var(--sp-3) var(--sp-4) var(--sp-3);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  font-weight: var(--fw-regular);
+  text-align: left;
+  color: var(--c-ink);
+  background: var(--c-raised);
+  border: var(--bw) solid var(--c-border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-float);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .term-card {
+    animation: term-in var(--dur-base) var(--ease-out);
+  }
+}
+@keyframes term-in {
+  from {
+    opacity: 0;
+  }
+}
+.term-card-name {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-strong);
+}
+.term-card-ref {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--c-muted);
+}
+.term-card-ref a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
+  margin: calc(var(--sp-3) * -1) 0;
+  color: var(--c-ink);
+}

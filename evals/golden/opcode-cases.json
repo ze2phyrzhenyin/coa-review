@@ -1,0 +1,43 @@
+{
+  "note": "扩展操作码。做法：从地址最多的一类排起，每类按编码从小到大取，最大的几个码留作下一类的前缀；每留下一个码，下一类多出 2^(多出的操作码位数) 个编码（教材 p129–130 例 4.1、表 4.2；解析书 析18、设9 的通用关系）。编码按「基本操作码,地址码宽的一组,…」写，同表 4.2。",
+  "cases": [
+    {
+      "name": "例 4.1 / 表 4.2：16 位，地址码 4 位，15/14/31/16",
+      "ref": "教材 p129–130",
+      "params": { "wordBits": 16, "addressBits": 4, "levels": [{ "addresses": 3, "count": 15 }, { "addresses": 2, "count": 14 }, { "addresses": 1, "count": 31 }, { "addresses": 0, "count": 16 }] },
+      "expect": {
+        "feasible": true,
+        "table": [
+          ["三地址", "4", "16", "0000～1110", "15", "1111（1 个）"],
+          ["二地址", "8", "16", "1111,0000～1111,1101", "14", "1111,1110～1111,1111（2 个）"],
+          ["一地址", "12", "32", "1111,1110,0000～1111,1111,1110", "31", "1111,1111,1111（1 个）"],
+          ["零地址", "16", "16", "1111,1111,1111,0000～1111,1111,1111,1111", "16", "—"]
+        ]
+      }
+    },
+    {
+      "name": "教材习题 17：11 条三地址、70 条二地址、150 条一地址，零地址最多几条",
+      "ref": "教材 p148 习题 17",
+      "params": { "wordBits": 16, "addressBits": 4, "levels": [{ "addresses": 3, "count": 11 }, { "addresses": 2, "count": 70 }, { "addresses": 1, "count": 150 }, { "addresses": 0 }] },
+      "expect": { "feasible": true, "available": [16, 80, 160, 160], "max": "160 条" }
+    },
+    {
+      "name": "手算：地址码 6 位，二地址 10 条、零地址 200 条，一地址最多几条",
+      "ref": "本站自出，题型同解析书 设9",
+      "params": { "wordBits": 16, "addressBits": 6, "levels": [{ "addresses": 2, "count": 10 }, { "addresses": 1 }, { "addresses": 0, "count": 200 }] },
+      "expect": { "feasible": true, "available": [16, 384, 256], "max": "380 条" }
+    },
+    {
+      "name": "手算：二地址要 17 条，4 位操作码只有 16 种，不可行",
+      "ref": "本站自出",
+      "params": { "wordBits": 12, "addressBits": 4, "levels": [{ "addresses": 2, "count": 17 }, { "addresses": 0, "count": 1 }] },
+      "expect": { "feasible": false, "stuck": "二地址" }
+    },
+    {
+      "name": "手算：二地址把 16 个码用完，一地址没有前缀可用",
+      "ref": "本站自出",
+      "params": { "wordBits": 12, "addressBits": 4, "levels": [{ "addresses": 2, "count": 16 }, { "addresses": 1, "count": 1 }] },
+      "expect": { "feasible": false, "stuck": "一地址" }
+    }
+  ]
+}

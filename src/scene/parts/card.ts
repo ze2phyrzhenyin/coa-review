@@ -4,6 +4,7 @@ import { TextPlane, box, cardGeometry } from '../kit';
 import type { Kit, TextTone } from '../kit';
 import { easeIn, easeOut } from '../motion';
 import { sizes, timing } from '../theme';
+import { rebound } from './effects';
 
 /** slot 是还没写的空槽：比台面深一点的凹位，没有字。 */
 export type CardKind = 'tile' | 'chip' | 'accent' | 'slot';
@@ -114,6 +115,7 @@ export class Card {
     }
     const { motion } = this.kit;
     const half = timing.flip / 2;
+    motion.after(delay, () => this.kit.sound('flip'));
     motion.add({
       delay,
       duration: half,
@@ -130,6 +132,8 @@ export class Card {
   landTo(text: string): void {
     if (!this.kit.reduced && this.group.visible && this.text !== '') this.ghost();
     this.set(text);
+    // 落定：压一下再弹回来，只这一下。
+    rebound(this.kit, this.group, this.height * 0.08);
   }
 
   /** 让这张牌带着旧字升起淡出，本体立刻隐藏或换字由调用方决定。 */

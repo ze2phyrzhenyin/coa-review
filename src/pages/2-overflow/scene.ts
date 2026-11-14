@@ -12,7 +12,7 @@ import type { OverflowParams, OverflowSolution, OverflowState } from '../../engi
 import { formatDecimal, formatValue } from '../../lib/bits';
 import { bindTable, from } from '../../scene';
 import type { Binding, Move, PartSpec, SceneSpec } from '../../scene';
-import type { Breakage } from '../../player/Player';
+import type { Breakage, Mistake } from '../../player/Player';
 import { signAskIndex } from './adapt';
 
 type RowKey = 'y' | 'inverted' | 'carry' | 'x' | 'negY' | 'sum';
@@ -30,7 +30,14 @@ export interface OverflowScene {
   wrong: (ask: { kind: string }, value: string) => Breakage | null;
   /** 出题时镜头看哪些格子。 */
   askFrame: (ask: { kind: string }, index: number) => string[];
+  /** 常见错误，点开时在场景里演。 */
+  mistakes: Mistake<OverflowState>[];
 }
+
+/** 第 0 步的问题、最后的结论、需要先会。 */
+export const OVERFLOW_QUESTION = { text: '和的两个符号位读出来是 01 还是 10，最高位丢掉的进位算不算溢出', at: ['sign', 'drop'] };
+export const OVERFLOW_CONCLUSION = '两个符号位 01 是正溢，10 是负溢，00 和 11 没有溢出。最高符号位向外的进位按模丢掉，它本身不说明溢出；单符号位时看 C_f ⊕ C_0。';
+export const OVERFLOW_NEEDS = [{ href: '/2-codes', text: '补码怎么写' }];
 
 /** 符号位与数值位之间多空的一点、行距。列距宽屏 1.0，窄屏 0.9（整张竖式不出左右边）。 */
 const SIGN_GAP = 0.35;
@@ -181,6 +188,45 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
     hidden: from('conclusion', (ctx) => !ctx.state.conclusion),
   };
 
+  // 刻度盘：单符号位补码是模 2^(n+1) 的一圈。指针从 [x]补 转到和；加负数时逆时针转。
+  // 越过 +最大 和 −最小 之间的接缝就是溢出（接缝亮起）。转不转、越不越都按引擎给出的位串和判定。
+  const size = 2 ** (n + 1);
+  const single = (row: { cells: string[] } | null | undefined): number | null => {
+    const bits = row ? row.cells.slice(2).join('') : '';
+    return bits.length === n + 1 && /^[01]+$/.test(bits) ? parseInt(bits, 2) : null;
+  };
+  // 和要等两个符号位都写出来才算写完（最高符号位最后写）。
+  const sumDone = (row: { cells: string[] } | null | undefined): number | null => (row && /^[01]$/.test(row.cells[1] ?? '') ? single(row) : null);
+  const R = compact ? 1.45 : 1.6;
+  const dialX = compact ? 0 : span / 2 + R + 2.3;
+  const dialZ = compact ? zLine + 3.9 : (rz(keys[0]!) + zSum) / 2;
+  parts.push({
+    id: 'dial',
+    kind: 'dial',
+    position: [dialX, dialZ],
+    props: {
+      name: `模 2^${n + 1}`,
+      size,
+      pointer: 0,
+      seam: 2 ** n,
+      radius: R,
+      marks: [
+        [0, '0'],
+        [2 ** n - 1, formatValue(2 ** n - 1, n, notation)],
+        [2 ** n, formatValue(-(2 ** n), n, notation)],
+      ],
+    },
+    title: '刻度盘',
+  });
+  const overflowed = solution.verdict !== '无溢出';
+  // 函数绑定：刻度盘不跟着每一位的变化抢镜头；和写完的那一步由 moves 把和送到盘上，盘再转。
+  table.dial = {
+    pointer: (ctx) => sumDone(ctx.state.rows.sum) ?? single(ctx.state.rows.x) ?? 0,
+    from: (ctx) => (sumDone(ctx.state.rows.sum) === null ? undefined : (single(ctx.state.rows.x) ?? undefined)),
+    dir: (ctx) => ((subtract ? ctx.state.rows.negY : ctx.state.rows.y)?.cells[2] === '1' ? -1 : 1),
+    crossed: (ctx) => sumDone(ctx.state.rows.sum) !== null && overflowed,
+  };
+
   const scene: SceneSpec = { parts, wires: [] };
   const bind = bindTable<OverflowState>(table);
 
@@ -197,6 +243,10 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
       }
     }
     if (changed.get('dropped') === '1') out.push({ value: '1', from: 'carry-0', to: 'drop', arc: true });
+    // 和刚写完：把单符号位的和送到刻度盘上，指针再转过去。
+    const sumWritten = step.changes.some((change) => change.at.startsWith('rows.sum.cells.') && change.from === '');
+    const sumBits = s.rows.sum.cells.slice(2).join('');
+    if (sumWritten && sumDone(s.rows.sum) !== null) out.push({ value: sumBits, from: 'sum-2', to: 'dial', arc: true, phase: 5 });
     if (changed.has('verdict')) out.push({ value: `${s.sf1}${s.sf2}`, from: 'sum-1', to: 'verdict', arc: true });
     if (changed.has('vByCarry') && step.focus.includes('rows.carry.cells.1')) {
       out.push({ value: `C_f = ${s.cf}`, from: 'carry-1', to: 'vc', arc: true });
@@ -263,5 +313,43 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   const askFrame = (ask: { kind: string }, index: number): string[] =>
     index === asking ? [...signColumns, 'sign'] : ask.kind === 'choice' ? ['sum-1', 'sum-2', 'vs', 'vc'] : [];
 
-  return { scene, bind, moves, names, values, flipPart, wrong, askFrame };
+  // 常见错误：都在判定那一步演，数取自这份 Trace。
+  const judged = trace.steps.findIndex((step) => step.changes.some((change) => change.at === 'verdict'));
+  const carried = trace.steps.findIndex((step) => step.changes.some((change) => change.at === 'vByCarry'));
+  const mistakes: Mistake<OverflowState>[] = [];
+  if (judged >= 0) {
+    mistakes.push({
+      text: '容易把丢掉的进位当成溢出，因为它是从最高位挤出去的',
+      at: judged + 1,
+      act: (state) => ({
+        label: '',
+        patch: { verdict: { text: `${state.sf1}${state.sf2} 有进位丢掉，溢出？`, hidden: false }, 'zone-pos': { focus: true } },
+        moves: [],
+        message: `最高符号位向外的进位按${modulus ? `模 ${modulus}` : '模'}丢掉，丢掉它不改变结果的变形补码。判溢出只看两个符号位：01 正溢、10 负溢，和这个进位有没有无关。`,
+      }),
+    });
+    mistakes.push({
+      text: '容易把 01 读成负溢，因为第二个符号位是 1',
+      at: judged + 1,
+      act: () => ({
+        label: '',
+        patch: { verdict: { text: '01 负溢？', hidden: false }, 'zone-neg': { focus: true } },
+        moves: [],
+        message: 'S_f1 才是结果真正的符号。01 的第一位是 0：两个正数相加，结果本该是正数，第二位被数值位的进位改成了 1，所以 01 是正溢（教材 p37）。',
+      }),
+    });
+  }
+  if (carried >= 0) {
+    mistakes.push({
+      text: '容易只看 C_f 一个进位就判溢出，因为它是符号位送出的进位',
+      at: carried + 1,
+      act: (state) => ({
+        label: '',
+        patch: { vc: { value: `只看 C_f = ${state.cf}` } },
+        moves: [],
+        message: '单符号位判溢出看 C_f ⊕ C_0：符号位送出的进位和最高数值位送出的进位不同才溢出。两个负数相加不溢出时 C_f 也是 1，只看它会误判。',
+      }),
+    });
+  }
+  return { scene, bind, moves, names, values, flipPart, wrong, askFrame, mistakes };
 }

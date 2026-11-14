@@ -1,0 +1,139 @@
+/* 首页：上次学到、目录。规范见 docs/DESIGN.md「首页」。 */
+.home-last {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--sp-4);
+  max-width: 52rem;
+  margin: calc(-1 * var(--sp-3)) 0 var(--sp-4);
+}
+.home-last-label {
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+.home-last-link {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--sp-3);
+  min-height: var(--target);
+  padding: var(--sp-2) 0;
+  text-decoration: none;
+}
+.home-last-name {
+  font-weight: var(--fw-strong);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 0.22em;
+}
+@media (hover: hover) {
+  .home-last-link:hover .home-last-name {
+    text-decoration-color: currentColor;
+  }
+}
+.home-last-where {
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+
+/* 目录：像教材的目录页。章号一栏，章名和各页一栏 */
+.toc {
+  max-width: 52rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.toc-chapter {
+  --toc-no: 4.5rem;
+  padding: var(--sp-4) 0 var(--sp-5);
+  border-top: var(--bw) solid var(--c-line-strong);
+}
+.toc-head {
+  display: grid;
+  grid-template-columns: var(--toc-no) minmax(0, 1fr);
+  column-gap: var(--sp-4);
+  align-items: baseline;
+}
+.toc-no {
+  grid-column: 1;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-regular);
+  color: var(--c-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.toc-name {
+  grid-column: 2;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-strong);
+  line-height: var(--lh-tight);
+}
+.toc-chapter.is-empty {
+  padding-bottom: var(--sp-4);
+}
+.toc-chapter.is-empty .toc-name {
+  font-weight: var(--fw-regular);
+  color: var(--c-muted);
+}
+.toc-pages {
+  margin: var(--sp-2) 0 0 calc(var(--toc-no) + var(--sp-4));
+  padding: 0;
+  list-style: none;
+}
+.toc-pages li + li {
+  border-top: var(--bw) solid var(--c-line);
+}
+.toc-link {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: var(--sp-4);
+  min-height: 52px;
+  padding: var(--sp-3) var(--sp-2);
+  margin: 0 calc(-1 * var(--sp-2));
+  text-decoration: none;
+  border-radius: var(--r-sm);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .toc-link:hover {
+    background: var(--c-tint);
+  }
+}
+.toc-nav {
+  font-weight: var(--fw-strong);
+}
+.toc-q {
+  color: var(--c-muted);
+}
+.toc-ref {
+  font-size: var(--fs-xs);
+  color: var(--c-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .toc-chapter {
+    padding: var(--sp-3) 0 var(--sp-4);
+  }
+  .toc-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--sp-3);
+  }
+  .toc-pages {
+    margin-left: 0;
+  }
+  .toc-link {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: var(--sp-1);
+  }
+  .toc-q {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    font-size: var(--fs-sm);
+  }
+}

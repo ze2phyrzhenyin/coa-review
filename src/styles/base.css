@@ -1,0 +1,122 @@
+/* 元素的默认样式。选择器都包在 :where() 里，页面和播放器自己的类总能盖过它。规范见 docs/DESIGN.md。 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
+  color: var(--c-ink);
+  background: var(--c-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-kerning: normal;
+}
+::selection {
+  background: color-mix(in srgb, var(--c-data) 24%, transparent);
+}
+
+:where(h1, h2, h3, h4) {
+  margin: 0;
+  line-height: var(--lh-tight);
+  font-weight: var(--fw-strong);
+  text-wrap: balance;
+}
+:where(h1) {
+  font-size: var(--fs-h1);
+}
+:where(h2) {
+  font-size: var(--fs-lg);
+}
+:where(h3, h4) {
+  font-size: var(--fs-md);
+}
+/* 段落和列表保留浏览器的上下间距：已有页面依赖它。新组件自己用 gap 排。 */
+:where(p) {
+  text-wrap: pretty;
+}
+:where(a) {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 0.22em;
+}
+:where(a):hover {
+  text-decoration-color: currentColor;
+}
+:where(button, input, select, textarea) {
+  font: inherit;
+  color: inherit;
+}
+:where(button) {
+  touch-action: manipulation;
+}
+
+/* 键盘焦点：全站一种，2 px 实线，离开元素 2 px */
+:where(:focus-visible) {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 2px;
+}
+
+/* 上下标：不撑高行距 */
+:where(sub, sup) {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+:where(sup) {
+  top: -0.45em;
+}
+:where(sub) {
+  bottom: -0.25em;
+}
+
+/* 数、位串、代码：等宽，等宽数字 */
+:where(code, kbd, samp, .mono) {
+  font-family: var(--font-mono);
+  font-size: 0.94em;
+  font-variant-numeric: tabular-nums;
+}
+:where(.tnum) {
+  font-variant-numeric: tabular-nums;
+}
+:where(kbd) {
+  padding: 0 0.35em;
+  border: var(--bw) solid var(--c-border);
+  border-bottom-width: 2px;
+  border-radius: var(--r-sm);
+}
+
+:where(hr) {
+  height: 0;
+  margin: var(--sp-5) 0;
+  border: 0;
+  border-top: var(--bw) solid var(--c-line);
+}
+
+/* 读屏可见、屏幕上不显示 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

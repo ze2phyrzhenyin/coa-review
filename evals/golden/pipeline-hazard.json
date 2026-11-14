@@ -1,0 +1,35 @@
+{
+  "note": "数据相关类型。规则：后读∩前写→RAW，后写∩前读→WAR，后写∩前写→WAW（教材 p190–192）。写法按 5.6 节：目标在最前。「会读错」按五段按序流水线、写回的下一个周期才能读（表 5.4，p191）。",
+  "cases": [
+    {
+      "name": "例 5.6 第 1 组",
+      "ref": "教材 p191",
+      "params": { "instructions": ["ADD R1,R2,R3", "SUB R4,R1,R5"] },
+      "expect": { "result": { "I1–I2": "RAW", "会读错": "I1–I2" } }
+    },
+    {
+      "name": "例 5.6 第 2 组",
+      "ref": "教材 p191–192",
+      "params": { "instructions": ["STO M(x),R3", "ADD R3,R4,R5"] },
+      "expect": { "result": { "I1–I2": "WAR", "会读错": "无" } }
+    },
+    {
+      "name": "例 5.6 第 3 组",
+      "ref": "教材 p192",
+      "params": { "instructions": ["MUL R3,R1,R2", "ADD R3,R4,R5"] },
+      "expect": { "result": { "I1–I2": "WAW", "会读错": "无" } }
+    },
+    {
+      "name": "表 5.4 的三条指令",
+      "ref": "教材 p190–191 表 5.4",
+      "params": { "instructions": ["ADD R1,R2,R3", "SUB R4,R1,R5", "AND R6,R1,R7"] },
+      "expect": { "result": { "I1–I2": "RAW", "I1–I3": "RAW", "I2–I3": "无", "会读错": "I1–I2、I1–I3" } }
+    },
+    {
+      "name": "例 5.7 的六条指令（两地址写法）",
+      "ref": "教材 p192 例 5.7",
+      "params": { "instructions": ["LAD R1,A", "ADD R2,R1", "ADD R3,R4", "MUL R4,R5", "LAD R6,B", "MUL R6,R7"] },
+      "expect": { "adjacent": { "I1–I2": "RAW", "I3–I4": "WAR", "I5–I6": "RAW、WAW" } }
+    }
+  ]
+}

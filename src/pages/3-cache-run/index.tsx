@@ -7,7 +7,7 @@ import { Player } from '../../player/Player';
 import { useNarrow } from '../../app/media';
 import { BreakIt } from './BreakIt';
 import { Paper } from './Paper';
-import { cacheStage, cacheWrong, polish, withRowAsks } from './scene';
+import { CACHE_CONCLUSION, CACHE_NEEDS, CACHE_QUESTION, cacheConvention, cacheMistakes, cacheStage, cacheWrong, polish, withRowAsks } from './scene';
 import {
   encodeSequence,
   exampleParams,
@@ -55,6 +55,7 @@ function Walkthrough() {
   const [, setStep] = useParam('s', '0');
   const example = examples.find((item) => item.key === ex) ?? examples[0];
   const { trace, stage, wrong } = useRun(example.params);
+  const mistakes = useMemo(() => cacheMistakes(trace), [trace]);
   return (
     <>
       <div class="cr-controls">
@@ -76,7 +77,23 @@ function Walkthrough() {
         ))}
       </div>
       </div>
-      <Player key={example.key} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} frame={stage.frame} askFrame={stage.askFrame(trace)} onWrong={wrong} />
+      <Player
+        key={example.key}
+        trace={trace}
+        scene={stage.scene}
+        bind={stage.bind}
+        moves={stage.moves}
+        names={stage.names}
+        values={stage.values}
+        frame={stage.frame}
+        askFrame={stage.askFrame(trace)}
+        onWrong={wrong}
+        question={CACHE_QUESTION}
+        conclusion={CACHE_CONCLUSION}
+        needs={CACHE_NEEDS}
+        mistakes={mistakes}
+        convention={cacheConvention}
+      />
     </>
   );
 }

@@ -20,6 +20,7 @@ import {
 } from 'three';
 import type { Object3D } from 'three';
 import { makeMats, rethemeMats } from './kit';
+import { play } from './sound';
 import type { Kit } from './kit';
 import { Motion, easeInOut } from './motion';
 import { currentScheme, palettes, prefersReducedMotion, sizes, timing } from './theme';
@@ -115,6 +116,7 @@ export class Stage {
       textScale: 64 * this.dpr * OVERSAMPLE,
       texts: new Set(),
       facing: new Set(),
+      sound: play,
       invalidate: () => this.invalidate(),
     };
     this.motion.onWake = () => this.invalidate();

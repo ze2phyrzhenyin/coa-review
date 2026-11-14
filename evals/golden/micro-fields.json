@@ -1,0 +1,10 @@
+{
+  "note": "微指令字段位数与控存容量。相斥组 ⌈log2(k+1)⌉ 位（教材 p174）；判别字段两种算法见 docs/textbook/ch04-05.md「书内不一致」。数值来自教材习题 6（p201）与解析书 析8、析12、设5，答案按引擎的算法。",
+  "cases": [
+    { "name": "解析书 析8：512×48 位、4 个条件", "params": { "cmWords": 512, "wordBits": 48, "conditions": 4 }, "expect": { "controlBits": 35, "testBits": 4, "nextBits": 9, "wordBits": 48, "words": 512 } },
+    { "name": "解析书 析12：五组 4/5/8/15/20、2 个条件、字长 29", "params": { "groups": [4, 5, 8, 15, 20], "conditions": 2, "wordBits": 29 }, "expect": { "groupBits": [3, 3, 4, 4, 5], "controlBits": 19, "testBits": 2, "nextBits": 8, "wordBits": 29, "words": 256 } },
+    { "name": "解析书 设5：10 个直接 + 四组 7/15/3/5、4 个条件编码、字长 32", "params": { "direct": 10, "groups": [7, 15, 3, 5], "conditions": 4, "testEncoding": "编码", "wordBits": 32 }, "expect": { "groupBits": [3, 4, 2, 3], "controlBits": 22, "testBits": 3, "nextBits": 7, "wordBits": 32, "words": 128 } },
+    { "name": "教材习题 6：80 条指令、平均 4 条微指令、字长 32", "params": { "program": { "instructions": 80, "perInstruction": 4 }, "wordBits": 32 }, "expect": { "words": 241, "nextBits": 8, "wordBits": 32, "capacityBits": 7712 } },
+    { "name": "图 5.22：17 位直接、2 个条件、16 个单元", "params": { "direct": 17, "conditions": 2, "cmWords": 16 }, "expect": { "controlBits": 17, "testBits": 2, "nextBits": 4, "wordBits": 23, "words": 16 } }
+  ]
+}

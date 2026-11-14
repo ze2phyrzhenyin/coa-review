@@ -7,6 +7,7 @@ import type { GateProps, Vec2 } from '../types';
 import { Part, solid } from './base';
 import type { Animate, Side } from './base';
 import { Card } from './card';
+import { rebound } from './effects';
 
 export const isOn = (value: unknown): boolean => value === true || value === '1' || value === 'true';
 
@@ -28,6 +29,7 @@ export class Gate extends Part<GateProps> {
   private readonly state: Card;
   private readonly dir: Side;
   private open = false;
+  override cause = true;
 
   constructor(kit: Kit, id: string, position: Vec2, props: GateProps) {
     super(kit, id, position);
@@ -59,7 +61,8 @@ export class Gate extends Part<GateProps> {
   private pose(t: number): void {
     // t=1 导通。
     this.pivot.rotation.y = angles[this.dir] + ((1 - t) * Math.PI) / 2;
-    this.pivot.position.y = (1 - t) * 0.16;
+    // 关断时闸门抬起来，看得见线是断开的。
+    this.pivot.position.y = (1 - t) * 0.3;
   }
 
   protected apply(next: GateProps, previous: GateProps | null, animate: Animate): void {
@@ -83,6 +86,11 @@ export class Gate extends Part<GateProps> {
           done: () => {
             this.pose(open ? 1 : 0);
             finish();
+            // 落下搭上线时回弹一下，「咔」一声；抬起时不响。
+            if (open) {
+              rebound(this.kit, this.pivot, 0.05);
+              this.kit.sound('click');
+            }
           },
         });
       } else {

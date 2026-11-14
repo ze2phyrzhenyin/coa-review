@@ -12,7 +12,7 @@ import { GENERAL_REGISTERS, PART_LABEL, checkTransfer } from '../../engines/cpu/
 import type { GeneralRegister, Params, PartId, State } from '../../engines/cpu/model';
 import { bindTable, from } from '../../scene';
 import type { BindContext, Move, PartSpec, SceneSpec, WireSpec } from '../../scene';
-import type { Breakage } from '../../player/Player';
+import type { Breakage, Mistake } from '../../player/Player';
 
 type Ctx = BindContext<State>;
 const DBUS_X = -0.6;
@@ -64,6 +64,8 @@ export function machineScene(trace: Trace<Params, State>): SceneSpec {
     { ...reg('DECODER', -2.2, -3.9, 2.4), title: PART_LABEL.DECODER },
     { id: 'OC', kind: 'register', position: [1.5, -3.9], props: { name: PART_LABEL.OC, value: '', width: 3.4 }, pick: true },
     { id: 'TIMING', kind: 'register', position: [1.5, -6.1], props: { name: '时序', value: '', width: 2.6 }, title: '时序' },
+    // 节拍盘：T1–T4 四格，当前节拍那一格亮起。
+    { id: 'BEAT', kind: 'dial', position: [3.85, -6.7], props: { name: '节拍', size: 4, pointer: -1, sectors: true, radius: 0.95, marks: [[0, 'T_1'], [1, 'T_2'], [2, 'T_3'], [3, 'T_4']] }, title: '节拍盘' },
     {
       id: 'DMEM',
       kind: 'memory',
@@ -141,6 +143,7 @@ export function machineBind(trace: Trace<Params, State>) {
     DECODER: { value: from('decoder', (c) => c.state.decoder ?? '') },
     // 信号和时序每一步都变，不登记路径：它们不进镜头要看住的范围。
     OC: { value: (c: Ctx) => signalsOf(c.state), changed: (c: Ctx) => [...c.changed].some((path) => path.startsWith('signals.')) },
+    BEAT: { pointer: (c: Ctx) => (c.state.timing.beat ? Number(String(c.state.timing.beat).slice(1)) - 1 : -1) },
     TIMING: {
       value: (c: Ctx) => [c.state.timing.cycle ?? '', c.state.timing.beat ?? ''].filter(Boolean).join(' '),
       changed: (c: Ctx) => c.changed.has('timing.beat') || c.changed.has('timing.cycle'),
@@ -221,6 +224,26 @@ export function machineMoves(step: Step<State>): Move[] {
   if ([...changed].some((path) => path.startsWith('dmem.'))) {
     if (has('bus.ABUS_D.driver')) out.push({ value: text(s.bus.ABUS_D.value), from: 'AR', to: 'ABUS_D', via: ['ar-abusd'], ink: 'addr' });
     out.push({ value: text(s.bus.DBUS.value), from: 'DBUS', to: 'DMEM', via: ['dmem-dbus'], phase: 1 });
+  }
+  return withSignals(step, out);
+}
+
+const PULSE_TARGETS = new Set<string>(['PC', 'IR', 'AR', 'DR', 'PSWR', ...GENERAL_REGISTERS]);
+
+/**
+ * 控制信号也走一趟：门在这一步打开时，电位信号（扁平的条）先从操作控制器飞到门，门落下，值再走；
+ * 打入寄存器的脉冲（窄而高的尖块）和值同一批到，值落下时盖板合上。信号名取自 Trace 里这一拍有效的信号。
+ */
+function withSignals(step: Step<State>, moves: Move[]): Move[] {
+  const s = step.state;
+  const opened = (['C1', 'C2', 'C3'] as const).filter((gate) => step.changes.some((change) => change.at === `gate.${gate}`) && s.gate[gate]);
+  const out = opened.length ? moves.map((move) => ({ ...move, phase: (move.phase ?? 0) + 1 })) : [...moves];
+  for (const gate of opened) out.push({ value: gate, from: 'OC', to: gate, arc: true, shape: 'level', phase: 0 });
+  for (const name of s.signals.pulse) {
+    const target = /^LD(\w+)$/.exec(name)?.[1];
+    if (!target || !PULSE_TARGETS.has(target)) continue;
+    const landing = out.find((move) => move.to === target && (move.shape ?? 'card') === 'card');
+    if (landing) out.push({ value: name, from: 'OC', to: target, arc: true, shape: 'pulse', phase: landing.phase ?? 0 });
   }
   return out;
 }
@@ -396,4 +419,56 @@ export function machineFrame(step: Step<State>): string[] | null {
   const selected = (['left', 'right'] as const).filter((side) => step.changes.some((change) => change.at === `sel.${side}`)).map((side) => step.state.sel[side]);
   const regs = [...new Set(selected.filter((r): r is GeneralRegister => r !== null))];
   return regs.length > 0 && step.focus.includes('ALU') ? regs : null;
+}
+
+/** 第 0 步的问题、最后的结论、需要先会。 */
+export const MACHINE_QUESTION = { text: 'DBUS 每个 CPU 周期只能送一个数：数一数这条指令要用 DBUS 几次', at: ['DBUS', 'BEAT'] };
+export const MACHINE_CONCLUSION =
+  'DBUS 每个 CPU 周期只送一个数。ADD 执行时只送一次（ALU 的结果），LAD 要送两次：先把地址送进 AR，再把数存读出的数送进 DR。所以 LAD 比 ADD 多一个 CPU 周期。';
+export const MACHINE_NEEDS = [{ href: '/5-timing', text: 'T1–T4 和 CPU 周期' }];
+
+/**
+ * 常见错误，每条在场景里演一遍。数都取自 Trace 的状态，步数按这份 Trace 找（粒度变了也对得上）。
+ */
+export function machineMistakes(trace: Trace<Params, State>): Mistake<State>[] {
+  const steps = trace.steps;
+  const intoDR = steps.findIndex((step) => step.changes.some((change) => change.at === 'reg.DR') && step.state.reg.DR !== null);
+  const gateOpen = steps.findIndex((step) => (['C1', 'C2', 'C3'] as const).some((gate) => step.state.gate[gate]) && step.state.bus.DBUS.driver !== null);
+  const cycles = Math.max(0, ...steps.map((step) => step.state.timing.cycles));
+  const out: Mistake<State>[] = [];
+  if (intoDR >= 0) {
+    out.push({
+      text: '容易以为 R0–R3 直接接在 DBUS 上，因为图上它们离总线很近',
+      at: intoDR + 1,
+      act: (state) => ({
+        label: '',
+        patch: { R0: { value: String(state.bus.DBUS.value) }, DR: { value: '' } },
+        moves: [{ value: String(state.bus.DBUS.value), from: 'DBUS', to: 'R0', arc: true }],
+        message: 'R0–R3 的输入接在 DR 后面，DBUS 上的数先在 T3 打入 DR，T4 再由 LDR0–LDR3 从 DR 打进通用寄存器。模型机里没有从 DBUS 直接进 R0 的通路。',
+      }),
+    });
+  }
+  if (gateOpen >= 0) {
+    const gate = (['C1', 'C2', 'C3'] as const).find((name) => steps[gateOpen]!.state.gate[name])!;
+    out.push({
+      text: `容易把 ${gate} 当成脉冲，因为门只在送数的那一拍有用`,
+      at: gateOpen + 1,
+      act: () => ({
+        label: '',
+        patch: { [gate]: { open: false }, DBUS: { value: '', drivers: '' } },
+        moves: [],
+        message: `${gate} 是电位信号，从 T1 起保持整个 CPU 周期。只开一拍就关上，DBUS 上的数还没稳定就没了，T3 打入 DR 的就不是这个数。`,
+      }),
+    });
+  }
+  if (cycles >= 2) {
+    const acted = machineWrong(trace)({ kind: 'number', answer: String(cycles) }, String(cycles - 1));
+    if (acted) out.push({ text: '容易少数一个 CPU 周期，因为没数 DBUS 送了几次数', at: steps.length, act: () => acted });
+  }
+  return out;
+}
+
+/** 用了本站约定的步：选寄存器送 ALU 或 C2 的那一步，教材没有对应的信号名。 */
+export function machineConvention(step: Step<State>): string | null {
+  return step.changes.some((change) => change.at === 'sel.left' || change.at === 'sel.right') ? '教材不给「选哪个寄存器」起信号名，这一步是本站为讲清楚单独拆出来的；表里写「（由 IR 的寄存器字段选中）」。' : null;
 }

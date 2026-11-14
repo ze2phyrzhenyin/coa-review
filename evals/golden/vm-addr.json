@@ -1,0 +1,53 @@
+{
+  "note": "页式虚地址变换的固定用例。教材习题 24 和解析书两题只取数值，答案按教材的拼接规则手算。result 以虚地址的写法为键。只增不改。",
+  "cases": [
+    {
+      "name": "本站自拟：页长 1K，虚页 3 在主存页 5",
+      "source": "docs/textbook/ch03.md 自拟小例",
+      "params": { "pageSize": 1024, "pages": 64, "frames": 16, "table": [{ "page": 3, "valid": 1, "frame": 5 }], "addresses": [3508] },
+      "expect": { "rows": [["0DB4H", "3", "1B4H", "1", "5", "15B4H"]], "result": { "0DB4H": "15B4H", "缺页次数": "0" } }
+    },
+    {
+      "name": "同一例加快表，快表里有页 3",
+      "source": "自拟",
+      "params": {
+        "pageSize": 1024, "pages": 64, "frames": 16,
+        "table": [{ "page": 3, "valid": 1, "frame": 5 }],
+        "tlb": [{ "page": 3, "frame": 5 }],
+        "addresses": [3508]
+      },
+      "expect": { "rows": [["0DB4H", "3", "1B4H", "命中", "—", "5", "15B4H"]], "result": { "0DB4H": "15B4H", "缺页次数": "0", "快表命中次数": "1" } }
+    },
+    {
+      "name": "习题 24：32 页、页长 1K、主存 16 页，虚页 0–3 在 8、7、4、10，程序共 10 页",
+      "source": "教材 p124 习题 24（手算）",
+      "params": {
+        "pageSize": 1024, "pages": 32, "frames": 16,
+        "table": [
+          { "page": 0, "valid": 1, "frame": 8 }, { "page": 1, "valid": 1, "frame": 7 },
+          { "page": 2, "valid": 1, "frame": 4 }, { "page": 3, "valid": 1, "frame": 10 },
+          { "page": 4, "valid": 0, "frame": null }, { "page": 5, "valid": 0, "frame": null },
+          { "page": 6, "valid": 0, "frame": null }, { "page": 7, "valid": 0, "frame": null },
+          { "page": 8, "valid": 0, "frame": null }, { "page": 9, "valid": 0, "frame": null }
+        ],
+        "addresses": [2757, 6853]
+      },
+      "expect": {
+        "rows": [["0AC5H", "2", "2C5H", "1", "4", "12C5H"], ["1AC5H", "6", "2C5H", "0", "缺页", "缺页"]],
+        "result": { "0AC5H": "12C5H", "1AC5H": "缺页", "缺页次数": "1" }
+      }
+    },
+    {
+      "name": "解析书分析题 22：十进制 8644，页长 4K，页 2 在主存页 8",
+      "source": "解析书 p45 分析题 22",
+      "params": { "pageSize": 4096, "pages": 16, "frames": 16, "table": [{ "page": 2, "valid": 1, "frame": 8 }], "addresses": [8644], "radix": "dec" },
+      "expect": { "rows": [["8644", "2", "452", "1", "8", "33220"]], "result": { "8644": "33220", "缺页次数": "0" } }
+    },
+    {
+      "name": "解析书选择题 27：16 页、页长 1K，0A2CH，页 2 在主存页 3",
+      "source": "解析书 p33 选择题 27",
+      "params": { "pageSize": 1024, "pages": 16, "frames": 16, "table": [{ "page": 2, "valid": 1, "frame": 3 }], "addresses": [2604] },
+      "expect": { "rows": [["0A2CH", "2", "22CH", "1", "3", "0E2CH"]], "result": { "0A2CH": "0E2CH", "缺页次数": "0" } }
+    }
+  ]
+}

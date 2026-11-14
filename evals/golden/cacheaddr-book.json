@@ -1,0 +1,62 @@
+{
+  "note": "cache 地址字段划分的固定用例。例 3.5–3.7 的位数和切分结果取自教材；习题 15 和 (A3C6)16 两例是按教材方法手算的。final 是最后一步的状态（没有的量为 null）。只增不改。",
+  "cases": [
+    {
+      "name": "例 3.5：直接映射，格式 8 | 14 | 2，地址 BBBBBB",
+      "source": "教材 p107 例 3.5",
+      "params": { "mapping": "直接", "fields": { "tag": 8, "index": 14, "word": 2 }, "address": "BBBBBB" },
+      "expect": {
+        "result": { "标记位数": "8", "行号位数": "14", "字地址位数": "2", "地址位数": "24", "地址格式": "标记 8 位 | 行号 14 位 | 字地址 2 位", "标记": "BBH", "行号": "2EEEH", "字地址": "3H" },
+        "bits": ["10111011", "10111011101110", "11"]
+      }
+    },
+    {
+      "name": "例 3.6：组相联 64 行、每组 4 行，主存 4K 块，每块 128 字",
+      "source": "教材 p107–108 例 3.6",
+      "params": { "mapping": "组相联", "rowsPerSet": 4, "cacheRows": 64, "memoryBlocks": 4096, "blockWords": 128 },
+      "expect": {
+        "final": { "w": 7, "v": 4, "r": null, "d": 4, "u": 16, "s": 12, "tag": 8, "length": 19 },
+        "result": { "标记位数": "8", "组号位数": "4", "字地址位数": "7", "地址位数": "19", "地址格式": "标记 8 位 | 组号 4 位 | 字地址 7 位" }
+      }
+    },
+    {
+      "name": "例 3.7：全相联，主存 1MB，块 16B，cache 64KB，地址 B0010",
+      "source": "教材 p108 例 3.7",
+      "params": { "mapping": "全相联", "unit": "字节", "wordBytes": 1, "blockWords": 16, "memoryUnits": 1048576, "cacheUnits": 65536, "address": "B0010" },
+      "expect": {
+        "final": { "w": 4, "v": null, "r": null, "d": null, "u": null, "s": 16, "tag": 16, "length": 20 },
+        "result": { "标记位数": "16", "字地址位数": "4", "地址位数": "20", "地址格式": "标记 16 位 | 字地址 4 位", "标记": "B001H", "字地址": "0H" },
+        "bits": ["1011000000000001", "", "0000"]
+      }
+    },
+    {
+      "name": "习题 15：主存 16M 字，cache 64K 字，每块 4 字，直接映射",
+      "source": "教材 p123 习题 15（手算）",
+      "params": { "mapping": "直接", "memoryUnits": 16777216, "cacheUnits": 65536, "blockWords": 4 },
+      "expect": {
+        "final": { "w": 2, "v": null, "r": 14, "d": null, "u": null, "s": 22, "tag": 8, "length": 24 },
+        "result": { "标记位数": "8", "行号位数": "14", "字地址位数": "2", "地址位数": "24", "地址格式": "标记 8 位 | 行号 14 位 | 字地址 2 位" }
+      }
+    },
+    {
+      "name": "本站自拟：主存 64K 字、cache 1K 字、每块 4 字，直接映射切 A3C6",
+      "source": "docs/textbook/ch03.md 自拟小例",
+      "params": { "mapping": "直接", "memoryUnits": 65536, "cacheUnits": 1024, "blockWords": 4, "address": "A3C6" },
+      "expect": {
+        "final": { "w": 2, "v": null, "r": 8, "d": null, "u": null, "s": 14, "tag": 6, "length": 16 },
+        "result": { "标记位数": "6", "行号位数": "8", "字地址位数": "2", "地址位数": "16", "地址格式": "标记 6 位 | 行号 8 位 | 字地址 2 位", "标记": "28H", "行号": "F1H", "字地址": "2H" },
+        "bits": ["101000", "11110001", "10"]
+      }
+    },
+    {
+      "name": "本站自拟：同上改成 2 路组相联",
+      "source": "docs/textbook/ch03.md 自拟小例",
+      "params": { "mapping": "组相联", "rowsPerSet": 2, "memoryUnits": 65536, "cacheUnits": 1024, "blockWords": 4, "address": "A3C6" },
+      "expect": {
+        "final": { "w": 2, "v": 2, "r": null, "d": 7, "u": 128, "s": 14, "tag": 7, "length": 16 },
+        "result": { "标记位数": "7", "组号位数": "7", "字地址位数": "2", "地址位数": "16", "地址格式": "标记 7 位 | 组号 7 位 | 字地址 2 位", "标记": "51H", "组号": "71H", "字地址": "2H" },
+        "bits": ["1010001", "1110001", "10"]
+      }
+    }
+  ]
+}

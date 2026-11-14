@@ -113,6 +113,7 @@ export class MemoryArray extends Part<MemoryProps> {
       });
     });
     this.markCell(next.cell);
+    this.slide([next.open ?? []].flat().filter((r) => r >= 0), !!animate);
     const active = next.active ?? -1;
     const y = this.rowY[active];
     const wasVisible = this.frame.visible;
@@ -124,6 +125,37 @@ export class MemoryArray extends Part<MemoryProps> {
     } else {
       this.frame.position.y = y;
     }
+  }
+
+  private opened: number[] = [];
+
+  /** 抽屉：这几行的格子向前滑出一点，关上时滑回。 */
+  private slide(rows: number[], animate: boolean): void {
+    if (rows.join() === this.opened.join()) return;
+    const out = 0.55;
+    const move = (r: number, to: number) => {
+      const line = this.cells[r];
+      if (!line) return;
+      const groups = line.map((cell) => cell.group);
+      const from = groups[0]?.position.z ?? 0;
+      if (!animate || this.kit.reduced) {
+        for (const g of groups) g.position.z = to;
+        return;
+      }
+      this.kit.motion.add({
+        duration: 260,
+        ease: easeOut,
+        update: (t) => groups.forEach((g) => (g.position.z = from + (to - from) * t)),
+        done: () => {
+          for (const g of groups) g.position.z = to;
+          if (to > 0) this.kit.sound('thud');
+        },
+      });
+    };
+    for (const r of this.opened) if (!rows.includes(r)) move(r, 0);
+    for (const r of rows) if (!this.opened.includes(r)) move(r, out);
+    this.opened = rows;
+    this.kit.invalidate();
   }
 
   private markCell(cell: string | undefined): void {
@@ -145,7 +177,7 @@ export class MemoryArray extends Part<MemoryProps> {
   }
 
   /** 一个格子中心的世界坐标。移动的值可以从这里出发、落到这里。 */
-  cellAnchor(r: number, c: number) {
+  override cellAnchor(r: number, c: number) {
     const y = this.rowY[r];
     const x = this.colX[c];
     return y === undefined || x === undefined ? null : this.faceToWorld(x, y);

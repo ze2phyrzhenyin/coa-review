@@ -8,6 +8,7 @@ import type { Notation } from '../../lib/bits';
 import { Player } from '../../player/Player';
 import { breakScene, breakTrace } from './break';
 import { EXAMPLES, exampleParams, lesson } from './lesson';
+import { OVERFLOW_CONCLUSION, OVERFLOW_NEEDS, OVERFLOW_QUESTION } from './scene';
 import { Sheet } from './Sheet';
 import './overflow.css';
 
@@ -83,7 +84,22 @@ function Learn() {
         ))}
       </div>
       {made.ok ? (
-        <Player key={`learn-${index}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} flipPart={made.flipPart} onWrong={made.wrong} askFrame={made.askFrame} />
+        <Player
+          key={`learn-${index}`}
+          trace={made.trace}
+          scene={made.scene}
+          bind={made.bind}
+          moves={made.moves}
+          names={made.names}
+          values={made.values}
+          flipPart={made.flipPart}
+          onWrong={made.wrong}
+          askFrame={made.askFrame}
+          question={OVERFLOW_QUESTION}
+          conclusion={OVERFLOW_CONCLUSION}
+          needs={OVERFLOW_NEEDS}
+          mistakes={made.mistakes}
+        />
       ) : (
         <p class="ovf-error">{made.error}</p>
       )}

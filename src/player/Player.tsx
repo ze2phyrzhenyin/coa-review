@@ -11,6 +11,7 @@ import type { Binding, Ink, Move, Patch, PartSpec, Pose, Rect, SceneSpec, SceneV
 import { Answer } from './Answer';
 import { Rich } from './Rich';
 import { plainRich } from '../scene/rich';
+import { onSoundChange, setSound, soundOn } from '../scene/sound';
 import { FlatStage, partTitle, readout } from './FlatStage';
 import './player.css';
 
@@ -52,6 +53,23 @@ export interface PlayerProps<P, S> {
   wide?: boolean | undefined;
   /** 舞台上方的控件（选例题、选粒度）。 */
   children?: ComponentChildren;
+  /** 第 0 步：这一页要回答的问题，和它落在哪些部件上（这些部件垫上焦点纸，手机上镜头先看它们）。 */
+  question?: { text: string; at: string[] } | undefined;
+  /** 讲解的最后一步之后：一句话结论，回答页面标题。 */
+  conclusion?: string | undefined;
+  /** 「需要先会」：前置页面的链接。 */
+  needs?: { href: string; text: string }[] | undefined;
+  /** 常见错误：每条写成「容易错成 X，因为 Y」，点开时在场景里演这个错法。 */
+  mistakes?: Mistake<S>[] | undefined;
+  /** 这一步用的是本站的约定而不是教材的写法时，返回一句说明；否则 null。 */
+  convention?: ((step: Step<S>) => string | null) | undefined;
+}
+
+/** 一条常见错误。at 是在第几步演（不写就在当前步演）；act 返回要盖上去的画面和说明。 */
+export interface Mistake<S> {
+  text: string;
+  at?: number;
+  act: (state: S) => Breakage | null;
 }
 
 const levelNames: Record<StepLevel, string> = {
@@ -85,7 +103,7 @@ function pickTargets(scene: SceneSpec, ask: Ask | undefined): Map<string, string
 const onStage = (rect: Rect | undefined, size: { width: number; height: number }): boolean =>
   !!rect && rect.x + rect.w / 2 > 0 && rect.x + rect.w / 2 < size.width && rect.y + rect.h / 2 > 0 && rect.y + rect.h / 2 < size.height;
 
-export function Player<P, S>({ trace, scene, bind, moves, names, values, caption, breakIt, onWrong, flipPart, askFrame, frame, wide, children }: PlayerProps<P, S>) {
+export function Player<P, S>({ trace, scene, bind, moves, names, values, caption, breakIt, onWrong, flipPart, askFrame, frame, wide, children, question, conclusion, needs, mistakes, convention }: PlayerProps<P, S>) {
   const show = (path: string, value: string) => (value === '' || value === 'null' ? '空' : values ? values(path, value) : value);
   const total = trace.steps.length;
   const [index, setIndex] = useIntParam('s', 0, 0, total);
@@ -98,6 +116,8 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
   const [notice, setNotice] = useState('');
   const [broken, setBroken] = useState<{ index: number; breakage: Breakage; auto?: boolean } | null>(null);
   const [consequence, setConsequence] = useState<{ index: number; text: string } | null>(null);
+  const [sound, setSoundState] = useState(soundOn);
+  useEffect(() => onSoundChange(setSoundState), []);
 
   const root = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -124,11 +144,13 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
   const poseFor = useCallback(
     (i: number): Pose => {
       const pose = poseAt(input, i);
+      // 第 0 步标出这一页的问题落在哪里。
+      if (i === 0 && question) for (const id of question.at) pose.parts[id] = { ...pose.parts[id], focus: true };
       const targets = pickTargets(scene, trace.steps[i]?.ask);
       if (targets) for (const id of targets.values()) pose.parts[id] = { ...pose.parts[id], pickable: true };
       return pose;
     },
-    [input, scene, trace],
+    [input, scene, trace, question],
   );
   const pose = useMemo(() => {
     const base = poseFor(index);
@@ -144,8 +166,8 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
     if (mode === 'flat') return;
     let alive = true;
     let made: SceneView | null = null;
-    void loadRuntime()
-      .then(({ SceneView: View }) => {
+    void Promise.all([loadRuntime(), scene.kinds?.()])
+      .then(([{ SceneView: View }]) => {
         if (!alive || !stage.current || !canvasHost.current) return;
         const frames: string[][] = [];
         const extras: string[][] = [];
@@ -160,7 +182,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
           targets.push([...new Set(planned.filter((move) => (move.phase ?? 0) === last).map((move) => move.to.split('.')[0]!))]);
           const chosen = i > 0 && frame ? frame(trace.steps[i - 1]!) : null;
           pinned.push(!!chosen);
-          frames.push(chosen ?? frameAt(input, i));
+          frames.push(chosen ?? (i === 0 && question ? question.at : frameAt(input, i)));
           // 等学生作答时，接下来要动的部件装得下就一起留在画面里。
           extras.push(trace.steps[i]?.ask ? frameAt(input, i + 1) : []);
           picks.push([...(pickTargets(scene, trace.steps[i]?.ask)?.values() ?? [])]);
@@ -257,6 +279,18 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
     },
     [setIndex, total],
   );
+
+  /** 常见错误：跳到那一步，把这个错法盖在画面上演一遍；「恢复」收回。 */
+  const actMistake = (mistake: Mistake<S>) => {
+    const at = mistake.at ?? index;
+    const atState = at > 0 ? trace.steps[at - 1]!.state : trace.initial;
+    const acted = mistake.act(atState);
+    if (at !== index) go(at);
+    if (!acted) return;
+    view.current?.hold();
+    setBroken({ index: at, breakage: acted });
+    setNotice(acted.message);
+  };
 
   const answer = useCallback(
     (value: string, partId?: string) => {
@@ -397,6 +431,17 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
 
   return (
     <div class={`pl${wide ? ' pl-wide' : ''}`} data-player data-step-index={index} data-mode={mode} tabIndex={0} ref={root} onKeyDown={onKeyDown} style={vars}>
+      {needs && needs.length > 0 ? (
+        <p class="pl-needs">
+          需要先会：
+          {needs.map((item, i) => (
+            <span key={item.href}>
+              {i > 0 ? '、' : ''}
+              <a href={item.href}>{item.text}</a>
+            </span>
+          ))}
+        </p>
+      ) : null}
       {children ? <div class="pl-controls">{children}</div> : null}
 
       <div class="pl-body">
@@ -493,14 +538,34 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
             </button>
           </div>
 
-          <ul class="pl-legend" aria-label="图例">
-            {inks.map((ink) => (
-              <li key={ink} class={`is-${ink}`}>
-                {inkNames[ink]}
-              </li>
-            ))}
-            <li class="is-accent">{accentName}</li>
-          </ul>
+          <div class="pl-foot">
+            <ul class="pl-legend" aria-label="图例">
+              {inks.map((ink) => (
+                <li key={ink} class={`is-${ink}`}>
+                  {inkNames[ink]}
+                </li>
+              ))}
+              <li class="is-accent">{accentName}</li>
+            </ul>
+            <button type="button" class="pl-sound" aria-pressed={sound} onClick={() => setSound(!sound)}>
+              音效{sound ? '开' : '关'}
+            </button>
+          </div>
+
+          {mistakes && mistakes.length > 0 ? (
+            <details class="pl-mistakes">
+              <summary>常见错误</summary>
+              <ul>
+                {mistakes.map((mistake) => (
+                  <li key={mistake.text}>
+                    <button type="button" class="pl-mistake" onClick={() => actMistake(mistake)}>
+                      <Rich text={mistake.text} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
         </div>
 
         <section class="pl-step" aria-label="这一步">
@@ -508,7 +573,8 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
             {index === 0 ? `共 ${total} 步` : `第 ${index} 步，共 ${total} 步`}
             {step ? <span class="pl-level">{levelNames[step.level]}</span> : null}
           </p>
-          <h2 class="pl-title">{step ? <Rich text={step.title} /> : '初始状态'}</h2>
+          <h2 class="pl-title">{step ? <Rich text={step.title} /> : question ? <Rich text={question.text} /> : '初始状态'}</h2>
+          {!step && question ? <p class="pl-why">画面上垫了深色纸的部件就是这一页要看的地方。按「下一步」开始。</p> : null}
           {step && (
             <>
               <h3>为什么</h3>
@@ -516,6 +582,12 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
                 <Rich text={step.why} />
                 {step.ref ? <span class="pl-ref">{step.ref}</span> : null}
               </p>
+              {convention?.(step) ? (
+                <p class="pl-convention">
+                  <span class="pl-badge">本站约定</span>
+                  <Rich text={convention(step) ?? ''} />
+                </p>
+              ) : null}
               {step.changes.length > 0 && (
                 <>
                   <h3>变化</h3>
@@ -541,6 +613,12 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
               )}
             </>
           )}
+          {index === total && conclusion ? (
+            <p class="pl-conclusion">
+              <span class="pl-badge">结论</span>
+              <Rich text={conclusion} />
+            </p>
+          ) : null}
         </section>
       </div>
 

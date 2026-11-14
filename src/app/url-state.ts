@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
  * 写入用 replaceState，不往历史里塞每一步；值等于缺省值时从网址里去掉。
  */
 const CHANGED = 'coa:url-state';
+/** 页内状态（步数、标签页、参数）改了之后在 window 上派发的事件名。外壳用它记「上次学到」。 */
+export const URL_STATE_EVENT = CHANGED;
 
 function read(name: string, fallback: string): string {
   return new URLSearchParams(location.search).get(name) ?? fallback;

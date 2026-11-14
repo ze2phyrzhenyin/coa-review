@@ -618,3 +618,91 @@ button.pl-part {
     max-width: 46rem;
   }
 }
+
+/* 需要先会、常见错误、本站约定、结论、音效开关 */
+.pl-needs {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  color: var(--pl-muted);
+}
+.pl-needs a {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+  color: var(--ink);
+}
+.pl-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  flex-wrap: wrap;
+}
+.pl-sound {
+  min-height: 44px;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--pl-muted);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.pl-sound[aria-pressed='true'] {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.pl-mistakes {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+.pl-mistakes summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pl-mistakes ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pl-mistake {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.pl-mistake:hover {
+  text-decoration: underline;
+}
+.pl-badge {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0 0.4rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+}
+.pl-convention {
+  font-size: 0.875rem;
+  color: var(--pl-muted);
+}
+.pl-conclusion {
+  padding: 0.75rem 0;
+  font-weight: 600;
+  border-top: 2px solid var(--ink);
+}
+.pl-select.is-always {
+  display: flex;
+}

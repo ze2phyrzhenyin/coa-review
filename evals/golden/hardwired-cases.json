@@ -1,0 +1,38 @@
+{
+  "note": "硬布线控制信号的逻辑表达式。例 5.3（教材 p179）的十个信号，指令集是图 5.30 的 MOV、LAD、ADD、STO、JMP。写法：电位信号只与 M，脉冲信号再与 T；同一个 M·T 的指令相或放进括号；所有指令都有的项不写指令；各项按 M、T 的先后。",
+  "derive": [
+    { "signal": "RD(I)", "kind": "电位", "expression": "M1" },
+    { "signal": "RD(D)", "kind": "电位", "expression": "M3·LAD" },
+    { "signal": "WE(D)", "kind": "脉冲", "expression": "M3·T3·STO" },
+    { "signal": "LDPC", "kind": "脉冲", "expression": "M1·T4+M2·T4·JMP" },
+    { "signal": "LDIR", "kind": "脉冲", "expression": "M1·T3" },
+    { "signal": "LDAR", "kind": "脉冲", "expression": "M2·T4·(LAD+STO)" },
+    { "signal": "LDDR", "kind": "脉冲", "expression": "M2·T3·(MOV+ADD)+M3·T3·LAD" },
+    { "signal": "PC+1", "kind": "脉冲", "expression": "M1·T4" },
+    { "signal": "LDRx", "kind": "脉冲", "expression": "M2·T4·MOV+M3·T4·LAD" },
+    { "signal": "LDRy", "kind": "脉冲", "expression": "M2·T4·ADD" }
+  ],
+  "reverse": [
+    { "name": "例 5.3 的 LDAR 原样", "expression": "M2·T4·(LAD+STO)", "signal": "LDAR", "same": true },
+    { "name": "展开写也一样", "expression": "M2·T4·LAD+M2·T4·STO", "signal": "LDAR", "same": true },
+    { "name": "LDDR 漏了 MOV", "expression": "M2·T3·ADD+M3·T3·LAD", "signal": "LDDR", "same": false, "missing": "MOV·M2·T3" },
+    { "name": "RD(D) 多与了 T3：只剩一拍", "expression": "M3·T3·LAD", "signal": "RD(D)", "same": false, "missing": "LAD·M3·T1、LAD·M3·T2、LAD·M3·T4" },
+    { "name": "WE(D) 忘了与 T：整个周期都写", "expression": "M3·STO", "signal": "WE(D)", "same": false, "extra": "STO·M3·T1、STO·M3·T2、STO·M3·T4" }
+  ],
+  "flow": {
+    "note": "方框图：每条指令的方框数等于 CPU 周期数（教材 p161–162 图 5.15）。",
+    "instructions": [
+      { "op": "MOV", "rx": "R2", "ry": "R3" },
+      { "op": "LAD", "rx": "R0", "addr": 9 },
+      { "op": "ADD", "rx": "R0", "ry": "R1" },
+      { "op": "STO", "rx": "R1", "ry": "R3" },
+      { "op": "JMP", "addr": 37 }
+    ],
+    "boxes": [2, 3, 2, 3, 2],
+    "ladSignals": [
+      { "level": ["RD(I)"], "pulse": ["LDIR(T3)", "PC+1(T4)", "LDPC(T4)"] },
+      { "level": ["C3"], "pulse": ["LDAR(T4)"] },
+      { "level": ["RD(D)"], "pulse": ["LDDR(T3)", "LDR0(T4)"] }
+    ]
+  }
+}

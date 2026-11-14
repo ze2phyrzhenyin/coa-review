@@ -17,6 +17,7 @@ import {
 import type { BufferGeometry, Object3D, PerspectiveCamera } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { Motion } from './motion';
+import type { SoundName } from './sound';
 import { parseRich } from './rich';
 import type { Run } from './rich';
 import { fonts, mix } from './theme';
@@ -64,6 +65,8 @@ export interface Kit {
   texts: Set<TextPlane>;
   /** 每帧渲染前转到正对屏幕的对象。 */
   facing: Set<Object3D>;
+  /** 轻微音效，默认关（见 sound.ts）。只在落定的那一下调用。 */
+  sound(name: SoundName): void;
   invalidate(): void;
 }
 

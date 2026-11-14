@@ -10,6 +10,7 @@ import { Card } from './card';
 export class Label extends Part<LabelProps> {
   private text: TextPlane | null = null;
   private card: Card | null = null;
+  override cause = true;
 
   constructor(kit: Kit, id: string, position: Vec2, props: LabelProps) {
     super(kit, id, position);

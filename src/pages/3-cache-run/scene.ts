@@ -7,7 +7,7 @@ import type { Step, Trace } from '../../engines/trace';
 import { layout, rowsOf, splitAddress } from '../../engines/cache/model';
 import type { Layout, Params, Row, State } from '../../engines/cache/model';
 import { bindTable, from } from '../../scene';
-import type { Breakage } from '../../player/Player';
+import type { Breakage, Mistake } from '../../player/Player';
 import type { BindContext, Binding, MemoryColumn, Move, PartSpec, SceneSpec, Vec2, WireSpec } from '../../scene';
 
 /** 主存画成一块 4×4 的板：一行 4 个块。直接映射时一行就是一个区，列号就是区内块号。 */
@@ -113,9 +113,16 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
     { id: 'calcJ', kind: 'label', position: at([3.3, -4.95], [0, -4.85]), props: { text: '', plate: true, size: 0.31, mono: true } },
     { id: 'calcI', kind: 'label', position: at([3.3, -4.05], [0, -4.1]), props: { text: '', plate: true, size: 0.31, mono: true } },
     mem,
-    { id: 'hit', kind: 'label', position: at([1.3, -2.95], [-2.6, -2.4]), props: { text: '命中 0', plate: true, size: 0.34, weight: 600 }, pick: true, title: '命中' },
-    { id: 'miss', kind: 'label', position: at([3.25, -2.95], [-0.6, -2.4]), props: { text: '缺失 0', plate: true, size: 0.34, weight: 600 }, pick: true, title: '缺失' },
-    { id: 'out', kind: 'register', position: at([counted(params) && !grid ? 6.0 : 4.95, -1.25], [2.4, -2.4]), props: { name: '换出', value: '', width: 2.2 } },
+    {
+      id: 'cmp',
+      kind: 'compare',
+      position: at([2.0, -1.35], [0, -3.2]),
+      props: { left: '', right: '', ...(compact ? {} : { leftName: '地址', rightName: '候选行' }) },
+      title: '比较标记',
+    },
+    { id: 'hit', kind: 'label', position: at([1.3, -2.95], [-2.6, -2.15]), props: { text: '命中 0', plate: true, size: 0.34, weight: 600 }, pick: true, title: '命中' },
+    { id: 'miss', kind: 'label', position: at([3.25, -2.95], [-0.6, -2.15]), props: { text: '缺失 0', plate: true, size: 0.34, weight: 600 }, pick: true, title: '缺失' },
+    { id: 'out', kind: 'register', position: at([counted(params) && !grid ? 6.0 : 4.95, -1.25], [2.4, -2.15]), props: { name: '换出', value: '', width: 2.2 } },
     { id: 'bus', kind: 'bus', position: [0, zBus], props: { name: '块传送', length: compact ? side * 2 + 0.1 : counted(params) && !grid ? 16.0 : 12.2, value: '', tileAt: compact ? 0.4 : -2.2, idleText: '' } },
   );
   for (let i = 0; i < g.rows; i++) {
@@ -188,12 +195,33 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
       hidden: (c: BindContext<State>) => !shown(c) || g.indexBits === 0,
     };
   }
-  // 主存板上只框出当前访问的那一块。
+  // 主存板上只框出当前访问的那一块。调入、写回的那一步，块所在的那一行像抽屉一样拉出来。
   table['mem'] = {
     cell: (c: BindContext<State>) => {
       const block = c.state.access.block;
       return shown(c) && block !== null ? `${Math.floor(block / PER_LINE)}.${block % PER_LINE}` : '';
     },
+    open: (c: BindContext<State>) => {
+      const a = c.state.access;
+      const moved = a.row !== null && [...c.changed].some((path) => path === `rows.${a.row}.block`);
+      if (!moved || a.block === null) return [];
+      const lines = [Math.floor(a.block / PER_LINE)];
+      if (a.writeBack && a.evicted !== null) lines.push(Math.floor(a.evicted / PER_LINE));
+      return [...new Set(lines)];
+    },
+  };
+  // 比标记：地址切出的标记和候选行的标记两张卡并排，一致扣上，不一致弹开。
+  table['cmp'] = {
+    left: from(['access.result'], (c) => (c.state.access.tag === null ? '' : String(c.state.access.tag))),
+    right: from(['access.result'], (c) => {
+      const a = c.state.access;
+      if (a.result === '命中' && a.row !== null) return String(c.state.rows[a.row]?.tag ?? '');
+      const tags = a.candidates.map((i) => c.state.rows[i]?.tag).filter((tag): tag is number => tag !== null && tag !== undefined);
+      return tags.length ? tags.join('、') : '空';
+    }),
+    result: (c: BindContext<State>) => (c.state.access.result === '命中' ? 'match' : c.state.access.result === '缺失' ? 'mismatch' : ''),
+    // 只在比标记、记命中的这一段出现；调入以后候选行的标记变了，再摆着就对不上了。
+    hidden: (c: BindContext<State>) => c.state.access.result === null || c.state.access.action !== null,
   };
   const keys = ['tag', 'modified', ...(counted(params) ? ['count'] : []), 'block'];
   for (let i = 0; i < g.rows; i++) {
@@ -263,7 +291,9 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
     const about = step.changes.some((change) => /^rows\.\d+\.(count|tag|block|modified)$/.test(change.at) || change.at === 'access.result' || change.at === 'access.action');
     if (candidates.length === 0 || !about) return null;
     const touched = step.changes.filter((change) => /^rows\.\d+\./.test(change.at)).map((change) => `r${change.at.split('.')[1]}`);
-    return [...new Set([...candidates, ...touched])];
+    // 比标记那一步把两张卡也放进来（装不下时看候选行）。
+    const compared = step.changes.some((change) => change.at === 'access.result') ? ['cmp'] : [];
+    return [...new Set([...compared, ...candidates, ...touched])];
   };
   /** 出题时看这一组的候选行（比标记、选换出行都要看它们）。 */
   const askFrame = (trace: Trace<Params, State>) => (_ask: unknown, index: number): string[] => (trace.steps[index]?.state.access.candidates ?? []).map((i) => `r${i}`);
@@ -398,4 +428,71 @@ export function cacheWrong(params: Params) {
       message: `块 ${j} 放进${rowName(k)}。下次再访问块 ${j}，硬件按 i = j mod m 只看${rowName(i)}，在那里找不到它，又要缺失一次。`,
     };
   };
+}
+
+/** 第 0 步的问题、最后的结论、需要先会。 */
+export const CACHE_QUESTION = { text: '这次访问的块能放进哪几行，放满了换出谁', at: ['calcI', 'r0', 'r1'] };
+export const CACHE_CONCLUSION =
+  '直接映射时块 j 只能放进行 j mod m；组相联时放进组 j mod u 里的任意一行，组里没有空行才替换。LRU 换出计数器最大的那一行，也就是最久没用到的；换出的块修改位是 1 时，先写回主存再调入新块。';
+export const CACHE_NEEDS = [{ href: '/3-cache-addr', text: '地址切成标记、行号（组号）、字地址' }];
+
+/** 计数器的加法规则是本站的约定：教材只说 LRU 换出最久没用的行。 */
+export function cacheConvention(step: Step<State>): string | null {
+  return step.changes.some((change) => /^rows\.\d+\.count$/.test(change.at)) ? '计数器怎么变是本站的约定：被访问的行清零，同组其余有块的行加 1。教材只要求换出最久没用到的行（p108）。' : null;
+}
+
+/** 常见错误，每条在场景里演一遍。块号、行号都取自这份 Trace。 */
+export function cacheMistakes(trace: Trace<Params, State>): Mistake<State>[] {
+  const g = layout(trace.params);
+  const steps = trace.steps;
+  const out: Mistake<State>[] = [];
+  const cellOf = (block: number) => `mem.${Math.floor(block / PER_LINE)}.${block % PER_LINE}`;
+  // 1. 组相联按行数取模；直接映射忘了先除以块大小。
+  const located = steps.findIndex((step) => step.changes.some((change) => change.at === 'access.candidates') && step.state.access.block !== null);
+  if (located >= 0) {
+    const a = steps[located]!.state.access;
+    const j = a.block!;
+    const wrongRow = j % g.rows;
+    if (g.mapping === '组相联' && !a.candidates.includes(wrongRow)) {
+      out.push({
+        text: '容易把组相联的 j mod 行数 当成行号，因为和直接映射的算法混了',
+        at: located + 1,
+        act: () => ({
+          label: '',
+          patch: { [`r${wrongRow}`]: { active: 0 } },
+          moves: [{ value: `块 ${j}`, from: cellOf(j), to: `r${wrongRow}`, arc: true }],
+          message: `组相联先算组号 q = j mod u：块 ${j} 在组 ${a.index}，只能放进组 ${a.index} 的${a.candidates.map((i) => `行 ${i}`).join('、')}。按 j mod m 算出的行 ${wrongRow} 不在这一组里。`,
+        }),
+      });
+    }
+    if (g.mapping === '直接' && g.blockUnits > 1 && a.address !== null && a.address !== j && a.address < g.blocks) {
+      const address = a.address;
+      out.push({
+        text: '容易把地址直接当成块号，因为忘了先除以每块的字数',
+        at: located + 1,
+        act: () => ({
+          label: '',
+          patch: { mem: { cell: `${Math.floor(address / PER_LINE)}.${address % PER_LINE}` } },
+          moves: [],
+          message: `块号 j = 地址 ÷ 每块字数 取整：地址 ${address} 除以 ${g.blockUnits} 得块 ${j}，不是块 ${address}。`,
+        }),
+      });
+    }
+  }
+  // 2. 换出时忘了写回。
+  const back = steps.findIndex((step) => step.state.access.writeBack && step.changes.some((change) => change.at === 'access.writeBack'));
+  if (back >= 0) {
+    const a = steps[back]!.state.access;
+    out.push({
+      text: '容易忘了先把修改位为 1 的块写回主存，因为只看了新块调入',
+      at: back + 1,
+      act: () => ({
+        label: '',
+        patch: { out: { value: `块 ${a.evicted} 丢掉` } },
+        moves: [{ value: `块 ${a.evicted}`, from: `r${a.row}`, to: 'out', via: [`bus-r${a.row}`, 'bus-out'] }],
+        message: `块 ${a.evicted} 的修改位是 1，cache 里的这一块比主存新。直接丢掉，主存里留的就是旧数；写回法要先把它写回主存，再调入新块（教材 p109）。`,
+      }),
+    });
+  }
+  return out;
 }

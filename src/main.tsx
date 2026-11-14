@@ -1,9 +1,15 @@
 import { render } from 'preact';
 import type { ComponentType } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
+import { Home } from './app/Home';
 import { Shell } from './app/Shell';
-import { chapters, pages, visiblePages } from './content/pages';
+import { pages } from './content/pages';
+// 顺序有意义：变量、元素默认样式、共用控件、外壳。页面和播放器的样式随页面按需加载，排在后面，能盖过这些。
+import './styles/tokens.css';
+import './styles/base.css';
+import './styles/components.css';
 import './app/shell.css';
+import './app/home.css';
 
 /**
  * 页面实现按目录约定登记：src/pages/<编号>/index.tsx，默认导出一个组件。
@@ -11,34 +17,6 @@ import './app/shell.css';
  */
 const implementations = import.meta.glob<{ default: ComponentType }>('./pages/*/index.tsx');
 const loaderFor = (id: string) => implementations[`./pages/${id}/index.tsx`];
-
-function Home() {
-  const listed = visiblePages();
-  return (
-    <>
-      <h1>计算机组成原理</h1>
-      <p>白中英第七版，第 1–6、8 章。</p>
-      {Object.entries(chapters).map(([number, name]) => {
-        const items = listed.filter((item) => item.chapter === Number(number));
-        if (items.length === 0) return null;
-        return (
-          <section key={number}>
-            <h2>
-              第 {number} 章 {name}
-            </h2>
-            <ul class="home-list">
-              {items.map((item) => (
-                <li key={item.id}>
-                  <a href={`/${item.id}`}>{item.title}</a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
-    </>
-  );
-}
 
 function Page({ id }: { id: string }) {
   const meta = pages.find((item) => item.id === id);

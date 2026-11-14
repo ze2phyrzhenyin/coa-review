@@ -10,6 +10,8 @@ export type Animate = false | 'flip' | 'land';
 export type Side = 'n' | 's' | 'e' | 'w';
 
 const DEFAULT_ELEVATION = (52 * Math.PI) / 180;
+/** 不是主角时字的浓度。 */
+const DIM = 0.5;
 
 /**
  * 部件的基类。本体放在台面上（group），文字和牌放在正对屏幕的 face 里。
@@ -24,6 +26,9 @@ export abstract class Part<P extends CommonProps = CommonProps> {
   protected faceHeight = 0.7;
   protected faceWidth = 0;
   protected props: P | null = null;
+  /** 起因类的部件（门、信号、标签）：前进一步时先变，值再走。 */
+  cause = false;
+  private dimmed = false;
   private ring: Group | null = null;
   private brackets: Group | null = null;
   private readonly home: Vector3;
@@ -98,6 +103,37 @@ export abstract class Part<P extends CommonProps = CommonProps> {
 
   protected faceToWorld(x: number, y: number): Vector3 {
     return new Vector3(x, y, 0).applyQuaternion(this.kit.camera.quaternion).add(this.face.position).add(this.group.position);
+  }
+
+  /** 连线、信号接到一个具名引脚上（'U1.addr'）。没有这个引脚时返回 null，按边处理。 */
+  pin(_name: string): { point: Vector3; side: Side } | null {
+    return null;
+  }
+
+  /** 'id.行.列' 的格子中心（世界坐标）。值可以从格子出发、落进格子。没有格子的部件返回 null。 */
+  cellAnchor(_r: number, _c: number): Vector3 | null {
+    return null;
+  }
+
+  /** 不是这一拍主角时变淡一点：只调字的浓淡，动作结束后恢复。 */
+  dim(on: boolean, instant = false): void {
+    if (on === this.dimmed) return;
+    this.dimmed = on;
+    const texts = [...this.kit.texts].filter((text) => {
+      for (let node: Object3D | null = text.mesh; node; node = node.parent) if (node === this.group) return true;
+      return false;
+    });
+    const to = on ? DIM : 1;
+    if (this.kit.reduced || instant) {
+      for (const text of texts) if (text.opacity > 0) text.opacity = to;
+      this.kit.invalidate();
+      return;
+    }
+    const from = texts.map((text) => text.opacity);
+    this.kit.motion.add({
+      duration: timing.fade,
+      update: (t) => texts.forEach((text, i) => from[i]! > 0 && (text.opacity = from[i]! + (to - from[i]!) * t)),
+    });
   }
 
   /** 被拒绝的选择：轻摇。 */

@@ -36,8 +36,39 @@ export function readout(part: PartSpec, props: Patch): string {
       return `${title}，${text(props.bits)}`;
     case 'label':
       return text(props.text);
+    case 'chip': {
+      const pins = ((props.pins as { name: string; value?: string }[] | undefined) ?? []).filter((pin) => text(pin.value) !== '');
+      const said = pins.map((pin) => `${pin.name} ${text(pin.value)}`).join('，');
+      return `${title}${text(props.label) ? ` ${text(props.label)}` : ''}${isOn(props.selected) ? '，选中' : ''}${said ? `，${said}` : ''}`;
+    }
+    case 'decoder': {
+      const active = Number(props.active ?? -1);
+      const names = props.outputNames as string[] | undefined;
+      return `${title || '译码器'}，输入 ${text(props.input) || '空'}${active >= 0 ? `，${names?.[active] ?? `Y_${active}`} 有效` : '，没有输出有效'}`;
+    }
+    case 'signal':
+      return `${text(props.text)}，${isOn(props.on) ? '有效' : '无效'}`;
+    case 'dial':
+      return `${title || '刻度盘'}，指针在第 ${text(props.pointer)} 格${isOn(props.crossed) ? '，越过了接缝' : ''}`;
+    case 'balance': {
+      const tilt = Math.sign(Number(props.tilt));
+      return `${title || '天平'}，左 ${text(props.left)}，右 ${text(props.right)}，${tilt < 0 ? '左边沉' : tilt > 0 ? '右边沉' : '平'}`;
+    }
+    case 'conveyor':
+      return `${title || '传送带'}，${((props.items as string[] | undefined) ?? []).map((item) => item || '空').join('、')}`;
+    case 'stack':
+      return `${title || '程序卡'}，${((props.cards as { title: string; note?: string }[] | undefined) ?? []).map((card) => card.title + (card.note ? `（${card.note}）` : '')).join('，')}`;
+    case 'compare': {
+      const result = text(props.result);
+      return `${title || '比较'}，${text(props.left)} 和 ${text(props.right)}${result === 'match' ? '，一致' : result === 'mismatch' ? '，不一致' : ''}`;
+    }
+    case 'track': {
+      const segments = (props.segments as { text?: string }[] | undefined) ?? [];
+      return `${title || '时间轴'}，${segments.map((segment) => segment.text).filter(Boolean).join('、') || '空'}`;
+    }
     default:
-      return title;
+      if ('describe' in part && part.describe) return part.describe(props);
+      return props.value !== undefined ? `${title}，${text(props.value) || '空'}` : title;
   }
 }
 
@@ -58,7 +89,37 @@ export function FlatStage({ scene, pose, picking, wrong, onPick }: FlatStageProp
         const title = text(props.name) || partTitle(part);
         const classes = `pl-part is-${part.kind}${props.changed ? ' is-changed' : ''}${props.focus ? ' is-focus' : ''}${wrong !== undefined && (wrong === part.id || wrong === title) ? ' is-wrong' : ''}`;
         let body;
-        if (part.kind === 'memory') {
+        if (part.kind === 'grid') {
+          const columns = (props.columns as string[] | undefined) ?? [];
+          const rows = (props.rows as string[] | undefined) ?? [];
+          const cells = (props.cells as string[][] | undefined) ?? [];
+          body = (
+            <table>
+              <thead>
+                <tr>
+                  <th />
+                  {columns.map((column) => (
+                    <th key={column}>{column}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, r) => (
+                  <tr key={row}>
+                    <th scope="row">
+                      <Rich text={row} />
+                    </th>
+                    {columns.map((_, c) => (
+                      <td key={c} class={props.current === c ? 'is-current' : ''}>
+                        <Rich text={cells[r]?.[c] ?? ''} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        } else if (part.kind === 'memory') {
           const columns = (props.columns as { title: string }[] | undefined) ?? [];
           const rows = (props.rows as string[][] | undefined) ?? [];
           const labels = props.labels as string[] | undefined;
