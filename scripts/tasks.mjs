@@ -93,7 +93,9 @@ function validate() {
     for (const key of ['id', 'title', 'skill', 'role', 'accept']) if (!task[key]) problems.push(`${task.id}：缺 ${key}`);
     if (!Array.isArray(task.scope) || task.scope.length === 0) problems.push(`${task.id}：缺文件范围 scope`);
     for (const dep of task.depends ?? []) if (!byId.has(dep)) problems.push(`${task.id}：依赖 ${dep} 不存在`);
-    if (task.spec && !existsSync(at(task.spec.split('#')[0]))) problems.push(`${task.id}：规格 ${task.spec} 不存在`);
+    // 规格可以由前置任务写出：前置任务都完成之后才要求它存在。
+    const depsDone = (task.depends ?? []).every((dep) => stateOf(dep).state === 'done');
+    if (task.spec && depsDone && !existsSync(at(task.spec.split('#')[0]))) problems.push(`${task.id}：规格 ${task.spec} 不存在`);
     if (task.skill && !existsSync(at('.agents/skills', task.skill, 'SKILL.md'))) problems.push(`${task.id}：skill ${task.skill} 不存在`);
     if (task.role && !existsSync(at('prompts/roles', `${task.role}.md`))) problems.push(`${task.id}：角色 ${task.role} 不存在`);
     const state = stateOf(task.id).state;

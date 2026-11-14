@@ -1,4 +1,268 @@
 {
   "note": "任务图。只有 planner 改这个文件。字段：id、title、role（prompts/roles 下的角色）、skill、depends、scope（独占的文件范围，路径前缀）、spec、accept（验收命令）。状态不写在这里，见 plan/state/。",
-  "tasks": []
+  "tasks": [
+    {
+      "id": "T101",
+      "title": "部件库：页面自带部件的注册接口；芯片、译码器、时空格、时间轴部件",
+      "role": "implementer",
+      "skill": "coa-page",
+      "depends": [],
+      "scope": [
+        "src/scene/",
+        "src/player/",
+        "src/app/",
+        "specs/_scene-contract.md",
+        "specs/_player-contract.md"
+      ],
+      "spec": "specs/_scene-contract.md",
+      "accept": "bash scripts/gate.sh --build"
+    },
+    {
+      "id": "T111",
+      "title": "引擎：码制、IEEE 754、浮点加减",
+      "role": "implementer",
+      "skill": "coa-engine",
+      "depends": [],
+      "scope": [
+        "src/engines/codes/",
+        "src/engines/ieee/",
+        "src/engines/fpadd/",
+        "specs/2-codes.md",
+        "specs/2-ieee.md",
+        "specs/2-fpadd.md",
+        "evals/golden/codes-*",
+        "evals/golden/ieee-*",
+        "evals/golden/fpadd-*"
+      ],
+      "accept": "pnpm -s exec vitest run src/engines/codes/ src/engines/ieee/ src/engines/fpadd/"
+    },
+    {
+      "id": "T112",
+      "title": "引擎：阵列乘法、加减交替除法",
+      "role": "implementer",
+      "skill": "coa-engine",
+      "depends": [],
+      "scope": [
+        "src/engines/mul/",
+        "src/engines/div/",
+        "specs/2-mul.md",
+        "specs/2-div.md",
+        "evals/golden/mul-*",
+        "evals/golden/div-*"
+      ],
+      "accept": "pnpm -s exec vitest run src/engines/mul/ src/engines/div/"
+    },
+    {
+      "id": "T113",
+      "title": "引擎：容量扩充、地址译码、cache 地址划分与性能、页式变换、页面替换",
+      "role": "implementer",
+      "skill": "coa-engine",
+      "depends": [],
+      "scope": [
+        "src/engines/expand/",
+        "src/engines/decode/",
+        "src/engines/cacheaddr/",
+        "src/engines/cacheperf/",
+        "src/engines/vm/",
+        "src/engines/vmreplace/",
+        "specs/3-expand.md",
+        "specs/3-decode.md",
+        "specs/3-cache-addr.md",
+        "specs/3-cache-perf.md",
+        "specs/3-vm-addr.md",
+        "specs/3-vm-replace.md",
+        "evals/golden/expand-*",
+        "evals/golden/decode-*",
+        "evals/golden/cacheaddr-*",
+        "evals/golden/cacheperf-*",
+        "evals/golden/vm-*"
+      ],
+      "accept": "pnpm -s exec vitest run src/engines/expand/ src/engines/decode/ src/engines/cacheaddr/ src/engines/cacheperf/ src/engines/vm/ src/engines/vmreplace/"
+    },
+    {
+      "id": "T114",
+      "title": "引擎：扩展操作码、寻址方式、硬布线、微程序、流水线",
+      "role": "implementer",
+      "skill": "coa-engine",
+      "depends": [],
+      "scope": [
+        "src/engines/opcode/",
+        "src/engines/ea/",
+        "src/engines/hardwired/",
+        "src/engines/micro/",
+        "src/engines/pipeline/",
+        "specs/4-opcode.md",
+        "specs/4-ea.md",
+        "specs/5-flow.md",
+        "specs/5-hardwired.md",
+        "specs/5-micro.md",
+        "specs/5-spacetime.md",
+        "specs/5-hazard.md",
+        "specs/5-stall.md",
+        "evals/golden/opcode-*",
+        "evals/golden/ea-*",
+        "evals/golden/hardwired-*",
+        "evals/golden/micro-*",
+        "evals/golden/pipeline-*"
+      ],
+      "accept": "pnpm -s exec vitest run src/engines/opcode/ src/engines/ea/ src/engines/hardwired/ src/engines/micro/ src/engines/pipeline/"
+    },
+    {
+      "id": "T115",
+      "title": "引擎：总线仲裁、串行帧与带宽、单级中断、屏蔽字",
+      "role": "implementer",
+      "skill": "coa-engine",
+      "depends": [],
+      "scope": [
+        "src/engines/arbiter/",
+        "src/engines/serial/",
+        "src/engines/intr/",
+        "src/engines/mask/",
+        "specs/6-arbiter.md",
+        "specs/6-serial.md",
+        "specs/8-intr.md",
+        "specs/8-mask.md",
+        "evals/golden/arbiter-*",
+        "evals/golden/serial-*",
+        "evals/golden/intr-*",
+        "evals/golden/mask-*"
+      ],
+      "accept": "pnpm -s exec vitest run src/engines/arbiter/ src/engines/serial/ src/engines/intr/ src/engines/mask/"
+    },
+    {
+      "id": "T121",
+      "title": "页面：码制、IEEE 754、浮点加减",
+      "role": "implementer",
+      "skill": "coa-page",
+      "depends": [
+        "T101",
+        "T111"
+      ],
+      "scope": [
+        "src/pages/2-codes/",
+        "src/pages/2-ieee/",
+        "src/pages/2-fpadd/"
+      ],
+      "spec": "specs/2-codes.md",
+      "accept": "PORT=$PORT node scripts/qa-pages.mjs 2-codes 2-ieee 2-fpadd"
+    },
+    {
+      "id": "T122",
+      "title": "页面：阵列乘法、加减交替除法",
+      "role": "implementer",
+      "skill": "coa-page",
+      "depends": [
+        "T101",
+        "T112"
+      ],
+      "scope": [
+        "src/pages/2-mul/",
+        "src/pages/2-div/"
+      ],
+      "spec": "specs/2-mul.md",
+      "accept": "PORT=$PORT node scripts/qa-pages.mjs 2-mul 2-div"
+    },
+    {
+      "id": "T123",
+      "title": "页面：容量扩充、地址译码",
+      "role": "implementer",
+      "skill": "coa-page",
+      "depends": [
+        "T101",
+        "T113"
+      ],
+      "scope": [
+        "src/pages/3-expand/",
+        "src/pages/3-decode/"
+      ],
+      "spec": "specs/3-expand.md",
+      "accept": "PORT=$PORT node scripts/qa-pages.mjs 3-expand 3-decode"
+    },
+    {
+      "id": "T124",
+      "title": "页面：cache 地址划分与性能、页式变换、页面替换",
+      "role": "implementer",
+      "skill": "coa-page",
+      "depends": [
+        "T101",
+        "T113"
+      ],
+      "scope": [
+        "src/pages/3-cache-addr/",
+        "src/pages/3-cache-perf/",
+        "src/pages/3-vm-addr/",
+        "src/pages/3-vm-replace/"
+      ],
+      "spec": "specs/3-cache-addr.md",
+      "accept": "PORT=$PORT node scripts/qa-pages.mjs 3-cache-addr 3-cache-perf 3-vm-addr 3-vm-replace"
+    },
+    {
+      "id": "T125",
+      "title": "页面：扩展操作码、寻址方式、方框图、硬布线",
+      "role": "implementer",
+      "skill": "coa-page",
+      "depends": [
+        "T101",
+        "T114"
+      ],
+      "scope": [
+        "src/pages/4-opcode/",
+        "src/pages/4-ea/",
+        "src/pages/5-flow/",
+        "src/pages/5-hardwired/"
+      ],
+      "spec": "specs/4-opcode.md",
+      "accept": "PORT=$PORT node scripts/qa-pages.mjs 4-opcode 4-ea 5-flow 5-hardwired"
+    },
+    {
+      "id": "T126",
+      "title": "页面：微程序控制器",
+      "role": "implementer",
+      "skill": "coa-page",
+      "depends": [
+        "T101",
+        "T114"
+      ],
+      "scope": [
+        "src/pages/5-micro/"
+      ],
+      "spec": "specs/5-micro.md",
+      "accept": "PORT=$PORT node scripts/qa-pages.mjs 5-micro"
+    },
+    {
+      "id": "T127",
+      "title": "页面：流水线时空图、相关、停顿与定向",
+      "role": "implementer",
+      "skill": "coa-page",
+      "depends": [
+        "T101",
+        "T114"
+      ],
+      "scope": [
+        "src/pages/5-spacetime/",
+        "src/pages/5-hazard/",
+        "src/pages/5-stall/"
+      ],
+      "spec": "specs/5-spacetime.md",
+      "accept": "PORT=$PORT node scripts/qa-pages.mjs 5-spacetime 5-hazard 5-stall"
+    },
+    {
+      "id": "T128",
+      "title": "页面：总线仲裁、串行帧、单级中断、屏蔽字",
+      "role": "implementer",
+      "skill": "coa-page",
+      "depends": [
+        "T101",
+        "T115"
+      ],
+      "scope": [
+        "src/pages/6-arbiter/",
+        "src/pages/6-serial/",
+        "src/pages/8-intr/",
+        "src/pages/8-mask/"
+      ],
+      "spec": "specs/6-arbiter.md",
+      "accept": "PORT=$PORT node scripts/qa-pages.mjs 6-arbiter 6-serial 8-intr 8-mask"
+    }
+  ]
 }
