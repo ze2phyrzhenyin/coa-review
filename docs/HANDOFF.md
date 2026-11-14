@@ -25,20 +25,9 @@
 | `src/lib/bits.ts`、`src/engines/overflow/`、`specs/2-overflow.md` | 位运算库和变形补码引擎 | 86 |
 | `src/scene/`、`src/player/` | three.js 部件库和逐步播放器；`/5-cycle?demo=kit` 演示 | qa-pages 通过 |
 
-三个样板页已做出（没有提交，`live` 仍为 false，侧栏默认不显示；看全部页面用 `VITE_SHOW_PLANNED=1 pnpm dev`）：
+**0.1 已上线**（2026-11-14 12:05，版本 `20261114T110520Z-047361a`）：https://coa.zhaoyang.fr ，上线两页 `/5-cycle`、`/2-overflow`，都过了三轮独立验收和两轮学生试读（记录在 `evals/look/`）。回滚：`bash scripts/release.sh rollback`。
 
-| 页面 | 状态 | 已知问题 |
-|---|---|---|
-| `/5-cycle` 模型机指令周期 | 接真实引擎；选指令和步长；值沿总线走；答错演后果；「弄坏它」总线冲突 | CPU 周期、指令步长下早期的移动可能在画面外；填空题答错不演后果；没有信号名切换 |
-| `/3-cache-run` cache 逐次访问 | 讲解、试一试、练习、弄坏它四个标签 | 组相联、全相联带计数器列时桌面放不下整张表；手机上选行时部分行在画面外 |
-| `/2-overflow` 变形补码 | 讲解三个例子、试一试、练习、弄坏它 | 手机上场景左右被截；标签写成 `S_f1`、`2^3`，要排成上下标 |
-
-部件库的修改请求在 `plan/progress/3-cache-run.md` 和 `plan/progress/2-overflow.md`。`gate.sh --build` 通过（约 50 秒，单测约 25 秒）。
-
-下一步：
-1. 部件库一轮：处理两页的请求；镜头保证所有可选目标在窄屏可见；上下标排版。
-2. 三页按 `coa-look` 验收（evaluator 和 student 两个角色），通过后置 `passes` 和 `live`。
-3. 真手机上看一次帧率和字号。
+`/3-cache-run` 第 3 轮差学生一项（组相联例子里「区」的说法前后矛盾、「处理」一栏），正在修，修好再验收上线。各页剩余问题见 `evals/look/<页面>/report-r3.md`。
 
 引擎在教材没写清处的选择记在 `docs/DECISIONS.md` D16–D18，等任课老师口径。
 
