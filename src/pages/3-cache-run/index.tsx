@@ -7,7 +7,7 @@ import { Player } from '../../player/Player';
 import { useNarrow } from '../../app/media';
 import { BreakIt } from './BreakIt';
 import { Paper } from './Paper';
-import { cacheStage, withRowAsks } from './scene';
+import { cacheStage, cacheWrong, polish, withRowAsks } from './scene';
 import {
   encodeSequence,
   exampleParams,
@@ -36,23 +36,23 @@ function useRun(params: Params) {
   const key = JSON.stringify(params);
   const narrow = useNarrow();
   return useMemo(() => {
-    const trace = withRowAsks(run(params));
-    return { trace, stage: cacheStage(params, narrow) };
+    const trace = polish(withRowAsks(run(params)));
+    return { trace, stage: cacheStage(params, narrow), wrong: cacheWrong(params) };
     // key 就是 params 的内容。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, narrow]);
 }
 
 function Walkthrough() {
-  const { trace, stage } = useRun(exampleParams);
-  return <Player trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} />;
+  const { trace, stage, wrong } = useRun(exampleParams);
+  return <Player trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} onWrong={wrong} />;
 }
 
 const defaultSeq = encodeSequence(trySequence);
 
 function Try() {
-  const [mapKey, setMapKey] = useParam('map', 'direct');
-  const [repKey, setRepKey] = useParam('rep', 'lru');
+  const [mapKey, setMapKey] = useParam('map', 'direct', (raw) => (mappingKeys.some((item) => item.key === raw) ? raw : 'direct'));
+  const [repKey, setRepKey] = useParam('rep', 'lru', (raw) => (policyKeys.some((item) => item.key === raw) ? raw : 'lru'));
   const [seq, setSeq] = useParam('seq', defaultSeq);
   const [, setStep] = useParam('s', '0');
   const parsed = useMemo(() => parseSequence(seq.replace(/,/g, ' ')), [seq]);
@@ -64,7 +64,7 @@ function Try() {
   const mapping = mappingOf(mapKey);
   const policy = policyOf(repKey);
   const params = useMemo(() => makeParams(mapping, policy, accesses), [mapping, policy, accesses]);
-  const { trace, stage } = useRun(params);
+  const { trace, stage, wrong } = useRun(params);
 
   const variants = useMemo(
     () =>
@@ -155,7 +155,7 @@ function Try() {
         </form>
       </div>
 
-      <Player key={JSON.stringify(params)} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} />
+      <Player key={JSON.stringify(params)} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} onWrong={wrong} />
       <div class="cr-compare-wrap">
         <table class="cr-compare">
           <caption>同一串地址，换映射和替换算法</caption>
@@ -192,9 +192,11 @@ function Try() {
 }
 
 export default function Page() {
-  const [tab, setTab] = useParam('t', '');
-  const [, setStep] = useParam('s', '0');
-  const current = tabs.some((item) => item.key === tab) ? tab : '';
+  const [tab, setTab] = useParam('t', '', (raw) => (tabs.some((item) => item.key === raw) ? raw : ''));
+  const [step, setStep] = useParam('s', '0');
+  // 每个标签页记住自己的步数：试一试 → 练习 → 试一试，回到原来那一步。
+  const [memo] = useState(() => new Map<string, string>());
+  const current = tab;
   return (
     <div class="cr">
       <div class="cr-tabs" role="tablist" aria-label="这一页的部分">
@@ -209,8 +211,9 @@ export default function Page() {
             class="cr-tab"
             onClick={() => {
               if (item.key === current) return;
-              setStep('0');
+              memo.set(current, step);
               setTab(item.key);
+              setStep(memo.get(item.key) ?? '0');
             }}
           >
             {item.label}

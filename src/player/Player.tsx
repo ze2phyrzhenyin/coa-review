@@ -41,9 +41,11 @@ export interface PlayerProps<P, S> {
   /** 当前状态下能不能「弄坏它」。part 是学生点的部件，null 表示按钮。 */
   breakIt?: ((state: S, part: string | null) => Breakage | null) | undefined;
   /** 答错时按学生的答案演后果（填数题、选择题、点选题都行）。返回 null 时用播放器自己的演法。 */
-  onWrong?: ((ask: Ask, value: string, state: S) => Breakage | null) | undefined;
+  onWrong?: ((ask: Ask, value: string, state: S, next: Step<S> | null) => Breakage | null) | undefined;
   /** 翻位片作答：bits 题由哪个 bits 部件来答。学生点位片翻面，再按确定。 */
   flipPart?: ((ask: Ask, index: number) => string | null) | undefined;
+  /** 宽屏上舞台占满整行，讲解排在舞台下面（台面很宽、两栏放不下时用）。 */
+  wide?: boolean | undefined;
   /** 舞台上方的控件（选例题、选粒度）。 */
   children?: ComponentChildren;
 }
@@ -79,7 +81,7 @@ function pickTargets(scene: SceneSpec, ask: Ask | undefined): Map<string, string
 const onStage = (rect: Rect | undefined, size: { width: number; height: number }): boolean =>
   !!rect && rect.x + rect.w / 2 > 0 && rect.x + rect.w / 2 < size.width && rect.y + rect.h / 2 > 0 && rect.y + rect.h / 2 < size.height;
 
-export function Player<P, S>({ trace, scene, bind, moves, names, values, caption, breakIt, onWrong, flipPart, children }: PlayerProps<P, S>) {
+export function Player<P, S>({ trace, scene, bind, moves, names, values, caption, breakIt, onWrong, flipPart, wide, children }: PlayerProps<P, S>) {
   const show = (path: string, value: string) => (value === '' || value === 'null' ? '空' : values ? values(path, value) : value);
   const total = trace.steps.length;
   const [index, setIndex] = useIntParam('s', 0, 0, total);
@@ -90,7 +92,8 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
   const [scheme, setScheme] = useState<Scheme>(currentScheme);
   const [attempt, setAttempt] = useState<{ index: number; wrong: number; picked: string } | null>(null);
   const [notice, setNotice] = useState('');
-  const [broken, setBroken] = useState<{ index: number; breakage: Breakage } | null>(null);
+  const [broken, setBroken] = useState<{ index: number; breakage: Breakage; auto?: boolean } | null>(null);
+  const [consequence, setConsequence] = useState<{ index: number; text: string } | null>(null);
 
   const root = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -109,6 +112,8 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
   const flipId = pending?.kind === 'bits' && flipPart ? flipPart(pending, index) : null;
   const slots = pending ? pending.answer.replace(/[\s_]/g, '').length : 0;
   const [draft, setDraft] = useState<{ index: number; bits: string } | null>(null);
+  /** 点选题时点了不是候选的部件：给一句说明。 */
+  const [stray, setStray] = useState('');
   const flipBits = flipId ? (draft?.index === index ? draft.bits : ' '.repeat(slots)) : '';
 
   /** 每一步的目标画面。等学生点选时，可选的部件多一个标记。 */
@@ -205,6 +210,16 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
     return () => media.removeEventListener('change', update);
   }, []);
 
+  // 答错时演的后果：走完之后自己退回。
+  useEffect(() => {
+    if (!broken?.auto) return;
+    const timer = setTimeout(() => {
+      view.current?.hold();
+      setBroken((current) => (current === broken ? null : current));
+    }, 2600);
+    return () => clearTimeout(timer);
+  }, [broken]);
+
   // 打开页面就能用键盘翻步，不抢别处已有的焦点。
   useEffect(() => {
     if (document.activeElement === document.body || document.activeElement === null) root.current?.focus({ preventScroll: true });
@@ -220,6 +235,10 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
       setAttempt(null);
       setNotice('');
       setBroken(null);
+      setStray('');
+      setConsequence(null);
+      // 回到某一步时，画面与第一次到那一步时相同：翻过的位片不留。
+      setDraft(null);
       if (target === from) return;
       latest.current = target;
       // 画面要变了：立刻标成未稳定，检查脚本和读屏不会读到上一步的结果。
@@ -240,24 +259,39 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
       setAttempt((before) => ({ index, wrong: (before?.index === index ? before.wrong : 0) + 1, picked: value }));
       setNotice(`不对。${pending.hint ?? ''}`);
       // 页面能演后果的，交给页面：画面上盖一层，说明写在舞台下面，「恢复」收回。
-      const acted = onWrong?.(pending, value, state);
+      const acted = onWrong?.(pending, value, state, next);
       if (acted) {
+        // 演一遍学生答案的后果，说明留在题目下面；过一会儿画面退回本来的样子。
         view.current?.hold();
-        setBroken({ index, breakage: acted });
+        setBroken({ index, breakage: acted, auto: true });
+        setConsequence({ index, text: acted.message });
         return;
       }
-      if (!partId) return;
-      // 按学生的答案演一遍：本该去答案那里的值，去了他点的部件。
+      if (!partId) {
+        // 没有页面的演法：下一步要动的部件轻摇，告诉学生该看哪里。
+        for (const id of frameAt(input, index + 1).slice(0, 3)) view.current?.shake(id);
+        return;
+      }
+      // 按学生的答案演一遍：本该去答案那里的值，去了他点的部件。往后找几步，找到第一个落到答案上的值。
       const right = picking?.get(pending.answer);
-      const planned = next && moves ? moves(next) : [];
       const base = (ref: string) => ref.split('.')[0];
-      const into = planned.find((move) => base(move.to) === right);
-      const out = planned.find((move) => base(move.from) === right);
+      let into: Move | undefined;
+      let out: Move | undefined;
+      for (let k = index; k < Math.min(total, index + 4) && !into && !out; k++) {
+        const planned = moves ? moves(trace.steps[k]!) : [];
+        into = planned.find((move) => base(move.to) === right);
+        out = into ? undefined : planned.find((move) => base(move.from) === right);
+      }
       if (into) view.current?.rehearse(into.value, into.from, partId, into.ink);
       else if (out) view.current?.rehearse(out.value, partId, out.to, out.ink);
-      else view.current?.shake(partId);
+      else {
+        // 没有可演的值：从这一步的焦点飞一张写着学生答案的牌过去。
+        const source = frameAt(input, index).find((id) => id !== partId) ?? frameAt(input, index + 1).find((id) => id !== partId);
+        if (source) view.current?.rehearse(value, source, partId);
+        else view.current?.shake(partId);
+      }
     },
-    [pending, go, total, index, picking, next, moves, onWrong, state],
+    [pending, go, total, index, picking, moves, onWrong, state, trace, input, next],
   );
 
   const onPick = useCallback(
@@ -274,7 +308,14 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
       }
       if (picking) {
         const option = [...picking].find(([, partId]) => partId === id)?.[0];
-        if (option !== undefined) answer(option, id);
+        if (option !== undefined) {
+          setStray('');
+          answer(option, id);
+          return;
+        }
+        const part = scene.parts.find((item) => item.id === id);
+        setStray(`${part ? partTitle(part) : id} 不是这道题的选项。在 ${[...picking.keys()].join('、')} 里选。`);
+        view.current?.shake(id);
         return;
       }
       const tried = breakIt?.(state, id);
@@ -328,7 +369,9 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
   const wrong = attempt?.index === index ? attempt : null;
   const flat = mode === 'flat';
   const pickable = scene.parts.filter((part) => part.pick);
-  const offStage = !flat && picking ? [...picking].filter(([, id]) => !onStage(rects[id], size)).map(([option]) => option) : [];
+  // 有候选不在画面上时，题目下列出全部候选（答错一次后也不会只剩一个）。
+  const missing = !flat && picking ? [...picking].filter(([, id]) => !onStage(rects[id], size)).map(([option]) => option) : [];
+  const offStage = missing.length > 0 && picking ? [...picking.keys()] : [];
   const offer = !pending && !breakage && breakIt ? breakIt(state, null) : null;
   const status = caption ? caption(state) : '';
 
@@ -343,7 +386,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
   };
 
   return (
-    <div class="pl" data-player data-step-index={index} data-mode={mode} tabIndex={0} ref={root} onKeyDown={onKeyDown} style={vars}>
+    <div class={`pl${wide ? ' pl-wide' : ''}`} data-player data-step-index={index} data-mode={mode} tabIndex={0} ref={root} onKeyDown={onKeyDown} style={vars}>
       {children ? <div class="pl-controls">{children}</div> : null}
 
       <div class="pl-body">
@@ -393,12 +436,14 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
                 if (id) answer(option, id);
               }}
               onReveal={() => go((i) => Math.min(total, i + 1))}
-              onLook={() => picking && view.current?.lookAt([...picking].filter(([option]) => offStage.includes(option)).map(([, id]) => id))}
+              onLook={missing.length > 0 && picking ? () => view.current?.lookAt([...picking].filter(([option]) => missing.includes(option)).map(([, id]) => id)) : undefined}
+              note={stray}
+              consequence={consequence?.index === index ? consequence.text : ''}
               flip={flipId ? { bits: flipBits, toggle: (i) => onPick(flipId, i) } : undefined}
             />
           ) : null}
 
-          {breakage ? (
+          {breakage && !broken?.auto ? (
             <div class="pl-break is-on" role="status">
               <p>
                 <Rich text={breakage.message} />
@@ -410,7 +455,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
                 恢复
               </button>
             </div>
-          ) : offer ? (
+          ) : offer && !breakage ? (
             <div class="pl-break">
               <button
                 type="button"

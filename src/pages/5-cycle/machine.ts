@@ -268,8 +268,8 @@ const pathNames: Record<string, string> = {
   decoder: '指令译码器',
   'alu.fn': 'ALU 的功能',
   'alu.out': 'ALU 的输出',
-  'sel.left': 'ALU 左输入选的寄存器',
-  'sel.right': 'ALU 右输入（C2）选的寄存器',
+  'sel.left': '送 ALU 左输入的寄存器',
+  'sel.right': '右路选中的寄存器（送 ALU 右输入，也接 C2 的输入端）',
   'sel.write': '接收 DR 的寄存器',
   'reg.IR.op': 'IR 操作码',
   'reg.IR.operands': 'IR 地址码',
@@ -305,4 +305,66 @@ export function machineValues(path: string, value: string): string {
   if (path.startsWith('gate.') || path === 'halted') return value === 'true' ? (path === 'halted' ? '是' : '开') : value === 'false' ? (path === 'halted' ? '否' : '关') : value;
   if (/^bus\.\w+\.driver$/.test(path)) return PART_LABEL[value as PartId] ?? value;
   return value;
+}
+
+/**
+ * 页面补充的条件：读图要用、引擎的「为什么」里没有展开的几条。只是说明，不含答案。
+ * 依据：教材 p150 图 5.1、p156、p178 图 5.30。
+ */
+export const MACHINE_NOTES: { label: string; value: string }[] = [
+  { label: '四条总线', value: 'ABUS(I)：PC 送指令地址到指存；IBUS：指存读出的指令送 IR；DBUS：其余的数和地址都走它；ABUS(D)：AR 送数据地址到数存。指存和数存是两个存储器' },
+  { label: '三态门', value: '能往 DBUS 送数的部件各有一道门：C1 管 ALU 的输出，C2 管通用寄存器的输出（不经 ALU），C3 管 IR 的地址码。门关着时输出是高阻，同一时刻最多开一道，数存读出也算一个来源' },
+  { label: '信号名', value: 'LDxx 把总线上的数打入寄存器 xx（脉冲，注节拍）；RD、C1–C3 是电位信号，从 T1 起保持整个 CPU 周期。选哪个通用寄存器由 IR 的寄存器字段决定，教材不给信号名，解析书写 LRi' },
+  { label: '为什么在 T3、T4 打入', value: '电位信号在 T1 打开通路，数要在总线上稳定一段时间才能打入。DR 在 T3 打入，T4 才能再从 DR 打入通用寄存器；AR、PC 和通用寄存器在 T4 打入，是这个 CPU 周期的最后一拍；数存写入 WE(D) 在 T3（图 5.30）' },
+  { label: '操作数的先后', value: 'MOV Rx,Ry：Ry→Rx；NOT Rx,Ry：Ry 取反→Rx；ADD Rx,Ry：Rx+Ry→Ry；LAD Rx,A：数存 A→Rx；STO Rx,(Ry)：Rx→数存 (Ry)；JMP A：A→PC' },
+];
+
+/** 在 Trace 的条件后面接上页面的说明。不改步骤。 */
+export function withNotes<P, S>(trace: Trace<P, S>): Trace<P, S> {
+  return { ...trace, conditions: [...trace.conditions, ...MACHINE_NOTES] };
+}
+
+/**
+ * 答错「几个 CPU 周期」时演后果：少算了，就是把两次 DBUS 传送挤进同一个 CPU 周期，两个数同时上 DBUS；
+ * 多算了，多出的 CPU 周期里 DBUS 没有数可送。数和驱动者都取自 Trace 的状态。
+ */
+export function machineWrong(trace: Trace<Params, State>) {
+  return (ask: { kind: string; answer: string }, value: string): Breakage | null => {
+    if (ask.kind !== 'number') return null;
+    const said = Number(value);
+    const right = Number(ask.answer);
+    if (!Number.isFinite(said) || !Number.isFinite(right) || said === right) return null;
+    const sends: { driver: PartId; value: string }[] = [];
+    for (const step of trace.steps) {
+      const bus = step.state.bus.DBUS;
+      if (bus.driver && !sends.some((item) => item.driver === bus.driver && item.value === String(bus.value))) sends.push({ driver: bus.driver, value: String(bus.value) });
+      if (step.state.halted) break;
+    }
+    if (said < right && sends.length >= 2) {
+      const [a, b] = sends as [{ driver: PartId; value: string }, { driver: PartId; value: string }];
+      return {
+        label: '',
+        patch: { DBUS: { drivers: [PART_LABEL[a.driver], PART_LABEL[b.driver]], value: b.value }, TIMING: { value: `只有 ${said} 个周期` } },
+        moves: [
+          { value: a.value, from: a.driver === 'IR' || a.driver === 'ALU' || a.driver === 'DMEM' ? a.driver : 'C2', to: 'DBUS', arc: true },
+          { value: b.value, from: b.driver === 'IR' || b.driver === 'ALU' || b.driver === 'DMEM' ? b.driver : 'C2', to: 'DBUS', arc: true },
+        ],
+        message: `按 ${said} 个 CPU 周期算，${PART_LABEL[a.driver]} 送的 ${a.value} 和 ${PART_LABEL[b.driver]} 送的 ${b.value} 要在同一个 CPU 周期里同时上 DBUS，DBUS 上就有两个数，打架。`,
+      };
+    }
+    if (said < right) {
+      return {
+        label: '',
+        patch: { TIMING: { value: `只有 ${said} 个周期` }, IR: { value: '' } },
+        moves: [],
+        message: `按 ${said} 个 CPU 周期算，取指和执行挤在一起：IR 里还没有这条指令，控制器不知道该发什么信号。`,
+      };
+    }
+    return {
+      label: '',
+      patch: { TIMING: { value: `第 ${said} 个周期：空` }, DBUS: { value: '', drivers: '' } },
+      moves: [],
+      message: `按 ${said} 个 CPU 周期算，多出来的 CPU 周期里 DBUS 没有数要送，机器白等。`,
+    };
+  };
 }

@@ -21,7 +21,7 @@ const TABS = [
 const minus = (text: string) => text.replace(/^-/, '−');
 
 export default function Page() {
-  const [tab, setTab] = useParam('tab', 'learn');
+  const [tab, setTab] = useParam('tab', 'learn', (raw) => (TABS.some((item) => item.id === raw) ? raw : 'learn'));
   const [, setStep] = useParam('s', '0');
   const current = TABS.find((item) => item.id === tab)?.id ?? 'learn';
   const choose = (id: string) => {
@@ -58,7 +58,7 @@ export default function Page() {
 }
 
 function Learn() {
-  const [ex, setEx] = useParam('ex', '1');
+  const [ex, setEx] = useParam('ex', '1', (raw) => String(Math.max(1, Math.min(EXAMPLES.length, Math.trunc(Number(raw)) || 1))));
   const [, setStep] = useParam('s', '0');
   const index = Math.max(0, Math.min(EXAMPLES.length - 1, Number(ex) - 1 || 0));
   const narrow = useNarrow();
@@ -78,12 +78,12 @@ function Learn() {
               setEx(String(i + 1));
             }}
           >
-            ({minus(item.x)}) + ({minus(item.y)})
+            ({minus(item.x)}) {item.op === '减' ? '−' : '+'} ({minus(item.y)})
           </button>
         ))}
       </div>
       {made.ok ? (
-        <Player key={`learn-${index}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} flipPart={made.flipPart} />
+        <Player key={`learn-${index}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} flipPart={made.flipPart} onWrong={made.wrong} />
       ) : (
         <p class="ovf-error">{made.error}</p>
       )}
@@ -105,9 +105,9 @@ function rewrite(text: string, readN: number, readAs: Notation, writeN: number, 
 function Try() {
   const [x, setX] = useParam('x', '+0101');
   const [y, setY] = useParam('y', '-1100');
-  const [nText, setN] = useParam('n', '4');
-  const [opText, setOp] = useParam('op', '减');
-  const [ntText, setNt] = useParam('nt', '整数');
+  const [nText, setN] = useParam('n', '4', (raw) => String(Math.max(1, Math.min(8, Math.trunc(Number(raw)) || 4))));
+  const [opText, setOp] = useParam('op', '减', (raw) => (raw === '加' ? '加' : '减'));
+  const [ntText, setNt] = useParam('nt', '整数', (raw) => (raw === '小数' ? '小数' : '整数'));
   const n = Math.max(1, Math.min(8, Math.trunc(Number(nText)) || 4));
   const op: Operation = opText === '加' ? '加' : '减';
   const notation: Notation = ntText === '小数' ? '小数' : '整数';
@@ -187,6 +187,9 @@ function Try() {
         </div>
         <button type="submit" class="ovf-hidden-submit" tabIndex={-1} aria-hidden="true" />
       </form>
+      {[['x', x], ['y', y]].some(([, text]) => text && !/^[+\-−]/.test(text.trim())) ? (
+        <p class="ovf-note">没写正负号的数按正数算。负数前面写 −。</p>
+      ) : null}
       {made.ok ? (
         <>
           <dl class="ovf-formulas">
@@ -218,7 +221,7 @@ function Try() {
               </dd>
             </div>
           </dl>
-          <Player key={`try-${JSON.stringify(params)}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} flipPart={made.flipPart} />
+          <Player key={`try-${JSON.stringify(params)}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} flipPart={made.flipPart} onWrong={made.wrong} />
         </>
       ) : (
         <p class="ovf-error" role="alert">
@@ -230,13 +233,14 @@ function Try() {
 }
 
 function Practice() {
-  const [seedText, setSeed] = useParam('seed', '1');
+  const [seedText, setSeed] = useParam('seed', '1', (raw) => String(Math.max(1, Math.trunc(Number(raw)) || 1)));
   const seed = Math.max(1, Math.trunc(Number(seedText)) || 1);
   return <Sheet key={seed} seed={seed} onNext={() => setSeed(String(seed + 1))} />;
 }
 
 function Break() {
+  const narrow = useNarrow();
   const trace = useMemo(() => breakTrace(), []);
-  const made = useMemo(() => breakScene(trace), [trace]);
-  return <Player key="break" trace={trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} />;
+  const made = useMemo(() => breakScene(trace, narrow), [trace, narrow]);
+  return <Player key={`break-${narrow}`} trace={trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} onWrong={made.wrong} />;
 }

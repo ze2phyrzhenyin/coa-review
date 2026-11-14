@@ -3,6 +3,8 @@
  * 场景直接用 SceneView（不用播放器）：画面只取决于学生填的内容、当前行和判分结果。
  */
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { Rich } from '../../player/Rich';
+import { reword } from './scene';
 import type { CSSProperties, TargetedEvent } from 'preact';
 import { useParam } from '../../app/url-state';
 import { layout, run } from '../../engines/cache/model';
@@ -30,7 +32,25 @@ function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
   const count = trace.table.rows.length;
   const hasWrite = params.accesses.some((a) => a.op === '写');
 
-  const [entries, setEntries] = useState<Entry[]>(() => Array.from({ length: count }, blankEntry));
+  // 已填的内容按题号存在本机，刷新后还在。
+  const draftKey = `coa:3-cache-run:quiz:${seed}`;
+  const [entries, setEntriesRaw] = useState<Entry[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(draftKey) ?? 'null') as Entry[] | null;
+      if (Array.isArray(saved) && saved.length === count) return saved;
+    } catch {
+      // 读不到就从空表开始。
+    }
+    return Array.from({ length: count }, blankEntry);
+  });
+  const setEntries = (next: Entry[]) => {
+    setEntriesRaw(next);
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(next));
+    } catch {
+      // 存不下时只是刷新后要重填。
+    }
+  };
   const [row, setRow] = useState(0);
   const [result, setResult] = useState<Grade | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -155,7 +175,7 @@ function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
 
   const entry = entries[row] ?? blankEntry();
   const edit = (patch: Partial<Entry>) => {
-    setEntries((list) => list.map((item, r) => (r === row ? { ...item, ...patch } : item)));
+    setEntries(entries.map((item, r) => (r === row ? { ...item, ...patch } : item)));
     setResult(null);
   };
   const check = () => {
@@ -175,9 +195,9 @@ function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
   };
   /** 去试一试看这一次访问：同一组参数，停在这次访问的第一步之前。 */
   const demo = (r: number) => {
-    const id = trace.table.rows[r]?.step;
-    const end = id ? trace.steps.findIndex((step) => step.id === id) + 1 : 0;
-    const startOf = Math.max(0, end - 5);
+    // 停在这一次访问的第一步之前：找第一个属于第 r+1 次访问的步。
+    const first = trace.steps.findIndex((step) => step.state.access.n === r + 1);
+    const startOf = Math.max(0, first);
     setMap(mappingKey(params.mapping));
     if (params.replacement) setRep(policyKey(params.replacement));
     setSeq(encodeSequence(params.accesses));
@@ -310,8 +330,12 @@ function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
       <dl class="pl-given">
         {trace.conditions.map((condition) => (
           <div key={condition.label}>
-            <dt>{condition.label}</dt>
-            <dd>{condition.value}</dd>
+            <dt>
+              <Rich text={condition.label} />
+            </dt>
+            <dd>
+              <Rich text={reword(condition.value)} />
+            </dd>
           </div>
         ))}
         <div>

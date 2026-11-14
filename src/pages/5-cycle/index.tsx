@@ -1,14 +1,20 @@
-import { useMemo } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
+import type { TargetedEvent } from 'preact';
 import { useIntParam, useParam } from '../../app/url-state';
 import { run, sampleParams } from '../../engines/cpu/model';
-import type { Instruction, Params } from '../../engines/cpu/model';
+import type { Instruction, Params, SignalNames } from '../../engines/cpu/model';
 import { Player } from '../../player/Player';
+import { Rich } from '../../player/Rich';
 import { coarseMoves, coarsen, grainNames } from '../../player/coarsen';
 import type { Grain } from '../../player/coarsen';
 import { kitBind, kitMoves, kitScene, kitTrace } from './kit';
-import { machineBind, machineBreak, machineCaption, machineMoves, machineNames, machineScene, machineValues } from './machine';
+import { machineBind, machineBreak, machineCaption, machineMoves, machineNames, machineScene, machineValues, machineWrong, withNotes } from './machine';
+import { answerRows, describe, grade, makeInstruction } from './practice';
+import type { Entry, Grade } from './practice';
+import { TRY_DEFAULT, toParams } from './program';
+import './cycle.css';
 
-/** 可选的例题：一条指令，或样例程序。指令放在指存 32 号单元，寄存器和数存用样例程序的初值。 */
+/** 讲解的例题：一条指令，或样例程序。指令放在指存 32 号单元，寄存器和数存用样例程序的初值。 */
 const choices: { id: string; label: string; ins: Instruction | null }[] = [
   { id: 'LAD', label: 'LAD', ins: { op: 'LAD', rx: 'R0', addr: 9 } },
   { id: 'ADD', label: 'ADD', ins: { op: 'ADD', rx: 'R0', ry: 'R1' } },
@@ -19,9 +25,18 @@ const choices: { id: string; label: string; ins: Instruction | null }[] = [
   { id: 'prog', label: '程序', ins: null },
 ];
 const grains: Grain[] = ['explain', 'beat', 'cycle', 'instruction'];
+const signalSets: SignalNames[] = ['book', 'solutions'];
+const signalNames: Record<SignalNames, string> = { book: '教材', solutions: '解析书' };
+const TABS = [
+  { id: 'learn', name: '讲解' },
+  { id: 'try', name: '试一试' },
+  { id: 'quiz', name: '练习' },
+] as const;
 
-function paramsFor(choice: string): Params {
-  const sample = sampleParams('book');
+const oneOf = <T extends string>(list: readonly T[], fallback: T) => (raw: string): string => ((list as readonly string[]).includes(raw) ? raw : fallback);
+
+function paramsFor(choice: string, names: SignalNames): Params {
+  const sample = sampleParams(names);
   const ins = choices.find((item) => item.id === choice)?.ins;
   if (ins === null) return sample;
   return { ...sample, program: [{ addr: sample.registers.PC, ins: ins ?? choices[0]!.ins! }], limit: 1 };
@@ -53,39 +68,289 @@ function Choice<T extends string>({ label, value, options, names, onChange }: { 
   );
 }
 
-function Machine() {
-  const [choice, setChoice] = useParam('ins', 'LAD');
-  const [grainParam, setGrain] = useParam('lv', 'explain');
-  const [, setStep] = useIntParam('s', 0, 0, 10_000);
-  const grain = (grains as string[]).includes(grainParam) ? (grainParam as Grain) : 'explain';
-  const full = useMemo(() => run(paramsFor(choice)), [choice]);
-  const scene = useMemo(() => machineScene(full), [full]);
-  const bind = useMemo(() => machineBind(full), [full]);
-  const coarse = useMemo(() => coarsen(full, grain), [full, grain]);
-  const moves = useMemo(() => coarseMoves(coarse.members, machineMoves), [coarse]);
+/** 一份参数 → 播放器要的全部东西。粒度换了，场景不变。 */
+function useMachine(params: Params | null, grain: Grain) {
+  const full = useMemo(() => {
+    if (!params) return { trace: null, error: '' };
+    try {
+      return { trace: withNotes(run(params)), error: '' };
+    } catch (error) {
+      return { trace: null, error: error instanceof Error ? error.message : String(error) };
+    }
+  }, [params]);
+  const scene = useMemo(() => (full.trace ? machineScene(full.trace) : null), [full]);
+  const bind = useMemo(() => (full.trace ? machineBind(full.trace) : null), [full]);
+  const coarse = useMemo(() => (full.trace ? coarsen(full.trace, grain) : null), [full, grain]);
+  const moves = useMemo(() => (coarse ? coarseMoves(coarse.members, machineMoves) : undefined), [coarse]);
+  const wrong = useMemo(() => (full.trace ? machineWrong(full.trace) : undefined), [full]);
+  return { ...full, scene, bind, coarse, moves, wrong };
+}
 
-  const changeGrain = (next: Grain) => {
-    if (next === grain) return;
-    // 换粒度时停在同一个时刻：先换成原始步数，再换成新粒度下的步数。
-    const at = coarse.toFine(Number(new URLSearchParams(location.search).get('s') ?? 0));
-    setGrain(next);
-    setStep(coarsen(full, next).toCoarse(at));
+function useGrain() {
+  const [grainParam, setGrain] = useParam('lv', 'explain', oneOf(grains, 'explain'));
+  const [, setStep] = useIntParam('s', 0, 0, 10_000);
+  return {
+    grain: grainParam as Grain,
+    /** 换粒度时停在同一个时刻：先换成原始步数，再换成新粒度下的步数。 */
+    change(next: Grain, toFine: (i: number) => number, toCoarse: (grain: Grain, fine: number) => number) {
+      const at = toFine(Number(new URLSearchParams(location.search).get('s') ?? 0));
+      setGrain(next);
+      setStep(toCoarse(next, at));
+    },
+  };
+}
+
+function Machine({ params, error, controls }: { params: Params | null; error?: string; controls?: preact.ComponentChildren }) {
+  const { grain, change } = useGrain();
+  const made = useMachine(params, grain);
+  if (error || made.error || !made.trace || !made.coarse || !made.scene || !made.bind) {
+    return (
+      <>
+        {controls}
+        <p class="cy-error" role="alert">
+          <Rich text={error || made.error || '参数有误'} />
+        </p>
+      </>
+    );
+  }
+  const { trace, coarse } = made;
+  return (
+    <Player
+      wide
+      trace={coarse.trace}
+      scene={made.scene}
+      bind={made.bind}
+      moves={made.moves}
+      names={machineNames}
+      values={machineValues}
+      caption={machineCaption}
+      breakIt={machineBreak}
+      onWrong={made.wrong}
+    >
+      {controls}
+      <Choice
+        label="一步走多少"
+        value={grain}
+        options={grains}
+        names={(g) => grainNames[g]}
+        onChange={(next) => next !== grain && change(next, coarse.toFine, (g, fine) => coarsen(trace, g).toCoarse(fine))}
+      />
+    </Player>
+  );
+}
+
+function SignalChoice() {
+  const [sig, setSig] = useParam('sig', 'book', oneOf(signalSets, 'book'));
+  return <Choice label="信号名" value={sig as SignalNames} options={signalSets} names={(n) => signalNames[n]} onChange={(n) => setSig(n)} />;
+}
+
+function Learn() {
+  const [choice, setChoice] = useParam('ins', 'LAD', oneOf(choices.map((item) => item.id), 'LAD'));
+  const [sig] = useParam('sig', 'book', oneOf(signalSets, 'book'));
+  const [, setStep] = useIntParam('s', 0, 0, 10_000);
+  const params = useMemo(() => paramsFor(choice, sig as SignalNames), [choice, sig]);
+  return (
+    <Machine
+      params={params}
+      controls={
+        <>
+          <Choice
+            label="例题"
+            value={choice}
+            options={choices.map((item) => item.id)}
+            names={(id) => choices.find((item) => item.id === id)?.label ?? id}
+            onChange={(id) => {
+              setChoice(id);
+              setStep(0);
+            }}
+          />
+          <SignalChoice />
+        </>
+      }
+    />
+  );
+}
+
+/** 试一试：学生自己写一段程序和初值，引擎跑出来。参数都在网址里。 */
+function Try() {
+  const [program, setProgram] = useParam('prog', TRY_DEFAULT.program);
+  const [registers, setRegisters] = useParam('reg', TRY_DEFAULT.registers);
+  const [memory, setMemory] = useParam('mem', TRY_DEFAULT.memory);
+  const [sig] = useParam('sig', 'book', oneOf(signalSets, 'book'));
+  const [, setStep] = useIntParam('s', 0, 0, 10_000);
+  const [draft, setDraft] = useState({ program: program.replace(/;/g, '\n'), registers, memory });
+  useEffect(() => setDraft({ program: program.replace(/;/g, '\n'), registers, memory }), [program, registers, memory]);
+  const read = useMemo(() => toParams({ program, registers, memory }, sig as SignalNames), [program, registers, memory, sig]);
+
+  const submit = (event: TargetedEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setProgram(draft.program.split('\n').map((line) => line.trim()).filter(Boolean).join(';'));
+    setRegisters(draft.registers.trim());
+    setMemory(draft.memory.trim());
+    setStep(0);
   };
 
   return (
-    <Player trace={coarse.trace} scene={scene} bind={bind} moves={moves} names={machineNames} values={machineValues} caption={machineCaption} breakIt={machineBreak}>
-      <Choice
-        label="例题"
-        value={choices.some((item) => item.id === choice) ? choice : 'LAD'}
-        options={choices.map((item) => item.id)}
-        names={(id) => choices.find((item) => item.id === id)?.label ?? id}
-        onChange={(id) => {
-          setChoice(id);
-          setStep(0);
-        }}
-      />
-      <Choice label="一步走多少" value={grain} options={grains} names={(g) => grainNames[g]} onChange={changeGrain} />
-    </Player>
+    <>
+      <form class="cy-form" onSubmit={submit}>
+        <label class="cy-field cy-program">
+          <span>程序（一行一条，从指存 32 号单元放起）</span>
+          <textarea rows={4} spellcheck={false} value={draft.program} onInput={(e) => setDraft({ ...draft, program: e.currentTarget.value })} />
+        </label>
+        <label class="cy-field">
+          <span>R0、R1、R2、R3 的初值</span>
+          <input spellcheck={false} autoComplete="off" value={draft.registers} onInput={(e) => setDraft({ ...draft, registers: e.currentTarget.value })} />
+        </label>
+        <label class="cy-field">
+          <span>数存初值（单元号:数）</span>
+          <input spellcheck={false} autoComplete="off" value={draft.memory} onInput={(e) => setDraft({ ...draft, memory: e.currentTarget.value })} />
+        </label>
+        <button type="submit" class="pl-btn is-primary cy-run">
+          运行
+        </button>
+      </form>
+      <Machine params={read.params} error={read.problems.join(' ')} controls={<SignalChoice />} />
+    </>
+  );
+}
+
+const DRAFT_KEY = (seed: number, sig: string) => `coa:5-cycle:quiz:${sig}:${seed}`;
+
+function loadDraft(key: string, rows: number): Entry[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) ?? 'null') as Entry[] | null;
+    if (Array.isArray(saved) && saved.length === rows) return saved;
+  } catch {
+    // 读不到就从空表开始。
+  }
+  return Array.from({ length: rows }, () => ({ beat: '', op: '', signals: '' }));
+}
+
+/** 练习：按种子出一条指令，学生在答题纸上填每个微操作的操作、节拍和控制信号，按引擎的表逐格判。 */
+function Quiz() {
+  const [seedText, setSeed] = useParam('q', '1', (raw) => String(Math.max(1, Math.min(9999, Math.trunc(Number(raw)) || 1))));
+  const [sig] = useParam('sig', 'book', oneOf(signalSets, 'book'));
+  const seed = Number(seedText);
+  const ins = useMemo(() => makeInstruction(seed), [seed]);
+  const rows = useMemo(() => answerRows(ins, sig as SignalNames), [ins, sig]);
+  const ops = useMemo(() => [...new Set(rows.map((row) => row.op))].sort((a, b) => a.localeCompare(b, 'zh')), [rows]);
+  const key = DRAFT_KEY(seed, sig);
+  const [entries, setEntries] = useState<Entry[]>(() => loadDraft(key, rows.length));
+  const [result, setResult] = useState<Grade | null>(null);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    setEntries(loadDraft(key, rows.length));
+    setResult(null);
+    setShown(false);
+  }, [key, rows.length]);
+  const update = (i: number, patch: Partial<Entry>) => {
+    const next = entries.map((entry, k) => (k === i ? { ...entry, ...patch } : entry));
+    setEntries(next);
+    setResult(null);
+    try {
+      localStorage.setItem(key, JSON.stringify(next));
+    } catch {
+      // 存不下时只是刷新后要重填。
+    }
+  };
+  const tryHref = `?t=try&prog=${encodeURIComponent(describe(ins).split('（')[0]!)}&sig=${sig}`;
+
+  return (
+    <div class="cy-quiz">
+      <div class="pl-controls">
+        <SignalChoice />
+      </div>
+      <p class="cy-task">
+        指令 <strong>{describe(ins)}</strong>。按图 5.1 的模型机，逐个微操作填出操作、节拍和控制信号（{signalNames[sig as SignalNames]}的写法）。脉冲信号的节拍写不写都行，没有信号的格子空着。
+      </p>
+      <div class="cy-sheet" role="group" aria-label="答题纸">
+        <div class="cy-row cy-head" aria-hidden="true">
+          <span>CPU 周期</span>
+          <span>操作</span>
+          <span>节拍</span>
+          <span>控制信号</span>
+        </div>
+        {rows.map((row, i) => {
+          const entry = entries[i] ?? { beat: '', op: '', signals: '' };
+          const bad = result && !result.ok && result.row === i ? result.cell : null;
+          return (
+            <div key={i} class={`cy-row${bad ? ' is-bad' : ''}`}>
+              <span class="cy-cycle">{i === 0 || rows[i - 1]!.cycle !== row.cycle ? row.cycle : ''}</span>
+              <select aria-label={`第 ${i + 1} 行的操作`} class={bad === 'op' ? 'is-bad' : ''} value={entry.op} onChange={(e) => update(i, { op: e.currentTarget.value })}>
+                <option value="">选操作</option>
+                {ops.map((op) => (
+                  <option key={op} value={op}>
+                    {op}
+                  </option>
+                ))}
+              </select>
+              <select aria-label={`第 ${i + 1} 行的节拍`} class={bad === 'beat' ? 'is-bad' : ''} value={entry.beat} onChange={(e) => update(i, { beat: e.currentTarget.value })}>
+                <option value="">节拍</option>
+                {['T1', 'T2', 'T3', 'T4', '—'].map((beat) => (
+                  <option key={beat} value={beat}>
+                    {beat === '—' ? '不占' : beat}
+                  </option>
+                ))}
+              </select>
+              <input aria-label={`第 ${i + 1} 行的控制信号`} class={bad === 'signals' ? 'is-bad' : ''} spellcheck={false} autoComplete="off" value={entry.signals} onInput={(e) => update(i, { signals: e.currentTarget.value })} />
+              {shown ? (
+                <span class="cy-key">
+                  {row.op}，{row.beat === '—' ? '不占节拍' : row.beat}，{row.signals.join('、') || '无'}
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      <div class="pl-actions">
+        <button type="button" class="pl-btn is-primary" onClick={() => setResult(grade(rows, entries))}>
+          判分
+        </button>
+        <button type="button" class="pl-btn" onClick={() => setShown(true)}>
+          看答案
+        </button>
+        <a class="pl-btn cy-link" href={tryHref}>
+          在试一试里走一遍
+        </a>
+        <button type="button" class="pl-btn" onClick={() => setSeed(String(seed + 1))}>
+          换一题
+        </button>
+      </div>
+      {result ? (
+        <p class={result.ok ? 'cy-ok' : 'cy-bad'} role="status">
+          <Rich text={result.message} />
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function Machinery() {
+  const [tab, setTab] = useParam('t', 'learn', oneOf(TABS.map((item) => item.id), 'learn'));
+  // 每个标签页记住自己的步数，切回来还在原处。
+  const [step, setStep] = useIntParam('s', 0, 0, 10_000);
+  const [memo] = useState(() => new Map<string, number>());
+  const choose = (id: string) => {
+    if (id === tab) return;
+    memo.set(tab, step);
+    setTab(id);
+    setStep(memo.get(id) ?? 0);
+  };
+  return (
+    <div class="cy">
+      <div class="cy-tabs" role="tablist" aria-label="本页">
+        {TABS.map((item) => (
+          <button key={item.id} type="button" role="tab" aria-selected={item.id === tab} class={`cy-tab${item.id === tab ? ' is-on' : ''}`} onClick={() => choose(item.id)}>
+            {item.name}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel">
+        {tab === 'learn' && <Learn />}
+        {tab === 'try' && <Try />}
+        {tab === 'quiz' && <Quiz />}
+      </div>
+    </div>
   );
 }
 
@@ -94,5 +359,5 @@ export default function Page() {
   const [demo] = useParam('demo', '');
   const kit = useMemo(() => kitTrace(), []);
   if (demo === 'kit') return <Player key="kit" trace={kit} scene={kitScene} bind={kitBind} moves={kitMoves} />;
-  return <Machine />;
+  return <Machinery />;
 }

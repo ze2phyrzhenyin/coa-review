@@ -1,0 +1,13 @@
+后退 12→0 逐步对比首次前进的 hash：13 步全部一致
+连按 8 次 → 后 idx=8 hash = 首次第 8 步
+空格后 idx=9
+Home 后 idx=0 url=
+第 5 步刷新：idx=5 hash 相同
+切到例 3 后按浏览器返回：ex=3 → (无参数)，例题按钮：(页面不在) url=about:blank
+新窗口打开 ?ex=2&s=8：idx=8 hash = 逐步走到时
+新窗口打开 ?ex=3&s=11：idx=11 hash = 逐步走到时
+新窗口打开 ?s=4：idx=4 hash = 逐步走到时
+新窗口打开 ?tab=try&s=9：idx=9 hash = 逐步走到时
+新窗口打开 ?tab=try&x=-0001&y=-10000&op=减&n=4&s=13：idx=13 hash = 逐步走到时
+新窗口打开 ?tab=break&s=3：idx=3 hash = 逐步走到时
+答对后到第 7 步 hash = 未答直接前进；再退到第 6 步 hash ≠ 7e8a5792；题目重新出现：true

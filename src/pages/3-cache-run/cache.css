@@ -189,8 +189,11 @@
   font-size: 0.8125rem;
   color: var(--cr-muted);
 }
-.cr-fill-grid .pl-input {
+.cr-fill-grid .pl-input,
+.cr-fill .pl-input {
   width: 100%;
+  font-size: 16px;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
 .cr-fill-result > div {
   display: flex;
@@ -216,8 +219,8 @@
   font-size: 0.9375rem !important;
 }
 .cr-check input {
-  width: 22px;
-  height: 22px;
+  width: 44px;
+  height: 44px;
 }
 .cr-fill-foot {
   display: flex;

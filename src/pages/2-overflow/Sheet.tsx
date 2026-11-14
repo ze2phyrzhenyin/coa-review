@@ -4,7 +4,8 @@ import type { TargetedEvent } from 'preact';
 import { formatValue } from '../../lib/bits';
 import type { OverflowKind } from '../../lib/bits';
 import { Rich } from '../../player/Rich';
-import { checkRow, checkValue, columnName, compact, makeProblem, show } from './practice';
+import { checkRow, checkValue, columnName, compact, followThrough, makeProblem, show } from './practice';
+import { modifiedOverflow } from '../../lib/bits';
 import type { RowCheck, RowKind } from './practice';
 
 const KINDS: OverflowKind[] = ['无溢出', '正溢', '负溢'];
@@ -37,8 +38,18 @@ export function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
   const results = useMemo(() => {
     if (!checked) return null;
     const rows: Record<string, RowCheck> = {};
-    for (const line of lines) rows[line.key] = checkRow(line.expected, values[line.key] ?? '', n, notation, line.kind);
-    const verdictOk = verdict === solution.verdict;
+    // 后面的行按学生自己前面写的数来判：前一行错了，这一行做法对仍算对。
+    const follow = followThrough(problem, values);
+    for (const line of lines) {
+      const expected = line.key === 'sum' ? follow.sum : line.key === 'negY' ? (follow.negY ?? line.expected) : line.expected;
+      const check = checkRow(expected, values[line.key] ?? '', n, notation, line.kind);
+      if (check.ok && expected !== line.expected) check.message = '按你前面写的数，这一行算对了。前面的错改过来，这一行也要跟着改。';
+      rows[line.key] = check;
+    }
+    // 判定按学生自己写的结果来判：两个符号位 00、11 无溢出，01 正溢，10 负溢。
+    const sumWritten = compact(values.sum ?? '');
+    const basis = sumWritten.length === solution.width && /^[01]+$/.test(sumWritten) ? sumWritten : solution.sumBits;
+    const verdictOk = verdict === modifiedOverflow(basis);
     return { rows, verdictOk, value: checkValue(solution, values.value ?? '') };
     // lines 只由 problem 决定。
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -19,8 +19,9 @@ import { Player } from '../../player/Player';
 | `values?` | `(path, value) => string`，「变化」里值的写法（true 写成「开」）；空串和 null 已写成「空」 |
 | `caption?` | `(state) => string`，舞台上方一行读数（模型机：CPU 周期、节拍、有效信号） |
 | `breakIt?` | `(state, part \| null) => Breakage \| null`，弄坏它：`{ label, patch, moves, message }`。有就在舞台下方给按钮，学生点场景里对应的部件也行；演出时把 `patch` 盖在画面上，`message` 显示在舞台下，「恢复」收回。有待答的题时不给 |
-| `onWrong?` | `(ask, value, state) => Breakage \| null`，答错时页面演后果（任何题型），用法同弄坏它 |
+| `onWrong?` | `(ask, value, state, next) => Breakage \| null`，答错时页面演后果（任何题型）：把 `patch` 盖上、`moves` 走一遍，约 2.6 秒后自己退回；`message` 留在题目下的提示前面 |
 | `flipPart?` | `(ask, index) => 部件 id \| null`，`bits` 题在这个 `bits` 部件上翻位片作答 |
+| `wide?` | 宽屏上舞台占满整行、讲解排在下面（模型机这种很宽的台面） |
 | `children` | 舞台上方的控件（选例题、选粒度），宽屏一排按钮，窄屏下拉框 |
 
 `trace`、`scene`、`bind`、`moves` 的引用要稳定（`useMemo` 或写在模块顶层），引用一变场景就重建。样板：`src/pages/5-cycle/machine.ts`（模型机，选例题 `ins`、粒度 `lv`，`?demo=kit` 是部件样张）、`3-cache-run/scene.ts`、`2-overflow/scene.ts`。窄屏版式用 `src/app/media.ts` 的 `useNarrow()` 选（cache 两行两列，竖式收窄）。
@@ -54,7 +55,8 @@ import { Player } from '../../player/Player';
 - 翻位片：给了 `flipPart` 的 `bits` 题，那个部件出现空槽，点一位翻一位（空槽先变 0），题目下有同样一排位按钮，翻满后「确定」。
 - 点选题的候选在 14 像素的字下装不进画面时，题目下有「看其余部件」（镜头移过去）和这些候选的按钮。
 - 答对：直接前进到这一步，值走过去就是确认。
-- 答错：留在原步，显示 `ask.hint`。有 `onWrong` 就按页面给的演；否则点选题按学生的答案演一遍：本该落到答案上的值，飞到学生点的部件里，轻摇，1 秒后退回。可以重选，也可以点「看答案」前进。
+- 答错：留在原步，显示 `ask.hint`。有 `onWrong` 就按页面给的演；否则点选题按学生的答案演一遍（往后找几步，本该落到答案上的值飞到学生点的部件里，没有这样的值时飞一张写着学生答案的牌），镜头先把落点放进画面，1 秒后退回；其余题型下一步要动的部件轻摇。可以重选，也可以点「看答案」前进。
+- 点选题时点了不是候选的部件：那个部件轻摇，题目下说明「在 A、B、C 里选」。有候选不在画面上时，题目下列出全部候选，答错后也不会只剩一个。回退到出题那一步，翻过的位片不留。
 
 ## DOM 约定
 
@@ -69,12 +71,10 @@ import { Player } from '../../player/Player';
 
 ## 网址状态
 
-`src/app/url-state.ts`：`useParam(name, fallback)` 返回 `[value, set]`，`set` 接受值或 `(previous) => next`，连续调用不丢；值等于缺省值时从网址里去掉；响应 `popstate`。`useIntParam(name, fallback, min, max)` 是带范围的整数版本。
+`src/app/url-state.ts`：`useParam(name, fallback, normal?)` 返回 `[value, set]`，`set` 接受值或 `(previous) => next`，连续调用不丢；值等于缺省值时从网址里去掉；响应 `popstate`。`normal` 把非法值换成实际用的值，并立刻改写网址（?s=999 → 最后一步）。`useIntParam(name, fallback, min, max)` 是带范围的整数版本。
 
 ## 已知的限制
 
 - 没有「播放」和调速，只能手动翻步。
-- 填数题的后果要页面用 `onWrong` 自己演，三个页面里还没有用到。
-- 2-overflow 的竖式仍是一格一个部件，平面模式里很长。
+- 2-overflow 的竖式仍是一格一个部件，平面模式里很长；5-cycle 练习的答题纸是页面表格，不在场景里。
 - 窄屏上「为什么」排在控制条下面，要滚动才能看全；换 Trace（改参数）时场景整个重建，会闪一帧。
-- 信号名只用教材的一套（引擎支持解析书的写法，页面还没给切换）。

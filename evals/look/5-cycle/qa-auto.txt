@@ -1,0 +1,2 @@
+qa-pages ok
+qa-navigation ok

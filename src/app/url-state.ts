@@ -12,15 +12,26 @@ function read(name: string, fallback: string): string {
 
 type Update = string | ((previous: string) => string);
 
-export function useParam(name: string, fallback: string): [string, (next: Update) => void] {
-  const [value, setValue] = useState(() => read(name, fallback));
+/**
+ * normal 把网址里的值换成页面实际用的值（非法时落回合法值）。不同时立刻改写网址，网址和画面一致。
+ */
+export function useParam(name: string, fallback: string, normal?: (raw: string) => string): [string, (next: Update) => void] {
+  const fix = (raw: string) => (normal ? normal(raw) : raw);
+  const [value, setValue] = useState(() => fix(read(name, fallback)));
   // 连按时下一次要基于上一次的结果，不等重新渲染。
   const latest = useRef(value);
   latest.current = value;
 
   useEffect(() => {
     const sync = () => {
-      const current = read(name, fallback);
+      const raw = read(name, fallback);
+      const current = fix(raw);
+      if (current !== raw) {
+        const url = new URL(location.href);
+        if (current === fallback) url.searchParams.delete(name);
+        else url.searchParams.set(name, current);
+        history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+      }
       latest.current = current;
       setValue(current);
     };
@@ -35,7 +46,7 @@ export function useParam(name: string, fallback: string): [string, (next: Update
 
   const set = useCallback(
     (next: Update) => {
-      const resolved = typeof next === 'function' ? next(latest.current) : next;
+      const resolved = fix(typeof next === 'function' ? next(latest.current) : next);
       if (resolved === latest.current && resolved === read(name, fallback)) return;
       latest.current = resolved;
       const url = new URL(location.href);
@@ -46,6 +57,8 @@ export function useParam(name: string, fallback: string): [string, (next: Update
       // 同一页里读同一个参数的其他组件跟着更新。
       dispatchEvent(new Event(CHANGED));
     },
+    // normal 由调用方给出，取值规则不随渲染变。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [name, fallback],
   );
 
@@ -54,8 +67,8 @@ export function useParam(name: string, fallback: string): [string, (next: Update
 
 /** 整数参数：非法值或越界时落回范围内。 */
 export function useIntParam(name: string, fallback: number, min: number, max: number): [number, (next: number | ((previous: number) => number)) => void] {
-  const [raw, setRaw] = useParam(name, String(fallback));
   const clamp = (n: number) => Math.min(max, Math.max(min, Number.isFinite(n) ? Math.trunc(n) : fallback));
+  const [raw, setRaw] = useParam(name, String(fallback), (text) => String(clamp(text.trim() === '' ? NaN : Number(text))));
   const value = clamp(Number(raw));
   const set = useCallback(
     (next: number | ((previous: number) => number)) => {

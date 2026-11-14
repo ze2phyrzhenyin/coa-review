@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 逐页检查（手机 360×740、桌面 1280×800）：控制台无报错、只有一个标题、不横向滚动、触控目标不小于 44 px、
 // 输入框文字不小于 16 px、看得见的文字里没有 S_f1、2^3 这类没排版的上下标记号。带播放器的页面（[data-player]，见 specs/_player-contract.md）再查：
-// 键盘前进与后退、回退后画面与当初一致、步数写进网址且刷新后还原、Home 回到开头、减少动态效果时没有位移动画。
+// 每个标签页都查这几项。带播放器的页面再查：键盘前进与后退、回退后画面与当初一致、步数写进网址且刷新后还原、Home 回到开头、减少动态效果时没有位移动画。
 // 用法：PORT=4631 node scripts/qa-pages.mjs [页面编号…]
 import { finish, implementedIds, launch, open, pageIds } from './qa-lib.mjs';
 
@@ -16,6 +16,41 @@ const sizes = [
   { name: '桌面', viewport: { width: 1280, height: 800 } },
 ];
 
+/** 页面上的检查项。在浏览器里跑。 */
+function collectFacts() {
+  const visible = (el) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+  };
+  const small = [...document.querySelectorAll('button, [role="button"], [role="tab"], .nav a, select, input:not([type="hidden"])')]
+    .filter(visible)
+    .map((el) => ({ el, r: el.getBoundingClientRect() }))
+    .filter(({ r }) => r.width < 43.5 || r.height < 43.5)
+    .map(({ el, r }) => `${el.tagName.toLowerCase()}「${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 12)}」${Math.round(r.width)}×${Math.round(r.height)}`);
+  const tiny = [...document.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea')]
+    .filter(visible)
+    .filter((el) => parseFloat(getComputedStyle(el).fontSize) < 16)
+    .map((el) => `${el.getAttribute('aria-label') || el.id || el.tagName.toLowerCase()} ${getComputedStyle(el).fontSize}`);
+  const main = document.getElementById('main');
+  return {
+    h1: document.querySelectorAll('h1').length,
+    overflow: document.documentElement.scrollWidth - innerWidth,
+    mainOverflow: main ? main.scrollWidth - main.clientWidth : 0,
+    small,
+    tiny,
+    player: !!document.querySelector('[data-player]'),
+    // 上下标要排成 <sub>/<sup>，不能把下划线和尖号直接给学生看。
+    raw: [...(main?.innerText ?? '').matchAll(/[A-Za-z0-9)\]][_^](?:\{|\(|[-−]?[A-Za-z0-9])/g)].map((m) => m[0]).slice(0, 3),
+  };
+}
+
+function report(where, size, facts) {
+  if (facts.overflow > 1 || facts.mainOverflow > 1) failures.push(`${where}：横向溢出 ${Math.max(facts.overflow, facts.mainOverflow)} px；宽图放进自己的滚动容器或按步骤切局部`);
+  if (size.isMobile && facts.small.length) failures.push(`${where}：触控目标小于 44 px：${facts.small.slice(0, 4).join('、')}`);
+  if (facts.raw.length) failures.push(`${where}：文字里有没排版的上下标记号：${facts.raw.join('、')}（用 <sub>/<sup>，播放器里用 Rich）`);
+  if (size.isMobile && facts.tiny.length) failures.push(`${where}：${facts.tiny.length} 个输入框文字小于 16 px（iOS 会放大页面）：${facts.tiny.slice(0, 3).join('、')}`);
+}
+
 for (const size of sizes) {
   const context = await browser.newContext(size);
   for (const id of ids) {
@@ -25,39 +60,24 @@ for (const size of sizes) {
     page.on('console', (message) => message.type() === 'error' && errors.push(message.text()));
     page.on('pageerror', (error) => errors.push(error.message));
     await open(page, id);
-    const facts = await page.evaluate(() => {
-      const visible = (el) => {
-        const r = el.getBoundingClientRect();
-        return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
-      };
-      const small = [...document.querySelectorAll('button, [role="button"], [role="tab"], .nav a, select, input:not([type="hidden"])')]
-        .filter(visible)
-        .map((el) => ({ el, r: el.getBoundingClientRect() }))
-        .filter(({ r }) => r.width < 43.5 || r.height < 43.5)
-        .map(({ el, r }) => `${el.tagName.toLowerCase()}「${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 12)}」${Math.round(r.width)}×${Math.round(r.height)}`);
-      const tiny = [...document.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea')]
-        .filter(visible)
-        .filter((el) => parseFloat(getComputedStyle(el).fontSize) < 16).length;
-      return {
-        h1: document.querySelectorAll('h1').length,
-        overflow: document.documentElement.scrollWidth - innerWidth,
-        mainOverflow: (() => {
-          const main = document.getElementById('main');
-          return main ? main.scrollWidth - main.clientWidth : 0;
-        })(),
-        small,
-        tiny,
-        player: !!document.querySelector('[data-player]'),
-        // 上下标要排成 <sub>/<sup>，不能把下划线和尖号直接给学生看。
-        raw: [...(document.getElementById('main')?.innerText ?? '').matchAll(/[A-Za-z0-9)\]][_^](?:\{|\(|[-−]?[A-Za-z0-9])/g)].map((m) => m[0]).slice(0, 3),
-      };
-    });
+    const facts = await page.evaluate(collectFacts);
     if (errors.length) failures.push(`${where}：控制台报错 ${errors[0].slice(0, 140)}`);
     if (facts.h1 !== 1) failures.push(`${where}：h1 有 ${facts.h1} 个，应为 1 个`);
-    if (facts.overflow > 1 || facts.mainOverflow > 1) failures.push(`${where}：横向溢出 ${Math.max(facts.overflow, facts.mainOverflow)} px；宽图放进自己的滚动容器或按步骤切局部`);
-    if (size.isMobile && facts.small.length) failures.push(`${where}：触控目标小于 44 px：${facts.small.slice(0, 4).join('、')}`);
-    if (facts.raw.length) failures.push(`${where}：文字里有没排版的上下标记号：${facts.raw.join('、')}（用 <sub>/<sup>，播放器里用 Rich）`);
-    if (size.isMobile && facts.tiny) failures.push(`${where}：${facts.tiny} 个输入框文字小于 16 px（iOS 会放大页面）`);
+    report(where, size, facts);
+
+    // 每个标签页（讲解、试一试、练习……）都查一遍：触控目标、输入框字号、上下标记号、横向溢出。
+    const tabs = await page.locator('#main [role="tab"]').count();
+    for (let t = 0; t < tabs; t++) {
+      const tab = page.locator('#main [role="tab"]').nth(t);
+      if ((await tab.getAttribute('aria-selected')) === 'true') continue;
+      const label = (await tab.textContent()).trim();
+      await tab.click();
+      await page.waitForTimeout(250);
+      report(`${where}「${label}」`, size, await page.evaluate(collectFacts));
+    }
+    if (tabs > 0) {
+      await open(page, id);
+    }
 
     if (facts.player) {
       const index = () => page.locator('[data-player]').first().getAttribute('data-step-index').then(Number);

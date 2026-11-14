@@ -111,11 +111,11 @@ export const sizes = {
   /** 值牌上的字高。 */
   value: 0.36,
   /** 名牌上的字高。 */
-  name: 0.27,
+  name: 0.31,
   /** 台面上的小字。 */
-  note: 0.22,
+  note: 0.26,
   tileHeight: 0.66,
-  chipHeight: 0.4,
+  chipHeight: 0.44,
   /** 牌的厚度。 */
   cardDepth: 0.05,
   /** 牌的圆角。 */

@@ -23,6 +23,10 @@ export interface AnswerProps {
   onReveal: () => void;
   /** 点选题的候选不全在画面里时，让镜头去看其余的。 */
   onLook?: (() => void) | undefined;
+  /** 页面按学生的答案演出的后果，一句话。 */
+  consequence?: string | undefined;
+  /** 点了不是候选的部件时的说明。 */
+  note?: string | undefined;
   /** 翻位片作答：当前翻出的位串（空格是没翻的位）、翻第 i 位。 */
   flip?: { bits: string; toggle: (i: number) => void } | undefined;
 }
@@ -41,10 +45,15 @@ function beside(anchor: Rect, size: { width: number; height: number }): CSSPrope
   return { left: `${Math.round(x)}px`, top: `${top}px`, width: `${PANEL}px` };
 }
 
-export function Answer({ ask, picking, wrong, anchor, size, offStage, onAnswer, onPick, onReveal, onLook, flip }: AnswerProps) {
+export function Answer({ ask, picking, wrong, anchor, size, offStage, onAnswer, onPick, onReveal, onLook, flip, note, consequence }: AnswerProps) {
   const [value, setValue] = useState('');
   const hint = wrong ? (
     <p class="pl-hint" role="status">
+      {consequence ? (
+        <>
+          <Rich text={consequence} />{' '}
+        </>
+      ) : null}
       不对。<Rich text={ask.hint ?? '再看一遍这一步之前的状态。'} />
     </p>
   ) : null;
@@ -61,8 +70,13 @@ export function Answer({ ask, picking, wrong, anchor, size, offStage, onAnswer, 
           <Rich text={ask.prompt} />
         </p>
         {hint ?? <p class="pl-note">点场景里的部件作答。</p>}
+        {note ? (
+          <p class="pl-hint" role="status">
+            <Rich text={note} />
+          </p>
+        ) : null}
         <div class="pl-actions">
-          {offStage.length > 0 && onLook ? (
+          {onLook ? (
             <button type="button" class="pl-btn" onClick={onLook}>
               看其余部件
             </button>

@@ -12,6 +12,7 @@ import type { OverflowParams, OverflowSolution, OverflowState } from '../../engi
 import { formatDecimal, formatValue } from '../../lib/bits';
 import { bindTable, from } from '../../scene';
 import type { Binding, Move, PartSpec, SceneSpec } from '../../scene';
+import type { Breakage } from '../../player/Player';
 import { signAskIndex } from './adapt';
 
 type RowKey = 'y' | 'inverted' | 'carry' | 'x' | 'negY' | 'sum';
@@ -25,6 +26,8 @@ export interface OverflowScene {
   values: (path: string, value: string) => string;
   /** 符号位题在结果行的两个符号位上翻位片作答。 */
   flipPart: (ask: unknown, index: number) => string | null;
+  /** 答错时按学生的答案演后果。 */
+  wrong: (ask: { kind: string }, value: string) => Breakage | null;
 }
 
 /** 符号位与数值位之间多空的一点、行距。列距宽屏 1.0，窄屏 0.9（整张竖式不出左右边）。 */
@@ -71,7 +74,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   const zHead = -0.95;
   for (let c = 1; c <= W; c++) {
     const name = colName(c);
-    parts.push({ id: `head-${c}`, kind: 'label', position: [cx(c), zHead], props: { text: name, size: c < 3 ? 0.26 : 0.23, tone: c < 3 ? 'text' : 'muted', weight: c < 3 ? 600 : 500 } });
+    parts.push({ id: `head-${c}`, kind: 'label', position: [cx(c), zHead], props: { text: name, size: compact ? 0.32 : c < 3 ? 0.26 : 0.23, tone: c < 3 ? 'text' : 'muted', weight: c < 3 ? 600 : 500 } });
   }
 
   keys.forEach((key, i) => {
@@ -79,9 +82,8 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
     const firstCol = key === 'carry' ? 0 : 1;
     for (let c = firstCol; c <= W; c++) {
       const path = `rows.${key}.cells.${c}`;
-      const final = last.rows[key]?.cells[c] ?? '';
-      // 没写的格子藏起来；写出时从反面翻过来，所以每一格出现时都有一次翻面。
-      const placeholder = final === '1' ? '0' : '1';
+      // 没写的格子是空槽（像答题纸上的空格），写出时从空槽直接翻成这一位，不先露出相反的数字。
+      const placeholder = ' ';
       const id = `${key}-${c}`;
       const title = key === 'carry' ? (c === 0 ? '最高符号位向外的进位' : `进入 ${colName(c)} 的进位`) : `${label} ${colName(c)}`;
       // 一行同时写出时从右往左逐格错开 25 毫秒。
@@ -89,13 +91,13 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
       const dropsHere = key === 'carry' && c === 0;
       table[id] = {
         bits: from(path, (ctx) => ctx.flat[path] || placeholder),
-        hidden: from(dropsHere ? [path, 'dropped'] : path, (ctx) => !ctx.flat[path] || (dropsHere && ctx.state.dropped === '1')),
+        hidden: from(dropsHere ? [path, 'dropped'] : path, (ctx) => dropsHere && ctx.state.dropped === '1'),
       };
     }
     if (point && key !== 'carry') {
       parts.push({ id: `dot-${key}`, kind: 'label', position: [(cx(2) + cx(3)) / 2, rz(key) + 0.18], props: { text: '.', size: 0.5, weight: 700 } });
     }
-    const labelSize = compact ? 0.24 : 0.28;
+    const labelSize = compact ? 0.3 : 0.28;
     const shown = label;
     parts.push({
       id: `label-${key}`,
@@ -186,7 +188,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
     if (changed.has('verdict')) out.push({ value: `${s.sf1}${s.sf2}`, from: 'sum-1', to: 'verdict', arc: true });
     if (changed.has('vByCarry') && step.focus.includes('rows.carry.cells.1')) {
       out.push({ value: `C_f = ${s.cf}`, from: 'carry-1', to: 'vc', arc: true });
-      out.push({ value: `C_0 = ${s.c0}`, from: 'carry-2', to: 'vc', arc: true });
+      out.push({ value: `C_0 = ${s.c0}`, from: 'carry-2', to: 'vc', arc: true, phase: 1 });
     }
     if (changed.has('conclusion')) out.push({ value: exactText, from: 'vs', to: 'mark', arc: true });
     return out;
@@ -216,9 +218,33 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
     return plain[path] ?? path;
   };
 
-  /** 「变化」里的值：判定用的位直接写，空写成「空」由播放器处理。 */
-  const values = (_path: string, value: string): string => value;
+  /** 「变化」里的值：丢掉的进位 0 写成「无」，和台面上的托盘一致。 */
+  const values = (path: string, value: string): string => (path === 'dropped' ? (value === '0' ? '无' : value === '1' ? '1，丢掉' : value) : value);
   const flipPart = (_ask: unknown, index: number): string | null => (index === asking ? 'sign' : null);
 
-  return { scene, bind, moves, names, values, flipPart };
+  /** 两个符号位读出的判定：00、11 无溢出，01 正溢，10 负溢（教材 p37）。 */
+  const readSigns = (bits: string): string => (bits === '01' ? '正溢' : bits === '10' ? '负溢' : '无溢出');
+  const wrong = (ask: { kind: string }, value: string): Breakage | null => {
+    if (ask.kind === 'bits' && /^[01]{2}$/.test(value)) {
+      // 学生翻出的两个符号位先写进结果行，判定牌按它们读出来，过一会儿退回。
+      return {
+        label: '',
+        patch: { sign: { bits: value, hidden: false }, verdict: { text: `${value} ${readSigns(value)}`, hidden: false } },
+        moves: [{ value, from: 'sign', to: 'verdict', arc: true }],
+        message: `按你翻的 ${value}，判定牌会写「${readSigns(value)}」。`,
+      };
+    }
+    const zone = zones.find((item) => item.title === value);
+    if (zone) {
+      return {
+        label: '',
+        patch: { [zone.id]: { focus: true } },
+        moves: [{ value: zone.title, from: 'sum-1', to: zone.id, arc: true }],
+        message: value === '无溢出' ? '判成无溢出，就是说结果在能表示的范围里，这几位可以直接当结果。' : `判成${value}，就是说真实结果${value === '正溢' ? '超过上限' : '低于下限'}。`,
+      };
+    }
+    return null;
+  };
+
+  return { scene, bind, moves, names, values, flipPart, wrong };
 }

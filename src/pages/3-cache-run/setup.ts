@@ -10,11 +10,11 @@ export const BLOCK_WORDS = 2;
 export const ADDRESS_BITS = 5;
 export const MAX_SEQUENCE = 12;
 
-/** 讲解的例题：直接映射。块 5 被块 13 顶出之后再访问，又缺失一次。 */
+/** 讲解的例题：直接映射。写 10 是写缺失，写 8 是写命中；块 5 被块 13 顶出（写回）之后再访问，又缺失一次。 */
 export const exampleSequence: Access[] = [
   { address: 9, op: '读' },
   { address: 10, op: '写' },
-  { address: 8, op: '读' },
+  { address: 8, op: '写' },
   { address: 26, op: '读' },
   { address: 11, op: '读' },
   { address: 9, op: '读' },

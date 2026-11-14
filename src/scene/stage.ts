@@ -346,7 +346,8 @@ export class Stage {
     if (follow) {
       const all = this.sceneBox();
       const across = (this.width * 0.94) / Math.max(1, all.max.x - all.min.x);
-      if (across >= this.legibleScale) cap = Math.min(cap, across);
+      // 差一点（值牌的字约 13.5 像素）也算装得下：左右不裁比字大一点要紧。
+      if (across >= this.legibleScale * 0.96) cap = Math.min(cap, across);
     }
     floor = Math.min(floor, cap);
     if (scale > cap) dist = this.distFor(cap);

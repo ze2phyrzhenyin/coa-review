@@ -68,6 +68,17 @@ export class BitRow extends Part<BitsProps> {
     this.update(props, false);
   }
 
+  /** 实际占的左右范围：名牌只在左边，右边不留它的位置（台面宽度和镜头都按这个算）。 */
+  override bounds() {
+    const box = super.bounds();
+    const x = this.center.x;
+    const first = this.xs[0] ?? 0;
+    const last = this.xs[this.xs.length - 1] ?? 0;
+    box.min.x = x + first - TILE / 2 - (this.chip ? this.chip.width + 0.12 : 0) - 0.2;
+    box.max.x = x + last + TILE / 2 + 0.2;
+    return box;
+  }
+
   private column(i: number): number {
     return i < 0 ? this.xs[0]! - (TILE + GAP) : (this.xs[i] ?? this.xs[this.xs.length - 1]!);
   }

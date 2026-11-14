@@ -77,7 +77,7 @@ export function compact(text: string): string {
 export type RowKind = 'operand' | 'negate' | 'sum';
 
 const advice = (expected: string, i: number, kind: RowKind): string => {
-  if (kind === 'sum') return '从这一列重新加，别漏了右边送来的进位。';
+  if (kind === 'sum') return i === expected.length - 1 ? '最低位右边没有进位，只把这一列的两个数相加。' : '从这一列重新加，别漏了右边一列送来的进位。';
   if (kind === 'negate') return '[−y]变补 由 [y]变补 连同符号位各位取反、末位加 1 得到。';
   if (i < 2) return '变形补码的两个符号位相同：正数 00，负数 11。';
   return expected[0] === '0' ? '正数的数值位就是真值的数值位，位数不够左边补 0。' : '负数的数值位是绝对值各位取反、末位加 1。';
@@ -113,3 +113,35 @@ export function checkValue(solution: OverflowSolution, written: string): RowChec
 }
 
 export const show = (bits: string, notation: Notation): string => formatBits(bits, notation, 2);
+
+/**
+ * 续判：学生前面几行写错了，后面的行按他自己写的数来判（方法对就算对）。
+ * 期望值仍由引擎算：把学生写的位串当作机器数交给 solve()。学生的位串引擎不收时（位数不对、两个符号位不同），退回标准答案。
+ */
+export function followThrough(problem: Problem, written: Record<string, string>): { negY: string | null; sum: string; basedOnStudent: boolean } {
+  const { params, solution } = problem;
+  const width = solution.width;
+  const ok = (key: string) => {
+    const text = compact(written[key] ?? '');
+    return text.length === width && /^[01]+$/.test(text) ? text : null;
+  };
+  const x = ok('x');
+  const y = ok('y');
+  let negY = solution.negYBits;
+  let sum = solution.sumBits;
+  let based = false;
+  try {
+    if (solution.op === '减' && y) {
+      negY = solve({ ...params, x: params.x, y: { as: '机器数', bits: y } }).negYBits;
+      based = based || y !== solution.yBits;
+    }
+    const addend = solution.op === '减' ? ok('negY') : y;
+    if (x && addend) {
+      sum = solve({ ...params, op: '加', x: { as: '机器数', bits: x }, y: { as: '机器数', bits: addend } }).sumBits;
+      based = based || x !== solution.xBits || addend !== solution.addendBits;
+    }
+  } catch {
+    return { negY: solution.negYBits, sum: solution.sumBits, basedOnStudent: false };
+  }
+  return { negY, sum, basedOnStudent: based };
+}

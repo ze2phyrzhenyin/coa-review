@@ -10,6 +10,7 @@ import type { Step, Trace } from '../../engines/trace';
 import { formatValue } from '../../lib/bits';
 import { bindTable, from } from '../../scene';
 import type { Move, PartSpec, SceneSpec } from '../../scene';
+import type { Breakage } from '../../player/Player';
 
 const N = 4;
 /** 顺序：没丢也没溢；丢了没溢；没丢却溢；丢了也溢。 */
@@ -85,7 +86,7 @@ export function breakTrace(): Trace<null, BreakState> {
       builder.step({
         ...step,
         ask: {
-          prompt: `(${item.x}) + (${item.y})，${carryText}。只看进位会判${item.rule}，实际属于哪一种`,
+          prompt: `(${minus(item.x)}) + (${minus(item.y)})，${carryText}。只看进位会判${item.rule}，实际属于哪一种`,
           kind: 'choice',
           options: ['无溢出', '正溢', '负溢'],
           answer: s.verdict,
@@ -117,29 +118,33 @@ export function breakTrace(): Trace<null, BreakState> {
 }
 
 const ROW = 2.05;
+/** 真值前面的负号写成数学的减号。 */
+const minus = (text: string) => text.replace(/^-/, '−');
 
-export function breakScene(trace: Trace<null, BreakState>) {
+/** compact：窄屏上每个例子排两行（和、只看进位 / 实际、C_f ⊕ C_0），台面不比手机宽。 */
+export function breakScene(trace: Trace<null, BreakState>, compact = false) {
   const list = solved();
   const final = trace.steps[trace.steps.length - 1]?.state ?? trace.initial;
   const parts: PartSpec[] = [];
   const table: Parameters<typeof bindTable<BreakState>>[0] = {};
   list.forEach((item, i) => {
-    const z = i * ROW;
+    const z = i * (compact ? 3.4 : ROW);
     const sumPath = `cases.${i}.sum`;
-    const placeholder = [...(final.cases[i]?.sum ?? '')].map((b) => (b === '1' ? '0' : '1')).join('');
+    // 没写的和是一排空槽，写出时直接翻成各位。
+    const placeholder = ' '.repeat(final.cases[i]?.sum.length ?? N + 1);
+    const at = (wide: [number, number], small: [number, number]): [number, number] => (compact ? small : wide);
     // 算式写在这一行位片的上方；和的位片在下面翻出来，丢掉的进位落在它的左边。
-    parts.push({ id: `expr-${i}`, kind: 'label', position: [-3.0, z - 0.95], props: { text: `(${item.x}) + (${item.y})`, size: 0.26, mono: true, tone: 'muted' } });
-    parts.push({ id: `sum-${i}`, kind: 'bits', position: [-3.0, z], props: { bits: placeholder, group: N }, title: `例 ${i + 1} 的和` });
+    parts.push({ id: `expr-${i}`, kind: 'label', position: at([-3.0, z - 0.95], [-1.3, z - 0.95]), props: { text: `(${minus(item.x)}) + (${minus(item.y)})`, size: 0.3, mono: true, tone: 'muted' } });
+    parts.push({ id: `sum-${i}`, kind: 'bits', position: at([-3.0, z], [-1.3, z]), props: { bits: placeholder, group: N }, title: `例 ${i + 1} 的和` });
     table[`sum-${i}`] = {
       bits: from(sumPath, (c) => c.state.cases[i]?.sum || placeholder),
-      hidden: from(sumPath, (c) => !c.state.cases[i]?.sum),
       carry: from(`cases.${i}.carry`, (c) => (c.state.cases[i]?.carry === '1' ? 0 : null)),
     };
-    parts.push({ id: `rule-${i}`, kind: 'register', position: [0.05, z], props: { name: '只看进位', value: '', width: 2.2 } });
+    parts.push({ id: `rule-${i}`, kind: 'register', position: at([0.05, z], [2.15, z]), props: { name: '只看进位', value: '', width: 2.2 } });
     table[`rule-${i}`] = { value: `cases.${i}.rule` };
-    parts.push({ id: `truth-${i}`, kind: 'register', position: [2.45, z], props: { name: '实际', value: '', width: 2.2 } });
+    parts.push({ id: `truth-${i}`, kind: 'register', position: at([2.45, z], [-1.3, z + 1.6]), props: { name: '实际', value: '', width: 2.2 } });
     table[`truth-${i}`] = { value: `cases.${i}.truth` };
-    parts.push({ id: `fix-${i}`, kind: 'register', position: [5.05, z], props: { name: 'C_f ⊕ C_0', value: '', width: 2.6 } });
+    parts.push({ id: `fix-${i}`, kind: 'register', position: at([5.05, z], [2.15, z + 1.6]), props: { name: 'C_f ⊕ C_0', value: '', width: 2.6 } });
     table[`fix-${i}`] = { value: `cases.${i}.fix` };
   });
   const scene: SceneSpec = { parts, wires: [] };
@@ -151,5 +156,18 @@ export function breakScene(trace: Trace<null, BreakState>) {
     const label = { sum: '和', carry: '向外的进位', rule: '只看进位', truth: '实际', fix: 'C_f ⊕ C_0' }[match[2] ?? ''] ?? match[2];
     return `例 ${Number(match[1]) + 1} ${label}`;
   };
-  return { scene, bind, moves, names };
+  /** 答错时演后果：「实际」那一格先写上学生的判断，说明按这个判断会怎样，过一会儿退回。 */
+  const wrong = (_ask: unknown, value: string, _state: BreakState, next: Step<BreakState> | null): Breakage | null => {
+    const at = next?.changes.find((change) => /^cases\.\d+\.truth$/.test(change.at))?.at;
+    if (!at) return null;
+    const i = Number(at.split('.')[1]);
+    const sum = next?.state.cases[i]?.sum ?? '';
+    return {
+      label: '',
+      patch: { [`truth-${i}`]: { value } },
+      moves: [{ value, from: `rule-${i}`, to: `truth-${i}`, arc: true }],
+      message: value === '无溢出' ? `判成没有溢出，就是把和 ${sum} 直接当结果用。` : `判成${value}，就是说这一行的和 ${sum} 不能当结果用。`,
+    };
+  };
+  return { scene, bind, moves, names, wrong };
 }

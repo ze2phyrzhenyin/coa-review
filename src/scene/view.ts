@@ -204,7 +204,7 @@ export class SceneView {
     // 全景：整张台面装得下、字只比最小字号小一点时，镜头一直停在这里。完整的画面比略大的字要紧。
     const whole = stage.fit(all, false);
     // 差一点点也算装得下（值牌的字约 13 像素以上）：整张图比放大的局部更好读。
-    const wholeFits = stage.scaleOf(whole) >= stage.legibleScale * 0.94 && stage.sees(whole, all, 0);
+    const wholeFits = stage.scaleOf(whole) >= stage.legibleScale * 0.9 && stage.sees(whole, all, 0);
     const follow = (boxes: Box3[]) => this.follow(boxes);
     let pose = whole;
     if (!wholeFits) {
@@ -264,7 +264,12 @@ export class SceneView {
     const { stage } = this;
     const boxes = stage.boxesOf(ids.map((at) => this.ref(at).id), true, parts);
     if (boxes.length === 0 || stage.sees(stage.goal, boxes, 0.03)) return 0;
-    stage.moveTo(this.follow(boxes).pose, true);
+    // 两头装不下时看最后一个（值落下的地方），不让它落在画面外。
+    const both = this.follow(boxes);
+    const last = stage.boxesOf([this.ref(ids[ids.length - 1]!).id], true, parts);
+    const pose = both.fits || last.length === 0 ? both.pose : stage.sees(stage.goal, last, 0.03) ? null : this.follow(last).pose;
+    if (!pose) return 0;
+    stage.moveTo(pose, true);
     this.emitRects();
     return stage.kit.reduced ? 0 : timing.camera;
   }
