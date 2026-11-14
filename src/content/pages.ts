@@ -38,7 +38,7 @@ export const pages: PageMeta[] = [
   p('1-cpi', 'CPI 与 MIPS', 'CPI、MIPS、执行时间怎么互算', 'second'),
 
   p('2-codes', '原码 反码 补码 移码', '−128 为什么只有补码，补码和移码差在哪', 'first'),
-  p('2-overflow', '变形补码与溢出', '01 和 10 哪个是正溢，进位丢掉算不算溢出', 'sample'),
+  p('2-overflow', '变形补码与溢出', '01 和 10 哪个是正溢，进位丢掉算不算溢出', 'sample', true),
   p('2-negate', '对 2 求补器', '找第一个 1 和取反加 1 为什么是一回事', 'second'),
   p('2-ieee', 'IEEE 754', '隐藏的 1 去哪了，E 加 127 还是 128', 'first'),
   p('2-range', '浮点数表示范围', '最大负数和最小负数分别是哪个', 'second'),
@@ -71,7 +71,7 @@ export const pages: PageMeta[] = [
   p('4-ea', '寻址方式', '这串十六进制指令的有效地址是多少', 'first'),
   p('4-arm', 'ARM 指令编码', 'ARM 汇编怎么变成 32 位机器码', 'second'),
 
-  p('5-cycle', '指令周期', 'LAD 为什么比 ADD 多一个 CPU 周期', 'sample'),
+  p('5-cycle', '指令周期', 'LAD 为什么比 ADD 多一个 CPU 周期', 'sample', true),
   p('5-flow', '方框图与控制信号', '方框图旁边的信号怎么写，哪些要带 T', 'first'),
   p('5-datapath', '数据通路设计', '换一张数据通路图怎么排微操作', 'second'),
   p('5-timing', '时序产生器', 'T1–T4 和 CPU 周期是什么关系', 'second'),

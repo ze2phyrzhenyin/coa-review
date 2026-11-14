@@ -28,8 +28,8 @@
       "id": "2-overflow",
       "title": "01 和 10 哪个是正溢，进位丢掉算不算溢出",
       "batch": "sample",
-      "passes": false,
-      "evidence": ""
+      "passes": true,
+      "evidence": "evals/look/2-overflow/report-r3.md"
     },
     {
       "id": "2-negate",
@@ -238,8 +238,8 @@
       "id": "5-cycle",
       "title": "LAD 为什么比 ADD 多一个 CPU 周期",
       "batch": "sample",
-      "passes": false,
-      "evidence": ""
+      "passes": true,
+      "evidence": "evals/look/5-cycle/report-r3.md"
     },
     {
       "id": "5-flow",
