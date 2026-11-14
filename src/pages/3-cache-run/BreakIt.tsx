@@ -39,7 +39,7 @@ export function BreakIt() {
           ))}
         </div>
       </div>
-      <Player key={into} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} />
+      <Player key={into} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} frame={stage.frame} />
     </>
   );
 }

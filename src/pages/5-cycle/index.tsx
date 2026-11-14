@@ -8,7 +8,7 @@ import { Rich } from '../../player/Rich';
 import { coarseMoves, coarsen, grainNames } from '../../player/coarsen';
 import type { Grain } from '../../player/coarsen';
 import { kitBind, kitMoves, kitScene, kitTrace } from './kit';
-import { machineBind, machineBreak, machineCaption, machineMoves, machineNames, machineScene, machineValues, machineWrong, withNotes } from './machine';
+import { machineBind, machineBreak, machineCaption, machineFrame, machineMoves, machineNames, machineScene, machineValues, machineWrong, withNotes } from './machine';
 import { answerRows, describe, grade, makeInstruction } from './practice';
 import type { Entry, Grade } from './practice';
 import { TRY_DEFAULT, toParams } from './program';
@@ -126,6 +126,7 @@ function Machine({ params, error, controls }: { params: Params | null; error?: s
       caption={machineCaption}
       breakIt={machineBreak}
       onWrong={made.wrong}
+      frame={grain === 'explain' ? machineFrame : undefined}
     >
       {controls}
       <Choice

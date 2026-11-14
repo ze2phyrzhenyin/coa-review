@@ -25,6 +25,7 @@ export interface CacheStage {
   moves: (step: Step<State>) => Move[];
   names: (path: string) => string;
   values: (path: string, value: string) => string;
+  frame: (step: Step<State>) => string[] | null;
 }
 
 /** 两行两列摆 cache：带计数器时一排放不下桌面舞台，手机上四行一排也装不进画面。 */
@@ -251,9 +252,18 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
     return path;
   };
 
-  const values = (_path: string, value: string): string => (value === 'true' ? '是' : value === 'false' ? '否' : value);
+  // 「处理」一栏：命中时不调块，写成「不调块（命中）」，和「调入」「替换」是同一类说法。
+  const values = (path: string, value: string): string =>
+    path === 'access.action' && value === '命中' ? '不调块（命中）' : value === 'true' ? '是' : value === 'false' ? '否' : value;
+  /** 计数器那一步：镜头看这一组的几行（手机上主存和统计牌在别处，计数器的变化要看得到）。 */
+  const frame = (step: Step<State>): string[] | null => {
+    const counted = step.changes.filter((change) => /^rows\.\d+\.count$/.test(change.at)).map((change) => `r${change.at.split('.')[1]}`);
+    if (counted.length === 0) return null;
+    const rows = [...new Set([...counted, ...step.state.access.candidates.map((i) => `r${i}`)])];
+    return rows;
+  };
 
-  return { scene: { parts, wires }, bind, moves, names, values };
+  return { scene: { parts, wires }, bind, moves, names, values, frame };
 }
 
 /**
@@ -316,7 +326,13 @@ export function polish(trace: Trace<Params, State>): Trace<Params, State> {
   }
   const conditions = trace.conditions.map((item) => ({ ...item, value: reword(item.value) }));
   const g = layout(trace.params);
-  conditions.push({ label: '区', value: `主存按 cache 的大小分成区，一区有 ${g.mapping === '直接' ? `m = ${g.rows}` : `u = ${g.sets}`} 块，区号就是标记，区内块号就是${g.mapping === '直接' ? '行号' : '组号'}` });
+  conditions.push({
+    label: '区',
+    value:
+      g.mapping === '直接'
+        ? `主存按 cache 的行数分区，一区 m = ${g.rows} 块，正好对应 cache 的 ${g.rows} 行。区号就是标记，区内块号就是行号`
+        : `组相联按 cache 的组数分区，一区 u = ${g.sets} 块，一块对应一组（不是一行）。区号就是标记，区内块号就是组号（图 3.32(c)）`,
+  });
   if (trace.params.mapping === '直接') {
     conditions.push({ label: '行号', value: '地址中间的行号字段就是 j mod m：块号的低几位正好是除以行数的余数' });
     conditions.push({ label: '计数器', value: '直接映射一个块只有一行可放，用不上计数器；它是给组相联、全相联选换出行用的' });
@@ -344,7 +360,7 @@ export function cacheWrong(params: Params) {
           label: '',
           patch: {},
           moves: [{ value: `块 ${j}`, from: cell, to: `r${r}`, via: ['mem-bus', `bus-r${r}`] }],
-          message: `按缺失处理，块 ${j} 要从主存再调一次进${rowName(r)}。可它已经在${rowName(r)}里了，这一趟主存白跑。`,
+          message: `按缺失处理，块 ${j} 要从主存再调一次进${rowName(r)}。可它已经在${rowName(r)} 里了，这一趟主存白跑。`,
         };
       }
       const r = after.candidates[0] ?? 0;
@@ -353,7 +369,7 @@ export function cacheWrong(params: Params) {
         label: '',
         patch: { [`r${r}`]: { changedCells: ['0.0'] } },
         moves: [{ value: there === null ? '空' : `块 ${there}`, from: `r${r}`, to: 'addr', arc: true }],
-        message: `按命中处理，就从${rowName(r)}直接取字。${rowName(r)}里${there === null ? '是空的' : `装的是块 ${there}`}，取出来的不是块 ${j} 的字。`,
+        message: `按命中处理，就从${rowName(r)} 直接取字。${rowName(r)} 里${there === null ? '是空的' : `装的是块 ${there}`}，取出来的不是块 ${j} 的字。`,
       };
     }
     const picked = /^行 (\d+)$/.exec(value);
@@ -365,7 +381,7 @@ export function cacheWrong(params: Params) {
         label: '',
         patch: {},
         moves: out === null || out === undefined ? [] : [{ value: `块 ${out}`, from: `r${k}`, to: 'out', via: [`bus-r${k}`, 'bus-out'] }],
-        message: `换出${rowName(k)}的块 ${out ?? ''}：${params.replacement === 'LFU' ? '它不是用得最少的' : '它不是最久没用的'}，接下来很可能又要用到它，又得调回来。`,
+        message: `换出${rowName(k)} 的块 ${out ?? ''}：${params.replacement === 'LFU' ? '它不是用得最少的' : '它不是最久没用的'}，接下来很可能又要用到它，又得调回来。`,
       };
     }
     const i = after.candidates[0];

@@ -72,6 +72,8 @@ export class SceneView {
   private extras: string[][] = [];
   private picks: string[][] = [];
   private asks: string[][] = [];
+  /** 页面指定了这一步看哪些部件：就看它们，不退到落点。 */
+  private pinned: boolean[] = [];
   /** 正在为第几步排镜头（wholeEdges 按那一步的画面判断哪些部件看得见）。 */
   private planning = 0;
   private targets: string[][] = [];
@@ -191,9 +193,10 @@ export class SceneView {
    * frames[i] 装不下时，只看住 targets[i]（值最后落下的部件；没给时取这一步变了的部件）：镜头从出发的地方移过去，正好跟着值走。
    * 镜头位置按步数从头推出来，所以回到第 n 步时与第一次到第 n 步时相同。
    */
-  plan(frames: string[][], extras: string[][] = [], poses: Pose[] = [], targets: string[][] = [], picks: string[][] = [], asks: string[][] = []): void {
+  plan(frames: string[][], extras: string[][] = [], poses: Pose[] = [], targets: string[][] = [], picks: string[][] = [], asks: string[][] = [], pinned: boolean[] = []): void {
     this.picks = picks;
     this.asks = asks;
+    this.pinned = pinned;
     this.frames = frames;
     this.targets = targets;
     this.extras = extras;
@@ -242,6 +245,12 @@ export class SceneView {
           continue;
         }
       }
+      if (!wholeFits && main.length > 0 && this.pinned[i]) {
+        // 页面指定的部件放在画面正中，不为了台面边上的留白或切边再挪。
+        if (!stage.sees(pose, main, 0.03)) pose = stage.fit(main, stage.legibleScale / stage.minScale, 0, true);
+        this.cams.push(pose);
+        continue;
+      }
       if (!wholeFits && main.length > 0) {
         const both = [...main, ...more];
         if (!stage.sees(pose, both, 0.03)) {
@@ -275,64 +284,76 @@ export class SceneView {
   }
 
   /**
-   * 画面左右边上不切半个部件：被边切开的格子、牌，要么整个挪进来，要么整个挪出去。
-   * 在几种平移里挑切开最少、要看的部件仍在画面里、移动最小的。很宽的部件（总线、长导轨）不算。
+   * 画面边上不切半个部件：被边切开的格子、牌，要么整个挪进来，要么整个挪出去。先左右，再上下。
+   * 在几种平移里挑切开最少、要看的部件仍在画面里、移动最小的。很宽、很高的部件（总线、主存板这类）不算。
    */
   private wholeEdges(pose: CamPose, keep: Box3[]): CamPose {
+    return this.edgeAxis(this.edgeAxis(pose, keep, 'x'), keep, 'y');
+  }
+
+  private edgeAxis(pose: CamPose, keep: Box3[], axis: 'x' | 'y'): CamPose {
     const { stage } = this;
-    const W = stage.width;
-    // 整张台面横着放得下（已经居中）时不用挪。
+    const size = axis === 'x' ? stage.width : stage.height;
+    const lead = (r: Rect) => (axis === 'x' ? r.x : r.y);
+    const span = (r: Rect) => (axis === 'x' ? r.w : r.h);
+    // 整张台面在这个方向放得下时不用挪。
     const all = stage.project(stage.sceneBox(), pose);
-    if (all.x >= -1 && all.x + all.w <= W + 1) return pose;
-    // 这一步隐藏的部件不算；很宽的部件（总线、主存板这类）被切开是常态，也不算。
+    if (lead(all) >= -1 && lead(all) + span(all) <= size + 1) return pose;
+    // 这一步隐藏的部件不算；很大的部件被切开是常态，也不算。
     const props = this.poses[this.planning]?.parts ?? this.pose.parts;
-    const rects = () =>
-      [...this.parts.entries()]
-        .filter(([id]) => !props[id]?.hidden)
-        .map(([, part]) => stage.project(part.bounds(), pose))
-        .filter((r) => r.w < W * 0.7);
-    const cutsAfter = (list: { x: number; w: number }[], dx: number) => list.filter((r) => (r.x + dx < 0 && r.x + r.w + dx > 0) || (r.x + dx < W && r.x + r.w + dx > W)).length;
-    const list = rects();
-    if (cutsAfter(list, 0) === 0) return pose;
+    const list = [...this.parts.entries()]
+      .filter(([id]) => !props[id]?.hidden)
+      .map(([, part]) => stage.project(part.bounds(), pose))
+      .filter((r) => span(r) < size * 0.6)
+      .map((r) => ({ at: lead(r), len: span(r) }));
+    const cutsAfter = (d: number) => list.filter((r) => (r.at + d < 0 && r.at + r.len + d > 0) || (r.at + d < size && r.at + r.len + d > size)).length;
+    if (cutsAfter(0) === 0) return pose;
     const shifts = new Set<number>([0]);
     for (const r of list) {
-      if (r.x < W && r.x + r.w > W) {
-        shifts.add(W - (r.x + r.w) - 4);
-        shifts.add(W - r.x + 2);
+      if (r.at < size && r.at + r.len > size) {
+        shifts.add(size - (r.at + r.len) - 4);
+        shifts.add(size - r.at + 2);
       }
-      if (r.x < 0 && r.x + r.w > 0) {
-        shifts.add(-r.x + 4);
-        shifts.add(-(r.x + r.w) - 2);
+      if (r.at < 0 && r.at + r.len > 0) {
+        shifts.add(-r.at + 4);
+        shifts.add(-(r.at + r.len) - 2);
       }
     }
     const unit = 1 / stage.scaleOf(pose);
-    const moved = (dx: number): CamPose => {
+    const moved = (d: number): CamPose => {
       const target = pose.target.clone();
-      target.x -= dx * unit * Math.cos(pose.az);
-      target.z += dx * unit * Math.sin(pose.az);
+      if (axis === 'x') {
+        target.x -= d * unit * Math.cos(pose.az);
+        target.z += d * unit * Math.sin(pose.az);
+      } else {
+        // 画面上往下移 d 像素，镜头的目标点往远处（-z）挪 d / sin(俯角)。
+        const along = (d * unit) / Math.sin(pose.el);
+        target.x += along * Math.sin(pose.az);
+        target.z -= along * Math.cos(pose.az);
+      }
       return { ...pose, target };
     };
-    let best = { dx: 0, cuts: cutsAfter(list, 0), ok: stage.sees(pose, keep, 0) };
-    for (const dx of shifts) {
-      if (Math.abs(dx) > W * 0.4) continue;
-      const cuts = cutsAfter(list, dx);
-      const ok = stage.sees(moved(dx), keep, 0);
-      const better = (ok && !best.ok) || (ok === best.ok && (cuts < best.cuts || (cuts === best.cuts && Math.abs(dx) < Math.abs(best.dx))));
-      if (better) best = { dx, cuts, ok };
+    let best = { d: 0, cuts: cutsAfter(0), ok: stage.sees(pose, keep, 0) };
+    for (const d of shifts) {
+      if (Math.abs(d) > size * 0.4) continue;
+      const cuts = cutsAfter(d);
+      const ok = stage.sees(moved(d), keep, 0);
+      const better = (ok && !best.ok) || (ok === best.ok && (cuts < best.cuts || (cuts === best.cuts && Math.abs(d) < Math.abs(best.d))));
+      if (better) best = { d, cuts, ok };
     }
-    return best.dx === 0 ? pose : moved(best.dx);
+    return best.d === 0 ? pose : moved(best.d);
   }
 
   /** 临时把这些部件放进画面（已经都在画面里就不动）。返回镜头要走多久。 */
   private peek(ids: string[], parts?: Record<string, Record<string, unknown>>): number {
     const { stage } = this;
-    const boxes = stage.boxesOf(ids.map((at) => this.ref(at).id), true, parts);
-    if (boxes.length === 0 || stage.sees(stage.goal, boxes, 0.03)) return 0;
-    // 两头装不下时看最后一个（值落下的地方），不让它落在画面外。
-    const both = this.follow(boxes);
     // 落点：值牌停靠的位置附近（空着的总线没有范围，也要能看到值落在哪）。
     const spot = this.dock(ids[ids.length - 1]!);
     const last = spot ? [new Box3(spot.clone().add(new Vector3(-1.2, -0.6, -0.9)), spot.clone().add(new Vector3(1.2, 0.6, 0.9)))] : [];
+    const boxes = [...stage.boxesOf(ids.map((at) => this.ref(at).id), true, parts), ...last];
+    if (boxes.length === 0 || stage.sees(stage.goal, boxes, 0.03)) return 0;
+    // 两头装不下时看落点，不让值落在画面外。
+    const both = this.follow(boxes);
     const pose = both.fits || last.length === 0 ? both.pose : stage.sees(stage.goal, last, 0.03) ? null : this.follow(last).pose;
     if (!pose) return 0;
     stage.moveTo(pose, true);
@@ -420,6 +441,22 @@ export class SceneView {
       for (const [id, part] of this.parts) part.place(pose.parts[id] ?? {});
       // 按先后分批：一批落下，下一批才出发。同一部件在后面还要接收时，先显示这一批带来的值。
       // 一批的两头不在这一步的镜头里时，镜头先移过去，值不在画面外走。
+      // 同一批里落点分在两处、画面装不下两头时，按落点拆开先后走（例如 ADD 的 T3：DR 和 PSWR），镜头一处一处跟过去。
+      if (!kit.reduced) {
+        const byPhase = new Map<number, Move[]>();
+        for (const move of moves) byPhase.set(move.phase ?? 0, [...(byPhase.get(move.phase ?? 0) ?? []), move]);
+        let shift = 0;
+        const respaced: Move[] = [];
+        for (const phase of [...byPhase.keys()].sort((x, y) => x - y)) {
+          const batch = byPhase.get(phase)!;
+          const targets = [...new Set(batch.map((move) => this.ref(move.to).id))];
+          const boxes = stage.boxesOf(batch.flatMap((move) => [this.ref(move.from).id, this.ref(move.to).id]), true, pose.parts);
+          const split = targets.length > 1 && !this.follow(boxes).fits;
+          for (const move of batch) respaced.push({ ...move, phase: phase + shift + (split ? targets.indexOf(this.ref(move.to).id) : 0) });
+          if (split) shift += targets.length - 1;
+        }
+        moves.splice(0, moves.length, ...respaced);
+      }
       const phases = [...new Set(moves.map((move) => move.phase ?? 0))].sort((x, y) => x - y);
       const lastFor = new Map<string, Move>();
       for (const move of moves) lastFor.set(this.ref(move.to).id, move);
@@ -483,7 +520,7 @@ export class SceneView {
     this.host.dataset.settled = 'false';
     setTimeout(() => {
       if (generation === this.generation) this.settleSoon();
-    }, 150);
+    }, 600);
   }
 
   /** 原地翻面；部件声明了 delay 时晚一点开始。 */
@@ -533,23 +570,28 @@ export class SceneView {
    */
   rehearse(value: string, from: string, to: string, ink: Move['ink'] = 'data'): void {
     const { stage } = this;
-    const source = this.parts.get(from);
-    const target = this.parts.get(to);
+    const source = this.ref(from).part;
+    const target = this.ref(to).part;
     if (!source || !target) {
-      this.shake(to);
+      this.shake(this.ref(to).id);
       return;
     }
     stage.motion.finishAll();
     this.applyAll(this.pose, false);
     const generation = ++this.generation;
     this.host.dataset.settled = 'false';
+    const targetId = this.ref(to).id;
     const restore = () => {
       if (generation !== this.generation) return;
-      this.parts.get(to)?.update(this.pose.parts[to] ?? {}, 'flip');
+      target.update(this.pose.parts[targetId] ?? {}, 'flip');
       stage.moveTo(this.cam(), true);
     };
     if (stage.kit.reduced) {
-      this.shake(to);
+      // 减少动态效果：不飞，直接把后果的样子摆出来（值已经在学生点的部件里），过一会儿退回。
+      const props = this.pose.parts[targetId] ?? {};
+      target.update({ ...props, ...('value' in props ? { value } : {}), changed: true }, false);
+      stage.invalidate();
+      stage.motion.after(1600, restore);
       this.settleSoon();
       return;
     }
@@ -562,7 +604,7 @@ export class SceneView {
     const path = new Path([a, mid, b], 1.2);
     const took = wait + sendValue(stage.kit, stage.root, value, ink ?? 'data', path, wait + 60, () => {
       if (generation !== this.generation) return;
-      const props = this.pose.parts[to] ?? {};
+      const props = this.pose.parts[targetId] ?? {};
       target.update({ ...props, ...('value' in props ? { value } : {}), changed: true }, 'land');
       target.shake();
     });

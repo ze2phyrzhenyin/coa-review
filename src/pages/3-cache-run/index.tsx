@@ -76,7 +76,7 @@ function Walkthrough() {
         ))}
       </div>
       </div>
-      <Player key={example.key} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} onWrong={wrong} />
+      <Player key={example.key} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} frame={stage.frame} onWrong={wrong} />
     </>
   );
 }
@@ -188,7 +188,7 @@ function Try() {
         </form>
       </div>
 
-      <Player key={JSON.stringify(params)} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} onWrong={wrong} />
+      <Player key={JSON.stringify(params)} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} frame={stage.frame} onWrong={wrong} />
       <div class="cr-compare-wrap">
         <table class="cr-compare">
           <caption>同一串地址，换映射和替换算法</caption>

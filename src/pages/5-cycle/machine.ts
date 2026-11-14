@@ -381,3 +381,13 @@ export function machineWrong(trace: Trace<Params, State>) {
     };
   };
 }
+
+/**
+ * 镜头的特例：选寄存器送 ALU 的那一步，看送出去的寄存器（手机上 ALU 和它们放不进同一个画面，
+ * 值走到 ALU 时镜头会跟过去）。
+ */
+export function machineFrame(step: Step<State>): string[] | null {
+  const selected = (['left', 'right'] as const).filter((side) => step.changes.some((change) => change.at === `sel.${side}`)).map((side) => step.state.sel[side]);
+  const regs = [...new Set(selected.filter((r): r is GeneralRegister => r !== null))];
+  return regs.length > 0 && step.focus.includes('ALU') ? regs : null;
+}
