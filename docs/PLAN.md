@@ -239,7 +239,6 @@
 
 - 静态文件放 rex-ovh 的 `/var/www/coa/{releases,current}`，nginx 单独站点和证书，做法同 veillee.zhaoyang.fr。
 - 域名 `coa.zhaoyang.fr`。
-- 开发在 Mac `~/Developer/coa-review`。zhao-zenbook 不参与。
 - 每次发布后清理 rex-ovh 上的旧版本，只留最近 5 个。
 
 ## 待确认

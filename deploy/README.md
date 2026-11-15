@@ -7,4 +7,3 @@
 3. 证书：certbot 为 `coa.zhaoyang.fr` 单独签发。
 
 之后每次发布：`bash scripts/release.sh`。回滚：`bash scripts/release.sh rollback`。发布后按 `post-deploy-cleanup` 技能清理。
-rex-ovh 磁盘只剩约 12 GB，低于 10 GB 工单发布会被拒：站点保持小体积，不放视频和大 PDF。

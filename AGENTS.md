@@ -76,7 +76,7 @@
 - macOS 没有 `timeout`；`vite preview` 要 `--host 127.0.0.1`；bash 里变量后面紧跟全角字符要写 `${VAR}`（门禁会查）。
 - `claude -p` 在没被信任过的目录里会忽略 `.claude/settings.json` 的权限和 hooks。仓库在已信任的 `~` 下面才生效；别处的副本里，门禁只靠 `loop.sh` 自己跑。
 - Playwright 固定 1.65.0，复用本机已装的浏览器，不要升级。无头浏览器跑 WebGL 要加 `--use-angle=metal --ignore-gpu-blocklist --enable-gpu`。测试浏览器必须静音。
-- 这台 Mac 磁盘和内存都紧：不随手加依赖，重活用 `dev-run`。
+- 不随手加依赖。
 - `codex exec` 没有 `--full-auto`；Codex 沙箱里 `.git` 只读，提交由 `loop.sh` 在外面做。
 - 个人目录里的同名技能会盖住项目技能，所以项目技能都带 `coa-` 前缀（`no-ai-flavor` 两处内容相同）。
 - 引擎目录里不放 `.tsx`。`evals/golden` 里已有的文件不许改，只能新增。

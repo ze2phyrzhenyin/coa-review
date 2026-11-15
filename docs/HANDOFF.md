@@ -59,4 +59,4 @@
 - macOS 没有 `timeout`，`loop.sh` 用 perl 的 alarm。
 - `vite preview` 要加 `--host 127.0.0.1`，否则只听 IPv6。
 - bash 里变量后面紧跟全角字符要写成 `${VAR}`。
-- Playwright 固定 1.65.0，复用本机已装的浏览器。Mac 磁盘只剩约 12 GB。
+- Playwright 固定 1.65.0，复用本机已装的浏览器。

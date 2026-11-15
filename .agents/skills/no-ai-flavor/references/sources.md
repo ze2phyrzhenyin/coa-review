@@ -20,8 +20,6 @@
 | Mac `~/Developer/carbonne-carrelage/docs/research/anti-ai.md`（2026-10-27 调研） | 法语、英语词表和 23 条句式；版式的 AI 痕迹（第一波、第二波配色，字体，卡片，动效，页面骨架）；目录式写法和品牌反例。原文带全部网络出处：pixelslop、impeccable.style/slop、Krebs、capitalandcompute、Pangram、Anthropic 的前端设计文章等 |
 | Mac `carbonne-carrelage`、`wagyuya-refonte`、`jiaoziguan-refonte` 的 `banned-phrases.json` 和 `scripts/lint-copy.mjs` | 合并成 `scripts/phrases.json`（去重，去掉只属于某个项目草稿的句子）；检查脚本在三份基础上重写 |
 | Mac `~/Developer/gansu-journey/docs/DESIGN.md`「反 AI 味」 | 中文禁用词；标题用名词、按钮用动词；说明放进 tooltip |
-| rex-cli `~/Developer/gansu-geotour/specs/UX-006/brief.md` 和 `sources.test.ts` | 真实数据代替假数据；模拟条目只标「示例」；删除解释性长句和安慰语 |
-| rex-cli `~/Developer/rex-proposal-studio/prompts/REDESIGN.md` 和 `copy.test.ts` | 「每一份方案，都是新可能」这类句子；英文装饰小标题；页面头部删副标题；空状态一句话加一个按钮；报价单结构 |
 | Mac `~/Developer/sac_plat/DESIGN.md` | 禁止营销首屏、玻璃拟态、随机渐变、彩色大饼图、无意义卡片墙、过小灰字、假统计、默认 $ |
 | 之前几次对话里你的原话 | 「极其克制文字」「不要副标题」「表单说明在输入框上方」「报价 PDF 不超过两页、不要有色方框」「对外页面不放内部流程」 |
 
