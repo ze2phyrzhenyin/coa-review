@@ -189,7 +189,7 @@ export function divScene<S extends DivState>(trace: Trace<DivParams, S>, compact
     if (path === 'remainder' || path === 'check') return ['rr'];
     const q = /^q\.(\d+)$/.exec(path);
     if (q) return [`q-${q[1]}`];
-    if (/\.sum$/.test(path) || path.startsWith('correction')) return ['bal'];
+    if (/\.sum$/.test(path) || path === 'correction.sum') return ['bal'];
     return [];
   };
   const bind: Binding<S> = {
@@ -234,6 +234,8 @@ export function divScene<S extends DivState>(trace: Trace<DivParams, S>, compact
     if (has(step, (at) => /^rounds\.\d+\.left$/.test(at)) && workOf(step.state).round > 0) return [...cols('r'), ...cols('s')];
     if (has(step, (at) => /^rounds\.\d+\.sum$/.test(at) || at === 'correction.sum')) return [...cols('r'), ...cols('ad'), ...cols('s'), 'cout', 'bal'];
     if (has(step, (at) => /^q\.\d+$/.test(at))) return ['bal', 'cout', ...cols('q')];
+    // 窄屏上最后一步看商和两个结果；余数从竖式落下来时镜头跟过去再回来。
+    if (compact && has(step, (at) => at === 'quotient')) return [...cols('q'), 'rq', 'rr'];
     return null;
   };
   const askFrame = (ask: Ask): string[] => (ask.options?.includes('减 y') ? ['wsub', 'wadd', ...cols('r')] : [...cols('s'), ...cols('q'), 'cout']);

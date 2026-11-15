@@ -290,13 +290,13 @@ function busStage(trace: Trace<Params, State>, p: BusParams, narrow: boolean): S
   const parts: PartSpec[] = [];
   const table: Parameters<typeof bindTable<State>>[0] = {};
   const at = (wide: [number, number], small: [number, number]): [number, number] => (narrow ? small : wide);
-  parts.push({ id: 'W', kind: 'register', position: at([-4.2, -2.6], [-1.6, -2.6]), props: { name: '数据线', value: `${p.widthBits} 位`, width: 2.6 } });
-  parts.push({ id: 'F', kind: 'register', position: at([0, -2.6], [1.6, -2.6]), props: { name: '时钟频率 f', value: `${p.freqMHz} MHz`, width: 2.8 } });
-  parts.push({ id: 'C', kind: 'register', position: at([4.2, -2.6], [0, -0.8]), props: { name: '每个总线周期', value: `${p.clocksPerCycle} 个时钟`, width: 2.8 } });
+  parts.push({ id: 'W', kind: 'register', position: at([-4.2, -2.6], [-1.4, -2.6]), props: { name: '数据线', value: `${p.widthBits} 位`, width: narrow ? 2.3 : 2.6 } });
+  parts.push({ id: 'F', kind: 'register', position: at([0, -2.6], [-1.4, -0.7]), props: { name: '时钟频率 f', value: `${p.freqMHz} MHz`, width: narrow ? 2.5 : 2.8 } });
+  parts.push({ id: 'C', kind: 'register', position: at([4.2, -2.6], [1.4, -0.7]), props: { name: '每个总线周期', value: `${p.clocksPerCycle} 个时钟`, width: narrow ? 2.5 : 2.8 } });
   parts.push({
     id: 'clk',
     kind: 'track',
-    position: at([0.3, 0.9], [0.4, 2.0]),
+    position: at([0.3, 0.9], [0.4, 7.2]),
     props: {
       name: '时间',
       length: L,
@@ -324,8 +324,8 @@ function busStage(trace: Trace<Params, State>, p: BusParams, narrow: boolean): S
     { id: 'Dr', name: '带宽 D_r = D ÷ T', path: 'bandwidth', of: (s) => (s.bandwidth === null ? '' : `${s.bandwidth} MB/s`) },
   ];
   regs.forEach((item, i) => {
-    const pos = narrow ? ([[-1.65, RZ], [1.65, RZ], [0, RZ + 1.8]] as [number, number][])[i]! : ([[-4.2, RZ], [0, RZ], [4.2, RZ]] as [number, number][])[i]!;
-    parts.push({ id: item.id, kind: 'register', position: pos, props: { name: item.name, value: '', width: item.id === 'Dr' ? 3.6 : 2.8 } });
+    const pos = narrow ? ([[1.4, -2.6], [0, 1.2], [0, 3.1]] as [number, number][])[i]! : ([[-4.2, RZ], [0, RZ], [4.2, RZ]] as [number, number][])[i]!;
+    parts.push({ id: item.id, kind: 'register', position: pos, props: { name: item.name, value: '', width: narrow && item.id === 'D' ? 2.3 : item.id === 'Dr' ? 3.6 : 2.8 } });
     table[item.id] = { value: from(item.path, (c) => item.of(c.state as BusState)) };
   });
   const scene: SceneSpec = { parts, wires: [] };
@@ -396,7 +396,14 @@ function busStage(trace: Trace<Params, State>, p: BusParams, narrow: boolean): S
     caption,
     flipPart: () => null,
     askFrame: () => ['D', 'T', 'Dr'],
-    frame: () => null,
+    // 手机上：化字节看数据线和 D，总线周期看 T 和时间道，带宽看 D、T、D_r。
+    frame: (step) => {
+      if (!narrow) return null;
+      const changed = new Set(step.changes.map((c) => c.at));
+      if (changed.has('bytes')) return ['W', 'D'];
+      if (changed.has('cycleNs')) return ['F', 'C', 'T'];
+      return ['D', 'T', 'Dr'];
+    },
     wrong,
     mistakes,
     question: BUS_QUESTION,

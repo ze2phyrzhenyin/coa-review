@@ -234,7 +234,7 @@ export function polish(trace: Trace<Params, State>): Trace<Params, State> {
       id: `s${trace.steps.length + 1}`,
       level: 'explain' as const,
       title: `${trace.params.addresses.length} 个虚地址变换完`,
-      why: `${list.join('；')}。缺页 ${trace.result['缺页次数'] ?? ''} 次${trace.result['快表命中次数'] !== undefined ? `，快表命中 ${trace.result['快表命中次数']} 次` : ''}。每一行都可以照解题表的版式写在卷子上。`,
+      why: `${list.join('；')}。缺页 ${trace.result['缺页次数'] ?? ''} 次${trace.result['快表命中次数'] !== undefined ? `，快表命中 ${trace.result['快表命中次数']} 次` : ''}。`,
       ref: '教材 p112–114',
       state: last.state,
       changes: [],

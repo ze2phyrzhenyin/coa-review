@@ -680,7 +680,7 @@ function hiddenToBits(
             prompt: finalKindNormal ? `e = ${expText(enc.e ?? enc.e0)}，阶码 E 的十进制值是多少？` : '非规格化数的阶码 E 的十进制值是多少？',
             kind: 'number' as const,
             answer: String(shownE),
-            hint: finalKindNormal ? 'E = e + 偏移量。先想清楚这种格式的偏移量是多少。' : '看 p28 第 5 种情况：非规格化数的阶码全 0。',
+            hint: finalKindNormal ? 'E = e + 偏移量，偏移量按这种格式的规定取。' : '看 p28 第 5 种情况：非规格化数的阶码全 0。',
           },
         }),
     update: (s) => {

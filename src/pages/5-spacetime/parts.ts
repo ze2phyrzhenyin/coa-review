@@ -242,7 +242,7 @@ class Line extends Part<LineProps> {
     super(kit, id, position);
     this.k = props.stations.length;
     this.sw = props.stationWidth ?? 1.8;
-    this.bw = Math.min(1.05, this.sw - 0.34);
+    this.bw = Math.min(1.05, this.sw - 0.26);
     this.pad = props.padWidth ?? 1.5;
     const span = this.k * this.sw;
     const W = span + 2 * (this.pad + 0.3);
@@ -585,9 +585,23 @@ class Line extends Part<LineProps> {
   }
 
   override bounds(): Box3 {
+    return this.boxFor(this.props);
+  }
+
+  /** 镜头要看住的范围按这一步的属性算：盒子上方没有小牌时矮一截。 */
+  override focusBox(props?: LineProps): Box3 | null {
+    return this.boxFor(props ?? this.props);
+  }
+
+  private boxFor(p: LineProps | null | undefined): Box3 {
     const c = this.center;
     const { w } = this.footprint;
-    return new Box3(new Vector3(c.x - w / 2 - 0.35, 0, c.z - this.depth / 2 - 0.5), new Vector3(c.x + w / 2 + 0.35, 2.2, c.z + this.depth / 2 + 0.9));
+    const m = p?.compact ? 0.12 : 0.35;
+    if (p?.compact) {
+      const top = p.tags?.some(Boolean) ? 1.95 : 1.2;
+      return new Box3(new Vector3(c.x - w / 2 - m, 0, c.z - this.depth / 2 - 0.2), new Vector3(c.x + w / 2 + m, top, c.z + this.depth / 2 + 0.8));
+    }
+    return new Box3(new Vector3(c.x - w / 2 - m, 0, c.z - this.depth / 2 - 0.5), new Vector3(c.x + w / 2 + m, 2.2, c.z + this.depth / 2 + 0.9));
   }
 
   override cellAnchor(_r: number, c: number): Vector3 | null {
@@ -762,6 +776,15 @@ class Chart extends Part<ChartProps> {
       this.frame.position.z = -0.03;
     }
     this.drawLinks(next.links ?? [], !!animate && !!previous, lag);
+    // 窄屏：板子横着挪，让当前这几列停在原位正上方（装配线的上方）。
+    if (next.slide) {
+      const range = this.windowOf(next);
+      const x = this.center.x - (range ? (range.left + range.right) / 2 : 0);
+      const from = this.group.position.x;
+      if (animate && previous && !this.kit.reduced && Math.abs(from - x) > 1e-3) {
+        this.kit.motion.add({ duration: timing.camera * 0.6, ease: easeInOut, update: (t) => (this.group.position.x = from + (x - from) * t), done: () => (this.group.position.x = x) });
+      } else this.group.position.x = x;
+    }
   }
 
   private cellPoint(ref: string): Vector2 | null {
@@ -849,26 +872,31 @@ class Chart extends Part<ChartProps> {
   }
 
   /** 手机上镜头只看当前列附近的几列。 */
-  override focusBox(props?: ChartProps): Box3 | null {
-    const p = props ?? this.props;
+  /** 这一步要看的几列（板面局部坐标的左右边）。不开窗时返回 null。 */
+  private windowOf(p: ChartProps | null | undefined): { left: number; right: number } | null {
     const win = p?.window ?? 0;
-    const current = p?.current ?? -1;
-    if (!win || current < 0 || this.colX.length <= win) return this.bounds();
+    if (!win || this.colX.length <= win) return null;
+    const current = Math.max(0, p?.current ?? -1);
     const lo = Math.max(0, Math.min(this.colX.length - win, current - win + 2));
     const hi = Math.min(this.colX.length - 1, lo + win - 1);
-    const left = lo === 0 ? this.labelLeft : this.colX[lo]! - this.cellW / 2 - 0.1;
-    const right = this.colX[hi]! + this.cellW / 2 + 0.1;
-    const box3 = new Box3();
-    for (const [x, y] of [
-      [left, 0],
-      [right, 0],
-      [left, this.faceHeight],
-      [right, this.faceHeight],
-    ] as const)
-      box3.expandByPoint(this.faceToWorld(x, y));
-    box3.min.y = 0;
-    box3.max.z = Math.max(box3.max.z, this.center.z + 0.5);
-    return box3;
+    return { left: lo === 0 ? this.labelLeft : this.colX[lo]! - this.cellW / 2 - 0.1, right: this.colX[hi]! + this.cellW / 2 + 0.1 };
+  }
+
+  /** 手机上镜头只看当前列附近的几列。slide 时板子自己横着挪，这几列总在原位正上方。 */
+  override focusBox(props?: ChartProps): Box3 | null {
+    const p = props ?? this.props;
+    const range = this.windowOf(p);
+    if (!range || (!p?.slide && (p?.current ?? -1) < 0)) return this.bounds();
+    const home = this.center;
+    const shift = p?.slide ? (range.left + range.right) / 2 : 0;
+    const base = new Vector3(0, 0, 0).applyQuaternion(this.kit.camera.quaternion).add(this.face.position);
+    const top = new Vector3(0, this.faceHeight, 0).applyQuaternion(this.kit.camera.quaternion).add(this.face.position);
+    // 上沿多留一点：镜头判断「看得见」时允许百分之三的出界，留出这点余量板顶才不会被切一条。
+    const pad = 0.15;
+    return new Box3(
+      new Vector3(home.x + range.left - shift - 0.1, 0, home.z + Math.min(base.z, top.z) - pad),
+      new Vector3(home.x + range.right - shift + 0.1, Math.max(base.y, top.y) + pad * 0.6, home.z + Math.max(base.z, top.z, 0.5)),
+    );
   }
 
   override cellAnchor(r: number, c: number): Vector3 | null {

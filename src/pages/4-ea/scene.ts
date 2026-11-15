@@ -17,6 +17,9 @@ import type { Breakage, Mistake } from '../../player/Player';
 type Ctx = BindContext<EaState>;
 const PITCH = 0.46;
 const GAP = 0.62;
+/** 手机上位片排得密一点、字段之间的空也小一点，16 位一排才放得进 360 宽。 */
+const PITCH_N = 0.35;
+const GAP_N = 0.2;
 
 const regOf = (p: EaParams, w: WordState | null): string | null => {
   if (!w || !w.mode || !w.fields) return null;
@@ -59,7 +62,9 @@ interface Layout {
 }
 
 /** 字段一排：每段之间空 GAP。返回每段中心的 x（以整排中心为 0）。 */
-function fieldXs(p: EaParams): Record<string, number> {
+function fieldXs(p: EaParams, narrow: boolean): Record<string, number> {
+  const PITCH = narrow ? PITCH_N : 0.46;
+  const GAP = narrow ? GAP_N : 0.62;
   const widths = p.fields.map((f) => f.bits * PITCH);
   const total = widths.reduce((a, b) => a + b, 0) + GAP * (p.fields.length - 1);
   const out: Record<string, number> = {};
@@ -72,7 +77,7 @@ function fieldXs(p: EaParams): Record<string, number> {
 }
 
 function layout(p: EaParams, narrow: boolean): Layout {
-  const xs = fieldXs(p);
+  const xs = fieldXs(p, narrow);
   const keyX = p.modeFields.reduce((a, m) => a + xs[m]!, 0) / p.modeFields.length;
   if (narrow) {
     // 手机：从上往下排，镜头跟着当前步走。
@@ -88,9 +93,9 @@ function layout(p: EaParams, narrow: boolean): Layout {
       adder: [1.7, 6.6],
       va: [-1.9, 6.4],
       ea: [-1.6, 9.0],
-      mem: [0.4, 14.4],
-      opd: [1.4, 19.2],
-      count: [-2.2, 19.2],
+      mem: [-1.7, 14.6],
+      opd: [2.3, 13.2],
+      count: [2.3, 15.2],
     };
   }
   const shift = -1.2;
@@ -122,10 +127,10 @@ export function eaScene(trace: Trace<EaParams, EaState>, narrow: boolean): Scene
   const addressField = p.addressField ?? 'A';
   const parts: PartSpec[] = [
     { id: 'IW', kind: 'register', position: L.iw, props: { name: '指令字', value: '', width: 2.2 } },
-    { id: 'WORD', kind: 'bits', position: L.word, title: '二进制', props: { bits: ' '.repeat(p.wordBits), pitch: PITCH, group: 4 } },
+    { id: 'WORD', kind: 'bits', position: L.word, title: '二进制', props: { bits: ' '.repeat(p.wordBits), pitch: narrow ? PITCH_N : PITCH, group: 4 } },
     ...p.fields.map((f): PartSpec => ({ id: `N_${f.name}`, kind: 'label', position: [L.field[f.name]![0], L.field[f.name]![1] + 0.72], props: { text: f.name, size: 0.3, tone: 'muted', weight: 600 } })),
     ...p.fields.map(
-      (f): PartSpec => ({ id: `F_${f.name}`, kind: 'bits', position: L.field[f.name]!, title: `${f.name} 字段`, props: { bits: ' '.repeat(f.bits), pitch: PITCH, group: f.bits > 4 ? 4 : f.bits } }),
+      (f): PartSpec => ({ id: `F_${f.name}`, kind: 'bits', position: L.field[f.name]!, title: `${f.name} 字段`, props: { bits: ' '.repeat(f.bits), pitch: narrow ? PITCH_N : PITCH, group: f.bits > 4 ? 4 : f.bits } }),
     ),
     { id: 'V_KEY', kind: 'label', position: L.key, props: { text: '', size: 0.34, mono: true, plate: true, hidden: true } },
     { id: 'V_A', kind: 'label', position: L.va ?? [L.field[addressField]![0], L.key[1]], props: { text: '', size: 0.34, mono: true, plate: true, hidden: true } },
@@ -330,7 +335,7 @@ export function polish(trace: Trace<EaParams, EaState>): Trace<EaParams, EaState
     ...trace,
     steps: trace.steps.map((step) => {
       const i = step.state.current;
-      if (step.level === 'instruction' && i !== null) return { ...step, focus: ['IW', ...trace.params.fields.map((f) => `F_${f.name}`)] };
+      if (step.level === 'instruction' && i !== null) return { ...step, focus: ['IW', 'WORD'] };
       return step;
     }),
   };
@@ -371,17 +376,28 @@ export function eaFrame(p: EaParams, narrow: boolean) {
       return [`F_${p.modeFields[0]!}`, `M_${key}`];
     }
     if (!narrow) return null;
-    // 手机：访存的步停在主存上（被读的那一格拉出来）；算地址的步看加法器和旁边的 A。
-    const read = step.changes.some((c) => c.at.startsWith(`words.${i}.reads.`));
-    if (read) return w.reads[w.reads.length - 1]!.why === '取操作数' ? ['OPD', 'MEM'] : ['MEM'];
-    if (step.changes.some((c) => c.at === `words.${i}.ea`) && w.mode && ADD_KINDS.includes(w.mode)) return ['V_A', 'ADDER'];
+    // 手机上一步只看这一步讲的几块，都装得进一屏。
+    const has = (tail: string) => step.changes.some((c) => c.at === `words.${i}.${tail}` || c.at.startsWith(`words.${i}.${tail}.`));
+    const reg = regOf(p, w);
+    if (has('binary')) return ['IW', 'WORD'];
+    if (has('fields')) return ['WORD', ...p.fields.map((f) => `F_${f.name}`)];
+    if (has('reads')) return w.reads[w.reads.length - 1]!.why === '取操作数' ? ['MEM', 'OPD', 'COUNT'] : ['MEM'];
+    if (has('ea')) return w.mode && ADD_KINDS.includes(w.mode) && reg ? [`R_${reg}`, 'V_A', 'ADDER', 'EA'] : w.mode === '寄存器间接' && reg ? [`R_${reg}`, 'EA'] : ['V_A', 'EA'];
+    if (has('operand')) return ['OPD'];
     return null;
   };
 }
 
 /** 选方式的题：镜头看寻址特征那几位和全部方式牌。 */
-export function eaAskFrame(p: EaParams) {
-  return (): string[] => [...p.modeFields.map((m) => `F_${m}`), ...Object.keys(p.modes).map((k) => `M_${k}`)];
+export function eaAskFrame(trace: Trace<EaParams, EaState>, narrow: boolean) {
+  const p = trace.params;
+  const frame = eaFrame(p, narrow);
+  return (ask: { kind: string }, index: number): string[] => {
+    // 选方式：寻址特征那几位和全部方式牌。填 EA：看接下来算 EA 的那几块。
+    if (ask.kind === 'choice') return [...p.modeFields.map((m) => `F_${m}`), ...Object.keys(p.modes).map((k) => `M_${k}`)];
+    const next = trace.steps[index];
+    return (narrow && next ? frame(next) : null) ?? [];
+  };
 }
 
 /** 第 0 步的问题、结论、需要先会。 */
@@ -483,7 +499,7 @@ export function eaBreak(p: EaParams, rows: string[]) {
       label: `弄坏它：翻转 ${keyField} 位`,
       patch,
       moves,
-      message: `${keyField} 位翻过来，指令字成了 ${word}H，CPU 照${kind}寻址（${FORMULA[kind]}）去取${solved.reads.length ? `，访存 ${solved.reads.length} 次` : ''}，拿到的操作数是 ${opd || '（不取）'}，本来应是 ${was}。硬件不会报错，程序只是悄悄算错了。`,
+      message: `${keyField} 位翻过来，指令字成了 ${word}H，CPU 照${kind}寻址（${FORMULA[kind]}）去取${solved.reads.length ? `，访存 ${solved.reads.length} 次` : ''}，拿到的操作数是 ${opd || '（不取）'}，本来应是 ${was}。硬件不报错，程序算出的结果是错的。`,
     };
   };
 }

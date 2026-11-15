@@ -825,7 +825,7 @@ function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
             kind: 'choice',
             options: ['AR', 'DR', 'PC', rx],
             answer: PART_LABEL.AR,
-            hint: '想一想访问数存时，地址由哪个寄存器保持。',
+            hint: '看访问数存时地址由哪个寄存器保持。',
           }),
         },
       };
@@ -1084,7 +1084,7 @@ function plan(ins: Instruction, names: SignalNames): CyclePlan[] {
                 kind: 'choice',
                 options: ['AR', 'DR', 'PC', 'IR'],
                 answer: PART_LABEL.PC,
-                hint: '想一想下一条指令的地址由哪个寄存器给出。',
+                hint: '看下一条指令的地址由哪个寄存器给出。',
               }),
             },
           },

@@ -20,6 +20,7 @@ export interface IeeeScene {
   flipPart: (ask: Ask, index: number) => string | null;
   wrong: (ask: Ask, value: string, state: IeeeState, next: Step<IeeeState> | null) => Breakage | null;
   askFrame: (ask: Ask, index: number) => string[];
+  frame: (step: Step<IeeeState>) => string[] | null;
   mistakes: Mistake<IeeeState>[];
   convention: (step: Step<IeeeState>) => string | null;
   question: { text: string; at: string[] };
@@ -254,13 +255,37 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
   const askFrame = (ask: Ask, index: number): string[] => {
     const step = stepAt(index);
     if (!step) return [];
-    if (ask.kind === 'choice' && kinds.length) return ['E', 'M1', ...kinds.map((_, i) => `kind-${i}`)];
+    if (ask.kind === 'choice' && kinds.length) return W ? kinds.map((_, i) => `kind-${i}`) : ['E', 'M1', ...kinds.map((_, i) => `kind-${i}`)];
+    if (W) return frame(step) ?? [];
     if (changed(step, 'exponent')) return W ? ['e', 'Edec'] : ['e', 'bias', 'Edec', 'E'].filter((id) => parts.some((p) => p.id === id));
     if (changed(step, 'e')) return ['bin', 'normal'];
     if (changed(step, 'sign')) return ['x', 'S'];
     if (changed(step, 'mantissa')) return ['normal', 'M1'];
     return [];
   };
+
+  /** 窄屏一列排开：每一步只看挨在一起的几行，整组都留在画面里。宽屏按焦点自动取景。 */
+  function frame(step: Step<IeeeState>): string[] | null {
+    if (!W) return null;
+    const mRows = rows.map((_, r) => `M${r + 1}`);
+    const row = ['e', ...(bias !== null ? ['bias'] : []), 'Edec'];
+    if (mode === 'encode') {
+      if (changed(step, 'sign')) return ['S'];
+      if (changed(step, 'binary')) return ['x', 'bin'];
+      if (changed(step, 'rounded')) return ['normal'];
+      if (changed(step, 'exponent')) return row;
+      if (changed(step, 'e')) return ['bin', 'normal'];
+      if (changed(step, 'mantissa')) return teach ? mRows.slice(0, 3) : [...mRows.slice(-2), 'hid'];
+      if (changed(step, 'hex')) return ['hex'];
+      return null;
+    }
+    if (changed(step, 'mantissa') && changed(step, 'exponent')) return ['S', 'E', 'M1'];
+    if (changed(step, 'kind')) return kinds.length ? kinds.map((_, i) => `kind-${i}`) : ['E'];
+    if (changed(step, 'E') || changed(step, 'e')) return row;
+    if (changed(step, 'hidden')) return teach ? ['normal'] : ['hid'];
+    if (changed(step, 'decimal')) return ['x', 'bin'];
+    return ['normal'];
+  }
 
   /** 学生给的 e、E 让指针挪几段：数乘 2 的几次方。 */
   const shifted = (state: IeeeState, d: number, extra: Breakage['patch']): Breakage['patch'] => ({ ...extra, ruler: { shift: Math.max(-1, Math.min(1, d)), pin: d === 0 ? undefined : `× 2^${d}` } });
@@ -380,5 +405,5 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
   };
 
   const question = { text: mode === 'encode' ? '规格化以后最前面那个 1 存在哪；阶码 E 是 e 加 127 还是加 128' : '机器码里看不见的那个 1 从哪来；阶码 E 减去多少才是指数 e', at: W ? ['normal', 'E'] : ['normal', ...(bias !== null ? ['bias'] : []), 'Edec', 'ruler'] };
-  return { scene, bind, moves, names, values, flipPart, wrong, askFrame, mistakes, convention, question };
+  return { scene, bind, moves, names, values, flipPart, wrong, askFrame, frame, mistakes, convention, question };
 }

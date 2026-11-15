@@ -9,6 +9,7 @@
 - `bash scripts/gate.sh`：快门禁，约 2 秒。类型、单测、结构、术语、文案、原创、任务图。
 - `bash scripts/gate.sh --build`：再加构建、导航检查、逐页检查，约 10 秒。交付页面前必跑。
 - `node scripts/qa-pages.mjs <页面编号>`：只查一页（先起预览，`PORT=` 指向它）。
+- `node scripts/qa-clip.mjs <页面编号…>`：手机 360×740、390×844 逐例逐步查这一步的焦点和候选有没有被裁、压字、小字（先起预览；还没进门禁）。
 - `node scripts/tasks.mjs list|ready|show <id>|claim <id>|done <id>|block <id> "原因"|scope <id>|validate`
 - `bash scripts/loop.sh [--engine claude|codex] [--task T003]`：循环执行，一轮一个任务，门禁通过由脚本提交。
 - `bash scripts/fanout.sh [--engines claude,codex] [--jobs 2]`：范围不重叠的任务各开一个 worktree 并行，再按依赖顺序合并。

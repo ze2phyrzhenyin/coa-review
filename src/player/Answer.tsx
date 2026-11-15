@@ -22,7 +22,8 @@ export interface AnswerProps {
   onPick: (option: string) => void;
   onReveal: () => void;
   /** 点选题的候选不全在画面里时，让镜头去看其余的。 */
-  onLook?: (() => void) | undefined;
+  /** 不在画面里的候选，按能装进一个画面的分组；每组一个按钮，按一下镜头移过去。 */
+  looks?: { label: string; go: () => void }[] | undefined;
   /** 页面按学生的答案演出的后果，一句话。 */
   consequence?: string | undefined;
   /** 点了不是候选的部件时的说明。 */
@@ -45,7 +46,7 @@ function beside(anchor: Rect, size: { width: number; height: number }): CSSPrope
   return { left: `${Math.round(x)}px`, top: `${top}px`, width: `${PANEL}px` };
 }
 
-export function Answer({ ask, picking, wrong, anchor, size, offStage, onAnswer, onPick, onReveal, onLook, flip, note, consequence }: AnswerProps) {
+export function Answer({ ask, picking, wrong, anchor, size, offStage, onAnswer, onPick, onReveal, looks, flip, note, consequence }: AnswerProps) {
   const [value, setValue] = useState('');
   const hint = wrong ? (
     <p class="pl-hint" role="status">
@@ -76,11 +77,11 @@ export function Answer({ ask, picking, wrong, anchor, size, offStage, onAnswer, 
           </p>
         ) : null}
         <div class="pl-actions">
-          {onLook ? (
-            <button type="button" class="pl-btn" onClick={onLook}>
-              看其余部件
+          {(looks ?? []).map((look) => (
+            <button key={look.label} type="button" class="pl-btn" onClick={look.go}>
+              {look.label}
             </button>
-          ) : null}
+          ))}
           {offStage.map((option) => (
             <button key={option} type="button" class={`pl-btn${wrong?.value === option ? ' is-wrong' : ''}`} onClick={() => onPick(option)}>
               {option}

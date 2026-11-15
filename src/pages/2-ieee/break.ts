@@ -39,11 +39,11 @@ export function breakTrace(): Trace<IeeeParams, IeeeState> {
     kind: 'choice',
     options: ['往右一段', '往左一段', '不动'],
     answer: moved > 0 ? '往右一段' : moved < 0 ? '往左一段' : '不动',
-    hint: '阶码多了 1，读出来的 e 也多 1，2^e 变成几倍？',
+    hint: '阶码多了 1，读出来的 e 也多 1，看 2^e 变成几倍。',
   };
   builder.step({
     title: `阶码按 128 存：读回来是 ${read128.decimal}`,
-    why: `存的 E 比规矩多 1，按 E − 127 读出 e = ${read128.e}，比原来大 1，数整整变成 2 倍。偏移 128 的格式（例 2.10）只能用它自己的规矩读。`,
+    why: `存的 E 比规矩多 1，按 E − 127 读出 e = ${read128.e}，比原来大 1，数变成 2 倍。偏移 128 的格式（例 2.10）只能用它自己的规矩读。`,
     ref: '教材 p28、p30 例2.10',
     ask,
     update: (s) => Object.assign(s, read128),
@@ -56,7 +56,7 @@ export function breakTrace(): Trace<IeeeParams, IeeeState> {
   });
   builder.step({
     title: '两处都改回规矩：E = e + 127，1 不存',
-    why: '存和读必须用同一个偏移量；隐藏的 1 存的时候拿掉、读的时候补上，两头配对。',
+    why: '存和读必须用同一个偏移量；隐藏的 1 存的时候拿掉、读的时候补上。',
     ref: '教材 p28',
     update: (s) => Object.assign(s, right, { rounded: '' }),
   });

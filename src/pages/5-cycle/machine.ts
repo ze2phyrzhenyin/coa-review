@@ -37,7 +37,7 @@ function rowsOf(trace: Trace<Params, State>): { imem: string[]; dmem: string[] }
   return { imem: imem.sort(byNumber), dmem: [...dmem].sort(byNumber) };
 }
 
-export function machineScene(trace: Trace<Params, State>): SceneSpec {
+export function machineScene(trace: Trace<Params, State>, narrow = false): SceneSpec {
   const { imem, dmem } = rowsOf(trace);
   const reg = (id: PartId, x: number, z: number, width = 2.2): PartSpec => ({ id, kind: 'register', position: [x, z], props: { name: PART_LABEL[id], value: '', width }, pick: true });
   const bus = (id: PartId, x: number, z: number, length: number, extra: Record<string, unknown> = {}): PartSpec => ({
@@ -385,7 +385,7 @@ export function machineWrong(trace: Trace<Params, State>) {
           { value: a.value, from: a.driver === 'IR' || a.driver === 'ALU' || a.driver === 'DMEM' ? a.driver : 'C2', to: 'DBUS', arc: true },
           { value: b.value, from: b.driver === 'IR' || b.driver === 'ALU' || b.driver === 'DMEM' ? b.driver : 'C2', to: 'DBUS', arc: true },
         ],
-        message: `按 ${said} 个 CPU 周期算，${PART_LABEL[a.driver]} 送的 ${a.value} 和 ${PART_LABEL[b.driver]} 送的 ${b.value} 要在同一个 CPU 周期里同时上 DBUS，DBUS 上就有两个数，打架。`,
+        message: `按 ${said} 个 CPU 周期算，${PART_LABEL[a.driver]} 送的 ${a.value} 和 ${PART_LABEL[b.driver]} 送的 ${b.value} 要在同一个 CPU 周期里同时上 DBUS，两个来源同时驱动总线，线上的电平不确定。`,
       };
     }
     if (said < right) {
@@ -472,5 +472,26 @@ export function machineMistakes(trace: Trace<Params, State>): Mistake<State>[] {
 
 /** 用了本站约定的步：选寄存器送 ALU 或 C2 的那一步，教材没有对应的信号名。 */
 export function machineConvention(step: Step<State>): string | null {
-  return step.changes.some((change) => change.at === 'sel.left' || change.at === 'sel.right') ? '教材不给「选哪个寄存器」起信号名，这一步是本站为讲清楚单独拆出来的；表里写「（由 IR 的寄存器字段选中）」。' : null;
+  return step.changes.some((change) => change.at === 'sel.left' || change.at === 'sel.right') ? '教材不给「选哪个寄存器」起信号名，这一步是本站单独拆出来的；表里写「（由 IR 的寄存器字段选中）」。' : null;
+}
+
+/**
+ * 手机上每一步镜头停在哪：值落下的部件。整台机器有二十多个单位宽，手机一屏只装得下七八个；
+ * 值走的时候镜头跟着它从出发的部件走到落点（场景库做的），停下来看落点。
+ * 没有值在走的步（进入取指周期、执行周期）看时序和节拍盘。
+ */
+export function machinePhoneFrame(step: Step<State>): string[] | null {
+  const changed = (path: string) => step.changes.some((change) => change.at === path || change.at.startsWith(`${path}.`));
+  const into = GENERAL_REGISTERS.find((r) => changed(`reg.${r}`));
+  // DR 打入 R0 时两个挨着，一起看；别的寄存器离 DR 远，看接收的那个。
+  if (into && step.focus.includes('DR')) return into === 'R0' ? ['DR', 'R0'] : [into];
+  if (changed('reg.DR') && step.state.reg.DR !== null) return ['DR'];
+  const moves = machineMoves(step);
+  const cards = moves.filter((move) => !move.shape || move.shape === 'card');
+  const pool = cards.length ? cards : moves;
+  if (pool.length === 0) return ['TIMING', 'BEAT'];
+  const last = Math.max(...pool.map((move) => move.phase ?? 0));
+  const targets = [...new Set(pool.filter((move) => (move.phase ?? 0) === last).map((move) => move.to.split('.')[0]!))];
+  // 同一拍落在两处（隔得远）时看第一处，另一处镜头路过时看得到。
+  return targets.slice(0, 1);
 }

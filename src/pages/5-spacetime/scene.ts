@@ -82,9 +82,9 @@ export function spaceStage(trace: T, narrow: boolean): SpaceStage {
   const longest = Math.max(...names.map((name) => name.length), String(params.n).length + 1);
   const cellWidth = narrow ? Math.max(0.66, 0.24 + longest * 0.2) : Math.max(0.7, 0.26 + longest * 0.21);
   const chartH = 0.48 + rows.length * 0.59 + 0.16;
-  const sw = narrow ? (k > 4 ? 1.05 : 1.18) : k > 6 ? 1.5 : 1.8;
+  const sw = narrow ? (k > 4 ? 0.9 : 0.98) : k > 6 ? 1.5 : 1.8;
   const chartZ = narrow ? -1.0 - chartH * 0.3 : -1.4 - chartH * 0.45;
-  const lineZ = chartZ + (narrow ? 2.25 : 3.3);
+  const lineZ = chartZ + (narrow ? 1.95 : 3.3);
 
   const parts: PartSpec[] = [
     {
@@ -93,13 +93,15 @@ export function spaceStage(trace: T, narrow: boolean): SpaceStage {
       position: [0, chartZ],
       title: '时空图',
       props: {
-        name: '时空图',
+        // 窄屏不立名牌：板子顶上省出一行，整块板装得进画面。
+        ...(narrow ? {} : { name: '时空图' }),
         corner: byStage ? '段＼周期' : '指令＼周期',
         columns: Array.from({ length: columns }, (_, c) => String(c + 1)),
         rows,
         cells: rows.map(() => Array.from({ length: columns }, () => '')),
         cellWidth,
-        window: narrow ? 6 : 15,
+        window: narrow ? 5 : 15,
+        slide: narrow,
         lag: 380,
       } satisfies ChartProps,
       describe: (p) => `时空图，填到第 ${(p.current as number) + 1 || 0} 列`,
@@ -116,7 +118,7 @@ export function spaceStage(trace: T, narrow: boolean): SpaceStage {
         queue: lineQueue(params, 0),
         done: 0,
         stationWidth: sw,
-        padWidth: narrow ? 0.95 : 1.5,
+        padWidth: narrow ? 0.7 : 1.5,
         compact: narrow,
       } satisfies LineProps,
       describe: (p) => `装配线：${(p.items as string[]).map((item, s) => `${names[s]} ${item || '空'}`).join('，')}；完成 ${p.done as number} 条`,
@@ -125,7 +127,7 @@ export function spaceStage(trace: T, narrow: boolean): SpaceStage {
     { id: 'Tk', kind: 'label', position: narrow ? [-1.8, lineZ + 2.75] : [2.4, lineZ + 2.05], props: { text: 'T_k = ?', plate: true, size: 0.34, weight: 600, mono: true }, title: 'T_k' },
     { id: 'Ck', kind: 'label', position: narrow ? [1.6, lineZ + 2.75] : [-2.4, lineZ + 2.95], props: { text: 'C_k = ?', plate: true, size: 0.34, weight: 600, mono: true }, title: 'C_k' },
     { id: 'Tp', kind: 'label', position: narrow ? [0, lineZ + 3.55] : [2.4, lineZ + 2.95], props: { text: 'T_p = ?', plate: true, size: 0.34, weight: 600, mono: true }, title: 'T_p' },
-    { id: 'phase', kind: 'label', position: [0, chartZ + (narrow ? 0.88 : 1.05)], props: { text: '', size: 0.32, tone: 'muted', weight: 600 }, title: '阶段' },
+    { id: 'phase', kind: 'label', position: [0, chartZ + (narrow ? 0.8 : 1.05)], props: { text: '', size: 0.32, tone: 'muted', weight: 600 }, title: '阶段' },
   ];
 
   const cycleOf = (c: BindContext<State>) => c.state.cycle;
@@ -169,10 +171,11 @@ export function spaceStage(trace: T, narrow: boolean): SpaceStage {
     if (step.state.clock !== null && step.state.cycle === 0) return ['clock', 'line'];
     if (step.state.figures.Tp !== null) return ['Tp', 'Ck', 'Tk'];
     if (step.state.figures.Ck !== null) return ['Ck', 'Tk'];
-    if (step.state.figures.Tk !== null) return ['chart', 'Tk'];
+    // 窄屏上读数牌离时空图远，装不进一屏：这一步数的是图上的列，只看图。
+    if (step.state.figures.Tk !== null) return narrow ? ['chart'] : ['chart', 'Tk'];
     return null;
   };
-  const askFrame = (ask: Ask): string[] => (ask.prompt.includes('完成') ? ['chart', 'line'] : ask.prompt.includes('C_k') || ask.prompt.includes('加速比') ? ['Tk', 'Ck'] : ['chart', 'Tk']);
+  const askFrame = (ask: Ask): string[] => (ask.prompt.includes('完成') ? ['chart', 'line'] : ask.prompt.includes('C_k') || ask.prompt.includes('加速比') ? ['Tk', 'Ck'] : narrow ? ['chart'] : ['chart', 'Tk']);
   const names_ = (path: string): string => {
     const [head, a, b] = path.split('.');
     if (head === 'grid') return `第 ${Number(b) + 1} 个周期 ${names[Number(a)] ?? ''} 段`;
@@ -242,7 +245,7 @@ export function spaceWrong(trace: T) {
       moves: [{ value: `${value}`, from: 'Tk', to: 'Ck', arc: true }],
       message: close
         ? `${k} 是指令条数远大于段数时加速比的极限，这里只有 ${params.n} 条，填充和排空的周期占得不少。`
-        : `加速比是「不用流水的时间 ÷ 用流水的时间」。不用流水时每条都要依次走完 ${k} 段${params.stageTimes ? '，时间是各段之和' : ''}。`,
+        : `加速比 = 不用流水的时间 ÷ 用流水的时间。不用流水时每条都要依次走完 ${k} 段${params.stageTimes ? '，时间是各段之和' : ''}。`,
     };
   };
 }
@@ -322,7 +325,7 @@ export function spaceMistakes(trace: T): Mistake<State>[] {
           label: '',
           patch: { Ck: { text: `C_k = ${n}/${Tk}？`, changed: true }, line: { items: names.map((_, s) => (s === 0 ? 'I1' : '')), queue: lineQueue(params, 1), done: 0 } },
           moves: [{ value: `${n} 个周期`, from: 'line.0.0', to: 'Ck', arc: true }],
-          message: `不用流水时，I1 要一个人走完 ${names.join('、')} 共 ${k} 段，I2 才能开始。n 条就是 n·k 个周期，不是 n 个。`,
+          message: `不用流水时，I1 要走完 ${names.join('、')} 共 ${k} 段，I2 才能开始。n 条就是 n·k 个周期，不是 n 个。`,
         }),
       });
     }
@@ -342,5 +345,5 @@ export function spaceConvention(params: SpacetimeParams) {
 
 export const SPACE_QUESTION = { text: '时空图一格一格怎么填，T_k 个周期从哪里数出来', at: ['chart', 'line'] };
 export const SPACE_CONCLUSION =
-  '时空图横轴是时钟周期，纵轴自下而上是各段；第 i 条指令在第 t 个周期处在第 t − i + 1 段，画出来是一级级的阶梯。k 段流水线做 n 条要 T_k = k + (n − 1) 个周期；加速比 C_k = n·k / T_k，吞吐率 T_p = n / (T_k·τ)。';
+  '时空图横轴是时钟周期，纵轴自下而上是各段；第 i 条指令在第 t 个周期处在第 t − i + 1 段，画出来是一级级的阶梯。k 段流水线做 n 条要 T_k = k + (n − 1) 个周期；各段一样长时加速比 C_k = n·k / T_k，各段不等长时用时间直接比（n 个任务各段时间之和 ÷ T_k·τ）；吞吐率 T_p = n / (T_k·τ)。';
 export const SPACE_NEEDS: { href: string; text: string }[] = [{ href: '/5-cycle', text: '指令周期和时钟周期' }];

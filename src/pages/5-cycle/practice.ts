@@ -115,7 +115,7 @@ export function grade(rows: Row[], entries: Entry[], pulses: (row: Row) => strin
     }
     if (entry.op !== row.op) {
       const lead = i === 0 || rows[i - 1]!.cycle !== row.cycle ? `${row.cycle}周期的第一个操作是什么` : '上一行之后，数要往哪走';
-      return { ok: false, row: i, cell: 'op', message: `第 ${i + 1} 行（${row.cycle}）的操作不对。想一想：${lead}。` };
+      return { ok: false, row: i, cell: 'op', message: `第 ${i + 1} 行（${row.cycle}）的操作不对。看${lead}。` };
     }
     if (entry.beat !== row.beat) {
       return {

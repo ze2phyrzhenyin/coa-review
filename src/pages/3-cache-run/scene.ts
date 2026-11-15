@@ -92,13 +92,21 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
   // 主存板最高，放在最后面，不挡别的部件；整张台面宽 8.4，手机上字不小于 14 像素时左右都装得下。
   const compact = narrow && g.rows === 4;
   // 窄屏带计数器时一行太宽，四行排成一列；其余两行两列。
-  const column = compact && counted(params);
+  // 窄屏四行排成一列：两行两列在 360 宽的手机上比画面宽。
+  const column = compact;
   const side = compact ? 3.75 : counted(params) ? 5.0 : SIDE;
   const zBus = compact ? -1.2 : Z_BUS;
   const zRows = compact ? 1.3 : Z_ROWS;
   const gx = compact ? 1.8 : counted(params) ? 2.5 : 1.95;
   const xs = column ? [0, 0, 0, 0] : grid ? [-gx, gx, -gx, gx] : counted(params) ? XC : X;
-  const zRow = (i: number) => (column ? zRows + i * 2.4 : grid && i >= 2 ? zRows + GRID_DZ : zRows);
+  // 窄屏：每一组（直接映射是每一行）的后面留一格放比标记的两张卡，卡和这一组的行在同一个画面里。
+  const groupOf = (i: number) => (g.mapping === '组相联' ? Math.floor(i / g.ways) : g.mapping === '直接' ? i : 0);
+  const groups = g.mapping === '组相联' ? g.sets : g.mapping === '直接' ? g.rows : 1;
+  const CMP_GAP = 1.9;
+  const zRow = (i: number) => (column ? zRows + i * 2.4 + (groupOf(i) + 1) * CMP_GAP : grid && i >= 2 ? zRows + GRID_DZ : zRows);
+  const firstRow = (k: number) => Array.from({ length: g.rows }, (_, i) => i).find((i) => groupOf(i) === k) ?? 0;
+  const cmpIds = compact ? Array.from({ length: groups }, (_, k) => `cmp-${k}`) : ['cmp'];
+  const cmpOf = (candidates: number[]) => (compact ? `cmp-${groupOf(candidates[0] ?? 0)}` : 'cmp');
   const at = (wide: Vec2, small: Vec2): Vec2 => (compact ? small : wide);
   const mem = memorySpec(g, params);
   if (compact) mem.position = [0, -9.6];
@@ -116,7 +124,7 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
     {
       id: 'cmp',
       kind: 'compare',
-      position: at([2.0, -1.35], [0, -3.2]),
+      position: at([2.0, -1.35], [-1.0, -3.2]),
       props: { left: '', right: '', ...(compact ? {} : { leftName: '地址', rightName: '候选行' }) },
       title: '比较标记',
     },
@@ -211,18 +219,26 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
     },
   };
   // 比标记：地址切出的标记和候选行的标记两张卡并排，一致扣上，不一致弹开。
-  table['cmp'] = {
-    left: from(['access.result'], (c) => (c.state.access.tag === null ? '' : String(c.state.access.tag))),
-    right: from(['access.result'], (c) => {
-      const a = c.state.access;
-      if (a.result === '命中' && a.row !== null) return String(c.state.rows[a.row]?.tag ?? '');
-      const tags = a.candidates.map((i) => c.state.rows[i]?.tag).filter((tag): tag is number => tag !== null && tag !== undefined);
-      return tags.length ? tags.join('、') : '空';
-    }),
-    result: (c: BindContext<State>) => (c.state.access.result === '命中' ? 'match' : c.state.access.result === '缺失' ? 'mismatch' : ''),
-    // 只在比标记、记命中的这一段出现；调入以后候选行的标记变了，再摆着就对不上了。
-    hidden: (c: BindContext<State>) => c.state.access.result === null || c.state.access.action !== null,
-  };
+  // 宽屏一副卡，摆在命中、缺失牌旁边；窄屏每组一副，摆在这一组的行后面，只有正在比的那一组的卡出现。
+  if (compact) {
+    parts.splice(parts.findIndex((part) => part.id === 'cmp'), 1);
+    for (let k = 0; k < groups; k++) parts.push({ id: `cmp-${k}`, kind: 'compare', position: [0, zRow(firstRow(k)) - 2.05], props: { left: '', right: '' }, title: '比较标记' });
+  }
+  cmpIds.forEach((id, k) => {
+    const mine = (c: BindContext<State>) => !compact || groupOf(c.state.access.candidates[0] ?? -1) === k;
+    table[id] = {
+      left: from(['access.result'], (c) => (c.state.access.tag === null ? '' : String(c.state.access.tag))),
+      right: from(['access.result'], (c) => {
+        const a = c.state.access;
+        if (a.result === '命中' && a.row !== null) return String(c.state.rows[a.row]?.tag ?? '');
+        const tags = a.candidates.map((i) => c.state.rows[i]?.tag).filter((tag): tag is number => tag !== null && tag !== undefined);
+        return tags.length ? tags.join('、') : '空';
+      }),
+      result: (c: BindContext<State>) => (!mine(c) ? '' : c.state.access.result === '命中' ? 'match' : c.state.access.result === '缺失' ? 'mismatch' : ''),
+      // 只在比标记、记命中的这一段出现；调入以后候选行的标记变了，再摆着就对不上了。
+      hidden: (c: BindContext<State>) => !mine(c) || c.state.access.result === null || c.state.access.action !== null,
+    };
+  });
   const keys = ['tag', 'modified', ...(counted(params) ? ['count'] : []), 'block'];
   for (let i = 0; i < g.rows; i++) {
     table[`r${i}`] = {
@@ -288,11 +304,13 @@ export function cacheStage(params: Params, narrow = false): CacheStage {
   const frame = (step: Step<State>): string[] | null => {
     // 比标记、命中或缺失、换出、计数器这几步：看这一组（直接映射是这一行）的全部候选行。
     const candidates = step.state.access.candidates.map((i) => `r${i}`);
-    const about = step.changes.some((change) => /^rows\.\d+\.(count|tag|block|modified)$/.test(change.at) || change.at === 'access.result' || change.at === 'access.action');
+    const about = step.changes.some((change) => /^rows\.\d+\.(count|tag|block|modified)$/.test(change.at) || change.at === 'access.result' || change.at === 'access.action' || change.at === 'hits' || change.at === 'misses');
+    // 找到候选行的那一步：看候选行（算式在标题里也写了）。
+    if (candidates.length > 0 && step.changes.some((change) => change.at.startsWith('access.candidates'))) return candidates;
     if (candidates.length === 0 || !about) return null;
     const touched = step.changes.filter((change) => /^rows\.\d+\./.test(change.at)).map((change) => `r${change.at.split('.')[1]}`);
     // 比标记那一步把两张卡也放进来（装不下时看候选行）。
-    const compared = step.changes.some((change) => change.at === 'access.result') ? ['cmp'] : [];
+    const compared = step.changes.some((change) => change.at === 'access.result') ? [cmpOf(step.state.access.candidates)] : [];
     return [...new Set([...compared, ...candidates, ...touched])];
   };
   /** 出题时看这一组的候选行（比标记、选换出行都要看它们）。 */
@@ -431,7 +449,7 @@ export function cacheWrong(params: Params) {
 }
 
 /** 第 0 步的问题、最后的结论、需要先会。 */
-export const CACHE_QUESTION = { text: '这次访问的块能放进哪几行，放满了换出谁', at: ['calcI', 'r0', 'r1'] };
+export const CACHE_QUESTION = { text: '这次访问的块能放进哪几行，放满了换出谁', at: ['r0', 'r1'] };
 export const CACHE_CONCLUSION =
   '直接映射时块 j 只能放进行 j mod m；组相联时放进组 j mod u 里的任意一行，组里没有空行才替换。LRU 换出计数器最大的那一行，也就是最久没用到的；换出的块修改位是 1 时，先写回主存再调入新块。';
 export const CACHE_NEEDS = [{ href: '/3-cache-addr', text: '地址切成标记、行号（组号）、字地址' }];
@@ -516,7 +534,7 @@ export function cacheMistakes(trace: Trace<Params, State>): Mistake<State>[] {
           label: '',
           patch: { out: { value: `块 ${kept}` }, [`r${least}`]: { active: 0 } },
           moves: [{ value: `块 ${kept}`, from: `r${least}`, to: 'out', via: [`bus-r${least}`, 'bus-out'] }],
-          message: `行 ${least} 的计数器是 ${state.rows[least]?.count}，最小，说明它刚用过。把它换出，丢掉的正是最近在用的块 ${kept}。LRU 换出计数器最大的行：行 ${a.row}，它最久没用到。`,
+          message: `行 ${least} 的计数器是 ${state.rows[least]?.count}，最小，说明它刚用过。把它换出，丢掉的是最近在用的块 ${kept}。LRU 换出计数器最大的行：行 ${a.row}，它最久没用到。`,
         };
       },
     });

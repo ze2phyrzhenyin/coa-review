@@ -1,0 +1,13 @@
+✗ /3-cache-perf 360×740 例 1 第 1 步：焦点或候选没有完整留在画面里：calc q-h q-r
+✗ /3-cache-perf 360×740 例 1 第 3 步：焦点或候选没有完整留在画面里：calc q-h q-r
+✗ /3-cache-perf 360×740 例 1 第 4 步：焦点或候选没有完整留在画面里：calc q-h q-r
+✗ /3-cache-perf 360×740 例 2 第 1 步：焦点或候选没有完整留在画面里：calc q-h q-t_a
+✗ /3-cache-perf 360×740 例 2 第 3 步：焦点或候选没有完整留在画面里：calc q-h q-t_a
+✗ /3-cache-perf 360×740 例 2 第 4 步：焦点或候选没有完整留在画面里：calc q-h q-t_a
+✗ /3-cache-perf 360×740 例 3 第 1 步：焦点或候选没有完整留在画面里：calc q-h q-r
+✗ /3-cache-perf 360×740 例 3 第 2 步：焦点或候选没有完整留在画面里：calc q-h q-r
+✗ /3-cache-perf 360×740 例 3 第 3 步：焦点或候选没有完整留在画面里：calc q-h q-r
+✗ /3-cache-perf 360×740 例 4 第 1 步：焦点或候选没有完整留在画面里：calc q-r q-h
+✗ /3-cache-perf 360×740 例 4 第 2 步：焦点或候选没有完整留在画面里：calc q-r q-h
+✗ /3-cache-perf 360×740 例 4 第 3 步：焦点或候选没有完整留在画面里：calc q-r q-h
+qa-clip：12 处问题

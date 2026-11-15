@@ -174,7 +174,8 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
       const w = r + 1 + k;
       const id = `fa-${r}-${k}`;
       const where = r === n - 1 ? `最后一行第 ${k + 1} 个全加器` : `第 ${r + 1} 行第 ${k + 1} 个全加器`;
-      cell(id, colX(w), z, `${where}（权 2^${w}）的和`, 'fa');
+      // p_1 就是第 1 行最右那个全加器的和：预测 p_1 时直接在这个全加器上翻片，输入就在它上面两行。
+      cell(id, colX(w), z, `${where}（权 2^${w}）的和`, 'fa', { pick: r === 0 && k === 0 } as Partial<PartSpec>);
       table[id] = { bits: from(`rows.${r}.${k}`, (c) => c.state.rows[r]?.[k]?.sum || ' ') };
       const cid = `c-${r}-${k}`;
       cell(cid, colX(w) - P / 2, z + 0.45, `${where}送出的进位`, 'carry');
@@ -323,9 +324,9 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
     for (let k = 0; k < n - 1; k++) if (has(step, `rows.${n - 1}.${k}.sum`)) return widen([...rowsOf(`fa-${n - 1}`, n - 1), ...rowsOf('p', W)]);
     return null;
   };
-  const flipPart = (_ask: Ask, index: number): string | null => (index === askP1 ? 'p-1' : index === askTop ? `p-${W - 1}` : null);
+  const flipPart = (_ask: Ask, index: number): string | null => (index === askP1 ? 'fa-0-0' : index === askTop ? `p-${W - 1}` : null);
   const askFrameOf = (_ask: Ask, index: number): string[] => {
-    if (index === askP1) return ['pp-0-1', 'pp-1-0', 'fa-0-0', 'p-1', 'p-0'];
+    if (index === askP1) return ['pp-0-1', 'pp-1-0', 'fa-0-0'];
     if (index === askTop) return [`fa-${n - 1}-${n - 2}`, `c-${n - 2}-${n - 2}`, `c-${n - 1}-${n - 3 < 0 ? 0 : n - 3}`, `p-${W - 1}`, `p-${W - 2}`];
     if (index === askPost) return ['sp', 'cp', 'sw-1', 'sw-0', `p-${n}`];
     return [];
@@ -383,8 +384,8 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
         const fa = s.rows[0]![0]!;
         return {
           label: '',
-          patch: { 'p-1': { bits: value } },
-          moves: [{ value, from: 'fa-0-0', to: 'p-1', arc: true }],
+          patch: { 'fa-0-0': { bits: value }, 'p-1': { bits: value } },
+          moves: [{ value, from: 'pp-1-0', to: 'fa-0-0' }, { value, from: 'fa-0-0', to: 'p-1', arc: true, phase: 1 }],
           message: `p_1 是第 1 行最右那个全加器的和。它的三个输入是 a_1·b_0 = ${fa.top}、a_0·b_1 = ${fa.right}、进位 ${fa.diag}：1 的个数是奇数，和才是 1。`,
         };
       }

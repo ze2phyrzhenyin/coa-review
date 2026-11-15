@@ -30,7 +30,7 @@ const MINUS = '−';
 const plainText = (text: string) => text.replace(/-/g, MINUS);
 
 /** 一个状态里三条尾数最多有几位整数、几位小数、移出去最多几位。整个 Trace 共用一套格子。 */
-function sizesOf(trace: Trace<FpAddParams, FpAddState>): { int: number; frac: number; box: number } {
+function sizesOf(trace: Trace<FpAddParams, FpAddState>, compact: boolean): { int: number; frac: number; box: number } {
   let frac = 1;
   let box = 2;
   for (const step of trace.steps) {
@@ -41,25 +41,25 @@ function sizesOf(trace: Trace<FpAddParams, FpAddState>): { int: number; frac: nu
       box = Math.max(box, part.out.length);
     }
   }
-  return { int: 2, frac, box: Math.min(box, 6) };
+  return { int: 2, frac, box: Math.min(box, compact ? 7 : 6) };
 }
 
 export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false): FpScene {
   const twos = trace.params.style === '补码';
   const subtract = trace.params.op === '减';
-  const { int, frac, box } = sizesOf(trace);
+  const { int, frac, box } = sizesOf(trace, compact);
   const W = compact;
   const parts: PartSpec[] = [];
   const table: Parameters<typeof bindTable<FpAddState>>[0] = {};
-  const rowZ = { x: 0, y: W ? 3.2 : 1.7, sum: W ? 6.4 : 3.9 };
+  const rowZ = { x: 0, y: W ? 3.6 : 1.7, sum: W ? 7.2 : 3.9 };
   const expX = W ? -1.4 : -6.4;
-  const trackX = W ? 0.3 : 0.9;
-  const trackDz = W ? 1.25 : 0;
+  const trackX = W ? 0 : 0.9;
+  const trackDz = W ? 1.6 : 0;
   const expName = twos ? '阶码' : '指数';
   const title: Record<string, string> = { x: 'x', y: subtract ? 'y（变符号后）' : 'y', sum: '和' };
   for (const key of ['x', 'y', 'sum'] as const) {
     const z = rowZ[key];
-    parts.push({ id: `e${key}`, kind: 'register', position: [expX, z], props: { name: key === 'sum' ? `和的${expName}` : `${key} 的${expName}`, value: '', width: W ? 3.4 : 2.6 }, title: `${title[key]}的${expName}` });
+    parts.push({ id: `e${key}`, kind: 'register', position: [expX, z], props: { name: key === 'sum' ? `和的${expName}` : `${key} 的${expName}`, value: '', width: W ? 3.3 : 2.6 }, title: `${title[key]}的${expName}` });
     table[`e${key}`] = {
       value: from([`${key}.exp`, `${key}.expCode`], (c) => {
         const part = c.state[key];
@@ -89,27 +89,56 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
     ['norm-r', '向右规格化'],
   ];
   dirs.forEach(([id, name], i) => {
-    const w = W ? 2.35 : 2.9;
-    parts.push({ id, kind: 'register', position: [(i - 1) * (w + 0.2) + (W ? 0 : trackX - 0.4), zNorm], props: { name, value: '', width: w }, pick: true, title: name });
+    const w = W ? 3.1 : 2.9;
+    // 窄屏：左、右规格化并排，「不用规格化」在下一行左边，右边接「都不移」。
+    const at: [number, number] = W ? [id === 'norm-r' ? 1.65 : -1.65, zNorm + (id === 'norm-n' ? 1.45 : 0)] : [(i - 1) * (w + 0.2) + trackX - 0.4, zNorm];
+    parts.push({ id, kind: 'register', position: at, props: { name, value: '', width: w }, pick: true, title: name });
     table[id] = { value: from('norm', (c) => (c.state.norm === name ? '是' : '')) };
   });
-  const zBoards = zNorm + (W ? 1.6 : 1.6);
-  const side = (i: number): [number, number] => (W ? [i % 2 === 0 ? -1.75 : 1.75, zBoards + Math.floor(i / 2) * 1.45] : [-5.4 + i * 3.45, zBoards]);
+  const zBoards = zNorm + (W ? 2.9 : 1.6);
+  const side = (i: number): [number, number] => (W ? (i === 2 ? [1.65, zNorm + 1.45] : [i === 1 ? 1.65 : -1.65, zBoards + (i === 3 ? 1.45 : 0)]) : [-5.4 + i * 3.45, zBoards]);
   const boards: [string, string][] = [
     ['check', '0 操作数检查'],
     ['diff', '阶差 ΔE'],
     ['stay', '都不移'],
     ['ovf', '溢出判断'],
   ];
-  boards.forEach(([id, name], i) => parts.push({ id, kind: 'register', position: side(i), props: { name, value: '', width: 3.2 }, ...(id === 'stay' ? { pick: true, title: '都不移' } : { title: name }) }));
+  boards.forEach(([id, name], i) => parts.push({ id, kind: 'register', position: side(i), props: { name, value: '', width: W ? 3.1 : 3.2 }, ...(id === 'stay' ? { pick: true, title: '都不移' } : { title: name }) }));
   table.check = { value: 'check' };
   table.diff = { value: from(['diff', 'diffCode'], (c) => (c.state.diff ? (c.state.diffCode ? `${c.state.diffCode}（${plainText(c.state.diff)}）` : plainText(c.state.diff)) : '')) };
   table.ovf = { value: 'overflow' };
   table.stay = { value: from('shift', (c) => (c.state.shift === '不移' ? '两阶相等' : '')) };
   const resultZ = zBoards + (W ? 2 * 1.45 + 0.1 : 1.6);
-  parts.push({ id: 'result', kind: 'register', position: [W ? 0 : trackX - 0.4, resultZ], props: { name: '结果', value: '', width: W ? 6.6 : 7.4 }, title: '结果' });
-  table.result = { value: from(['result', 'decimal'], (c) => (c.state.result ? `${c.state.result} = ${c.state.decimal}` : '')) };
+  parts.push({ id: 'result', kind: 'register', position: [W ? 0 : trackX - 0.4, resultZ], props: { name: '结果', value: '', width: W ? 6.3 : 7.4 }, title: '结果' });
+  table.result = { value: from(['result', 'decimal'], (c) => (c.state.result ? (W ? c.state.result : `${c.state.result} = ${c.state.decimal}`) : '')) };
 
+  // 窄屏：全部部件排成一列、一样宽，镜头怎么取景左右都不会切到谁。
+  // 顺序跟着做题的顺序走；「都不移」紧挨两条尾数，三个规格化方向紧挨和的滑轨。
+  if (W) {
+    const width = Math.max(6.3, (int + frac - 1) * 0.56 + 1.2);
+    // 两个阶码、阶差在上；两条尾数和「都不移」挨着；和的滑轨下面一排三个规格化方向；再下面是和的阶码、溢出、结果。
+    const order = ['check', 'ex', 'ey', 'diff', 'stay', 'mx', 'my', 'msum', 'norms', 'esum', 'ovf', 'result'];
+    const third = (width - 0.3) / 3;
+    let z = 0;
+    for (const id of order) {
+      if (id === 'norms') {
+        ['norm-l', 'norm-n', 'norm-r'].forEach((name, i) => {
+          const part = parts.find((item) => item.id === name)!;
+          part.position = [(i - 1) * (third + 0.15), z];
+          (part.props as { width?: number }).width = third;
+        });
+        z += 1.45;
+        continue;
+      }
+      const part = parts.find((item) => item.id === id);
+      if (!part) continue;
+      const track = part.kind === '2-fpadd:track';
+      if (track) z += 0.35;
+      part.position = [0, z];
+      if (!track) (part.props as { width?: number }).width = width;
+      z += track ? 2.9 : 1.45;
+    }
+  }
   const scene: SceneSpec = { parts, wires: [], kinds: () => import('./parts') };
   const bind = bindTable<FpAddState>(table);
   const has = (step: Step<FpAddState>, path: string) => step.changes.some((change) => change.at === path);
@@ -154,12 +183,22 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
   const values = (_path: string, value: string) => plainText(value);
 
   // 手机上只看两条尾数（答错时演的就是它们）；「都不移」在题目下面另有按钮。
-  const askFrame = (ask: Ask): string[] => (ask.options?.includes('都不移') ? (W ? ['mx', 'my'] : ['ex', 'ey', 'mx', 'my', 'diff', 'stay']) : ['msum', 'esum', 'norm-l', 'norm-n', 'norm-r']);
-  /** 对阶的每一步，镜头看住正在右移的那条滑轨。 */
+  const askFrame = (ask: Ask): string[] =>
+    ask.options?.includes('都不移') ? (W ? ['stay', 'mx', 'my'] : ['ex', 'ey', 'mx', 'my', 'diff', 'stay']) : W ? ['msum', 'norm-l', 'norm-n', 'norm-r'] : ['msum', 'esum', 'norm-l', 'norm-n', 'norm-r'];
+  /** 镜头看这一步在动的部件。宽屏只管对阶；窄屏一列排开，每一步只看挨在一起的两三行。 */
   const frame = (step: Step<FpAddState>): string[] | null => {
-    if (step.state.stage !== '对阶') return null;
     const key = has(step, 'x.out') || has(step, 'x.mant') ? 'x' : has(step, 'y.out') || has(step, 'y.mant') ? 'y' : null;
-    return key ? [`e${key}`, `m${key}`] : null;
+    if (!W) return step.state.stage === '对阶' && key ? [`e${key}`, `m${key}`] : null;
+    if (has(step, 'x.mant') && has(step, 'y.mant')) return ['mx', 'my'];
+    if (has(step, 'check')) return ['check'];
+    if (has(step, 'diff')) return ['ex', 'ey', 'diff'];
+    if (key) return [`m${key}`];
+    if (has(step, 'norm')) return ['msum', 'norm-l', 'norm-n', 'norm-r'];
+    if (has(step, 'overflow')) return ['esum', 'ovf'];
+    if (has(step, 'result')) return ['result'];
+    if (has(step, 'sum.mant') && step.changes.some((c) => c.at === 'sum.mant' && c.from === '')) return ['my', 'msum'];
+    if (has(step, 'sum.mant') || has(step, 'sum.out')) return ['msum'];
+    return ['msum'];
   };
 
   const shiftLeft = (mant: string, k: number): { mant: string; lost: string } => {

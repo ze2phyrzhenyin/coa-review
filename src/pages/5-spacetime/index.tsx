@@ -47,13 +47,13 @@ function Lead() {
     <>
       <p class="pp-lead">
         <Term k="流水线">流水线</Term>像一条装配线：指令是盒子，每个时钟周期往前挪一个工位。把每个周期各段里是哪条指令记下来，就是<Term k="时空图">时空图</Term>。
-        时空图画完，下面三个数就能直接读出来。
+        总周期数、加速比、吞吐率都从时空图上读。
       </p>
       <Formula text="T_k = k + (n − 1)　　C_k = n·k / T_k　　T_p = n / (T_k·τ)" />
       <p class="pp-note">
         <Rich text="吞吐率 T_p 的单位是 " />
         <Term k="MIPS">MIPS</Term>
-        <Rich text="，每秒百万条指令。τ 用 ns 时，n / (T_k·τ) 得到的是「条/ns」，乘 1000 就是 MIPS。" />
+        <Rich text="，每秒百万条指令。C_k = n·k / T_k 只在各段一样长时成立；各段不等长时照例 5.4 直接用时间算：不用流水的时间（各段时间之和乘 n）除以 T_k·τ。τ 用 ns 时，n / (T_k·τ) 得到的是「条/ns」，乘 1000 就是 MIPS。" />
       </p>
     </>
   );

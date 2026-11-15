@@ -209,10 +209,10 @@ export function flowFrame(L: Linked, narrow: boolean) {
     // 宽屏每一步都看整张台面：方框图一排和整台模型机。
     if (!narrow) return ['BOX_0', 'BOX_1', 'DMEM', 'DR', 'R0', 'ALU', 'PSWR'].slice();
     // 手机上装不下整张台面：每一步停在正在画的方框上（值走的时候镜头会跟到模型机里，再回来）。
-    const count = L.counts[step.state.current ?? 0]!;
     if (step.level === 'cycle') return [`BOX_${step.state.boxes[step.state.boxes.length - 1]!.m - 1}`];
-    if (step.changes.some((x) => x.at.startsWith('decoded'))) return ['DIAMOND', 'BOX_0'];
-    if (step.changes.some((x) => x.at.startsWith('ended'))) return ['END', `BOX_${count - 1}`];
+    // 菱形和它分出的各支挨在一起；「～」单独看（它和最后一个方框在手机上装不进一屏）。
+    if (step.changes.some((x) => x.at.startsWith('decoded'))) return ['DIAMOND', ...L.flow.params.instructions.map((_, i) => `TAG_${i}`)];
+    if (step.changes.some((x) => x.at.startsWith('ended'))) return ['END'];
     return null;
   };
 }
@@ -295,7 +295,7 @@ export function flowBreak(L: Linked) {
           { value: String(a.value), from: from(a.driver), to: 'DBUS', arc: true },
           { value: String(b.value), from: from(b.driver), to: 'DBUS', arc: true },
         ],
-        message: `并成一个方框就是一个 CPU 周期。${a.value} 和 ${b.value} 要在同一个周期里上 DBUS，两个来源同时驱动总线，总线上的值是乱的，打入 AR、DR 的都不对。方框数必须等于 DBUS 要送数的次数。`,
+        message: `并成一个方框就是一个 CPU 周期。${a.value} 和 ${b.value} 要在同一个周期里上 DBUS，两个来源同时驱动总线，总线上的值不确定，打入 AR、DR 的都不对。`,
       };
     }
     const k = s.boxes.length - 1;

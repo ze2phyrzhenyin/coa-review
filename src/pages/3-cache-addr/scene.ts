@@ -43,12 +43,12 @@ export function addrStage(trace: Trace<Params, State>, narrow: boolean): AddrSta
   const at = <T>(wide: T, small: T): T => (narrow ? small : wide);
 
   // 三段的宽度按位数排（每位 0.26，最窄 1.3），间隔 0.3；地址条正好盖住三段。
-  const perBit = at(0.27, 0.24);
+  const perBit = at(0.27, 0.22);
   // 名牌写「字地址 3 位」，格子再窄也要放得下它。
-  const widthOf = (bits: number): number => Math.max(at(2.2, 2.05), bits * perBit + 0.5);
+  const widthOf = (bits: number): number => Math.max(at(2.2, 1.95), bits * perBit + 0.5);
   const shown = FIELDS.filter((_, i) => !(full && i === 1));
   const ws = shown.map((id) => widthOf(count[FIELDS.indexOf(id)]!));
-  const gap = 0.3;
+  const gap = at(0.3, 0.2);
   const total = ws.reduce((a, b) => a + b, 0) + gap * (ws.length - 1);
   const xs: number[] = [];
   let x = -total / 2;

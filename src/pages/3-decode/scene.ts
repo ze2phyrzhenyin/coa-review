@@ -58,8 +58,8 @@ export function decodeStage(params: Params, narrow = false): DecodeStage {
   const groups = d.groups;
   const R = groups.length;
   const conns = groups.map(connOf);
-  const W = narrow ? 2.4 : 2.8;
-  const PITCH_X = narrow ? 3.3 : 3.9;
+  const W = narrow ? 2.0 : 2.8;
+  const PITCH_X = narrow ? 2.9 : 3.9;
   // 手机上组名写在这一排的后面（右边放不下），排距加大。
   const PITCH_Z = narrow ? 3.3 : 3.4;
   const chipId = (r: number, j: number) => `U${r}_${j}`;
@@ -101,7 +101,7 @@ export function decodeStage(params: Params, narrow = false): DecodeStage {
   const xG2 = narrow ? 2.95 : xG1 + 1.7;
   const xAnd = narrow ? 2.95 : xG1;
   const gatesRight = hasNand ? xG2 + 0.8 : hasAnd ? xG1 + 0.7 : fanRight;
-  const xChip0 = narrow ? -2.4 : gatesRight + 0.7 + W / 2;
+  const xChip0 = narrow ? -1.9 : gatesRight + 0.7 + W / 2;
   const xChip = (j: number) => xChip0 + j * PITCH_X;
   const maxPer = Math.max(...groups.map((g) => g.perGroup));
   const xLast = xChip(maxPer - 1);
@@ -111,11 +111,14 @@ export function decodeStage(params: Params, narrow = false): DecodeStage {
   const zIn = (t: number) => zMid - inSpan / 2 + (inSpan / count) * (t + 0.5);
   const zUnder = zMid + depthD / 2 + 1.4;
   // 手机上作答用的名牌摆在地址空间表前面，三个一排；桌面上直接点各组右边的名牌。
+  // 手机一屏只装得下约 6 个单位宽：作答的名牌三个一排摆在表的前面，上面一张牌写着这道题问的那一段。
+  const mapHalf = outs * 0.36 + 0.5;
   const tagRows = Math.ceil((R + 1) / 3);
-  const zTag = zAddr - 1.6 - (tagRows - 1) * 0.95;
   const xMap = narrow ? -0.4 : xD - 6.1;
-  const zMap = narrow ? zTag - 1.3 - (outs * 0.36 + 0.5) : zMid;
-  const tagAt = (t: number): Vec2 => [xMap + (t % 3 - 1) * 1.6, zTag + Math.floor(t / 3) * 0.95];
+  // 作答的一小组和表、地址隔开一屏的距离：镜头看它时不会为了不切开旁边的大部件而挪走。
+  const zMap = narrow ? zAddr - 3.2 - tagRows * 1.1 - 1.1 - 3.0 - mapHalf : zMid;
+  const zAsk = zMap + mapHalf + 3.0;
+  const tagAt = (t: number): Vec2 => [xMap + (t % 3 - 1) * 1.6, zAsk + 1.1 + Math.floor(t / 3) * 1.1];
   const lastSpot: Vec2 = narrow ? tagAt(groups.length) : [xD - 0.3, zUnder + (enCount + 2) * 0.6 + 0.9];
   const side = narrow ? { into: 'e', out: 'w' } : { into: 'w', out: 'e' };
 
@@ -151,7 +154,7 @@ export function decodeStage(params: Params, narrow = false): DecodeStage {
         name: '地址空间',
         columns: [
           { title: '地址范围', width: 2.5, ink: 'addr' },
-          { title: '放什么', width: 1.5 },
+          { title: narrow ? '放' : '放什么', width: narrow ? 1.15 : 1.5 },
         ],
         rows: d.outputs.map(() => ['', '']),
         labels: d.outputs.map((o) => sub(o.y)),
@@ -159,8 +162,8 @@ export function decodeStage(params: Params, narrow = false): DecodeStage {
     },
     ...Array.from({ length: enCount }, (_, t): PartSpec => ({ id: `en${t}`, kind: 'label', position: [xD - 0.3, zUnder + t * 0.6], props: { text: '', size: 0.31, tone: 'muted' }, title: '使能端' })),
     ...[0, 1].map((t): PartSpec => ({ id: `ctl${t}`, kind: 'label', position: [xD - 0.3, zUnder + (enCount + t) * 0.6 + 0.3], props: { text: '', size: 0.31, tone: 'muted' }, title: '控制线' })),
-    { id: 'none', kind: 'label', position: lastSpot, props: { text: '空着不接', plate: true, size: 0.31 }, pick: true, title: '空' },
-    { id: 'nochip', kind: 'label', position: lastSpot, props: { text: '没有芯片', plate: true, size: 0.31 }, pick: true, title: '没有芯片' },
+    { id: 'none', kind: 'label', position: lastSpot, props: { text: narrow ? '空' : '空着不接', plate: true, size: 0.31 }, pick: true, title: '空' },
+    { id: 'nochip', kind: 'label', position: lastSpot, props: { text: narrow ? '无芯片' : '没有芯片', plate: true, size: 0.31 }, pick: true, title: '没有芯片' },
   ];
   groups.forEach((g, r) => {
     for (let j = 0; j < g.perGroup; j++) {
@@ -175,7 +178,7 @@ export function decodeStage(params: Params, narrow = false): DecodeStage {
           width: W,
           depth: D,
           pins: [
-            { id: 'addr', name: 'A', side: 'n', lines: 3, ink: 'addr' },
+            { id: 'addr', name: 'A', side: 'n', lines: narrow ? 8 : 3, ink: 'addr' },
             { id: 'cs', name: 'CS', side: 's', lines: 1, ink: 'ctrl' },
           ],
         },
@@ -184,6 +187,7 @@ export function decodeStage(params: Params, narrow = false): DecodeStage {
       });
     }
     if (!narrow) parts.push({ id: `gl${r}`, kind: 'label', position: [xChip(g.perGroup - 1) + W / 2 + 1.3, zRow(r)], props: { text: g.name, plate: true, size: 0.31, mono: true }, pick: true, title: g.name });
+    if (narrow && r === 0) parts.push({ id: 'ql', kind: 'label', position: [xMap, zAsk], props: { text: `${sub(d.outputs[0]!.y)}：${d.outputs[0]!.from}–${d.outputs[0]!.to}`, plate: true, size: 0.31, mono: true }, title: '这道题问的地址' });
     if (narrow) parts.push({ id: `pk${r}`, kind: 'label', position: tagAt(r), props: { text: g.name, plate: true, size: 0.31, mono: true }, pick: true, title: g.name });
     const c = conns[r]!;
     if (c.kind === 'and') parts.push({ id: `g${r}`, kind: 'label', position: [xAnd, lane(r)], props: { text: '与门', plate: true, size: 0.31 }, title: `${g.name} 的与门` });
@@ -250,7 +254,7 @@ export function decodeStage(params: Params, narrow = false): DecodeStage {
     const b = parseInt(o.to, 16);
     const hit = d.regions.filter((r) => r.start <= b && r.end >= a);
     if (hit.length === 0) return '空';
-    return hit.map((r) => (r.start <= a && r.end >= b ? r.kind : `${r.kind} ${c.state.regions[d.regions.indexOf(r)]?.size ?? ''}`)).join('、');
+    return hit.map((r) => (narrow || (r.start <= a && r.end >= b) ? r.kind : `${r.kind} ${c.state.regions[d.regions.indexOf(r)]?.size ?? ''}`)).join('、');
   };
   type Src = Parameters<typeof bindTable<PState>>[0][string][string];
   const table: Record<string, Record<string, Src>> = {};
@@ -286,6 +290,16 @@ export function decodeStage(params: Params, narrow = false): DecodeStage {
   const pPhase = (c: BindContext<PState>) => c.state.control.length > 0 && c.state.stage !== 'select';
   table['none'] = { hidden: (c: BindContext<PState>) => !yPhase(c) };
   table['nochip'] = { hidden: (c: BindContext<PState>) => !pPhase(c) };
+  if (narrow) {
+    const asked = (c: BindContext<PState>): string => {
+      if (yPhase(c)) {
+        const o = d.outputs[c.state.outputs.length];
+        return o ? `${sub(o.y)}：${o.from}–${o.to}` : '';
+      }
+      return pPhase(c) && c.state.probe ? `${c.state.probe.address}：${c.state.probe.bits.slice(n - d.k - count, n - d.k)} 进译码器` : '';
+    };
+    table['ql'] = { text: asked, hidden: (c: BindContext<PState>) => asked(c) === '' };
+  }
   if (narrow) groups.forEach((_, r) => (table[`pk${r}`] = { hidden: (c: BindContext<PState>) => !(yPhase(c) || pPhase(c)) }));
   const selectedRow = (c: BindContext<PState>): number | null => {
     const probe = c.state.probe;
@@ -307,11 +321,11 @@ export function decodeStage(params: Params, narrow = false): DecodeStage {
         pins: (c: BindContext<PState>) => {
           const probe = c.state.probe;
           const own = Math.log2(g.words);
-          const addrValue = probe && probe.chip === g.name ? probe.inner : c.state.groupLines && !narrow ? sub(own < d.k ? `A${own - 1}–A0` : c.state.groupLines) : '';
+          const addrValue = narrow && g.perGroup > 1 ? '' : probe && probe.chip === g.name ? probe.inner : c.state.groupLines && !narrow ? sub(own < d.k ? `A${own - 1}–A0` : c.state.groupLines) : '';
           const sel = selectedRow(c);
           const csValue = sel === null ? '' : sel === r ? '0' : '1';
           return [
-            { id: 'addr', name: 'A', side: 'n', lines: 3, ink: 'addr', value: addrValue },
+            { id: 'addr', name: 'A', side: 'n', lines: narrow ? 8 : 3, ink: 'addr', value: addrValue },
             { id: 'cs', name: 'CS', side: 's', lines: 1, ink: 'ctrl', value: c.state.outputs.length > 0 || c.state.probe ? csValue : '' },
           ];
         },
@@ -385,17 +399,20 @@ export function decodeStage(params: Params, narrow = false): DecodeStage {
   };
   const values = (_path: string, value: string): string => sub(value);
 
+  const tags = narrow ? groups.map((_, r) => `pk${r}`) : [];
   // 桌面上整张台面装得下，一直看全景；手机上镜头跟着这一步走，只框装得下的一小组部件。
   const frame = (step: Step<PState>): string[] | null => {
     if (!narrow) return null;
     const row = (r: number) => chipIds(r);
+    // 出题前的那一小步、送地址那一步：看作答的名牌。
+    if (step.id.endsWith('q')) return ['ql', ...tags, 'none'];
+    if (step.state.probe && step.state.stage === 'send') return ['ql', ...tags, 'nochip'];
     const out = step.changes.find((change) => /^outputs\.\d+\.y$/.test(change.at));
     if (out) {
       const r = rowOfY.get(Number(out.at.split('.')[1]));
       return r === undefined ? ['map'] : row(r);
     }
     const probe = step.state.probe;
-    if (probe && step.state.stage === 'send') return ['DEC'];
     if (probe) {
       const r = groupOf(probe.chip);
       return r < 0 ? ['map'] : row(r);
@@ -414,11 +431,8 @@ export function decodeStage(params: Params, narrow = false): DecodeStage {
     if (step.changes.some((change) => change.at.startsWith('control'))) return ['ctl0', 'ctl1'];
     return null;
   };
-  const tags = narrow ? groups.map((_, r) => `pk${r}`) : [];
-  const askFrame = (ask: Ask): string[] => {
-    if (!narrow) return [];
-    return /^Y_?\d+/.test(ask.prompt) ? ['map', ...tags, 'none'] : ['map', ...tags, 'nochip'];
-  };
+  // 出题时不另给镜头：手机上出题前那一步已经看着名牌（台面很深时播放器按题目找镜头会找偏，见 progress）。
+  const askFrame = (): string[] => [];
 
   const wrong = (ask: Ask, value: string, state: PState, next: Step<PState> | null): Breakage | null => {
     const y = /^Y_?(\d+)/.exec(ask.prompt);
@@ -482,6 +496,22 @@ export function polish(trace: Trace<Params, State>): Trace<Params, PState> {
     const kept = ask && (!y || keep.has(Number(y[1]))) ? { ask: { ...ask, prompt: sub(ask.prompt), ...(ask.hint ? { hint: sub(ask.hint) } : {}) } } : {};
     const step = { ...rest, ...kept } as typeof raw;
     const base: Step<PState> = { ...step, title: sub(step.title), why: sub(step.why), state: { ...step.state } };
+    if (y && step.ask) {
+      // 出题前的一小步：只说轮到哪一段，画面不变。
+      const o = d.outputs[Number(y[1])]!;
+      const before = steps[steps.length - 1];
+      if (before) {
+        steps.push({
+          id: `${step.id}q`,
+          level: 'explain',
+          title: `轮到 ${sub(o.y)}：${o.from}–${o.to}`,
+          why: '这一段地址里放着哪一组芯片，这个输出就接到那一组的片选；这一段没有芯片就空着。',
+          state: before.state,
+          changes: [],
+          focus: [],
+        });
+      }
+    }
     const probe = step.state.probe;
     if (probe && step.changes.some((change) => change.at === 'probe')) {
       const bits = probe.bits;

@@ -44,6 +44,8 @@ export const exampleParams = (i: number): DivParams => {
 };
 
 export const DIV_QUESTION = { text: '余数为负时为什么不先加回 y，而是左移以后直接加 y', at: ['wsub', 'wadd', 'bal'] };
+/** 窄屏上天平在竖式下面，和两块砝码装不进同一屏：第 0 步只标砝码。 */
+export const DIV_QUESTION_NARROW = { ...DIV_QUESTION, at: ['wsub', 'wadd'] };
 export const DIV_CONCLUSION = '余数为负时，恢复后再左移减 y 等于 2(r + |y|) − |y| = 2r + |y|，所以直接左移加 y；只有最后一位商是 0 时才加 y 纠余一次。';
 export const DIV_NEEDS = [
   { href: '/2-codes', text: '原码和补码' },

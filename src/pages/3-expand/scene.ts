@@ -48,8 +48,8 @@ export const csWire = (c: number) => `cs-${c}`;
 export function expandStage(params: Params, narrow = false): ExpandStage {
   const p = plan(params);
   // 手机上芯片窄一点、排得紧一点：选中的一组两片能一起装进画面。
-  const W = narrow ? 2.4 : 2.8;
-  const PITCH_X = narrow ? 3.7 : 4.3;
+  const W = narrow ? 2.0 : 2.8;
+  const PITCH_X = narrow ? 2.9 : 4.3;
   // 手机上组名和地址范围写在这一排的后面（右边放不下），排距加大。
   const PITCH_Z = narrow ? 4.5 : 3.4;
   const G = p.groups;
@@ -133,7 +133,7 @@ export function expandStage(params: Params, narrow = false): ExpandStage {
           width: W,
           depth: D,
           pins: [
-            { id: 'addr', name: 'A', side: 'n', lines: 3, ink: 'addr' },
+            { id: 'addr', name: 'A', side: 'n', lines: narrow ? 8 : 3, ink: 'addr' },
             { id: 'cs', name: 'CS', side: 's', lines: 1, ink: 'ctrl' },
           ],
         },
@@ -233,11 +233,12 @@ export function expandStage(params: Params, narrow = false): ExpandStage {
         pins: (x: BindContext<PState>) => {
           const chip = x.state.chips[c];
           const probe = probeOf(x);
-          const addrValue = probe ? probe.inner : x.state.chipLines ? sub(x.state.chipLines) : '';
+          // 手机上两片并排时地址脚旁放不下读数（会压住右边一片的名牌），读数看片内地址线上的那张牌。
+          const addrValue = narrow && P > 1 ? '' : probe ? probe.inner : x.state.chipLines && !narrow ? sub(x.state.chipLines) : '';
           const sel = selectedGroup(x);
           const csValue = probe && x.state.stage !== 'send' ? (sel === g ? '0' : '1') : chip?.select ? sub(chip.select).replace('片选（共用）', '共用') : '';
           return [
-            { id: 'addr', name: 'A', side: 'n', lines: 3, ink: 'addr', value: addrValue },
+            { id: 'addr', name: 'A', side: 'n', lines: narrow ? 8 : 3, ink: 'addr', value: addrValue },
             { id: 'cs', name: 'CS', side: 's', lines: 1, ink: 'ctrl', value: csValue },
           ];
         },
@@ -305,12 +306,13 @@ export function expandStage(params: Params, narrow = false): ExpandStage {
       const g = Number(range.at.split('.')[1]);
       return narrow ? [`gl${g}`, ...chipsOf(g)] : ['DEC', `gl${g}`, ...chipsOf(g)];
     }
-    if (step.state.stage === 'send') return ['addr', 'DEC', chipId(0)];
+    if (step.state.stage === 'send') return narrow ? [many ? 'DEC' : 'addr'] : ['addr', 'DEC', chipId(0)];
+    if (narrow && step.changes.some((change) => change.at === 'chipLines')) return many ? ['DEC', 'inl'] : chipsOf(0);
     if (step.state.probe && step.state.probe.group !== null) return narrow ? chipsOf(step.state.probe.group) : ['DEC', ...chipsOf(step.state.probe.group)];
     if (step.changes.some((change) => change.at === 'perGroup')) return chipsOf(0);
     return null;
   };
-  const askFrame = (ask: Ask): string[] => (ask.kind === 'choice' ? ['DEC', ...options.map((_, i) => optionId(i))] : ['addr', 'DEC']);
+  const askFrame = (ask: Ask): string[] => (ask.kind === 'choice' ? ['DEC', ...options.map((_, i) => optionId(i))] : narrow ? ['DEC'] : ['addr', 'DEC']);
 
   // 答错时演学生的选择。
   const wrong = (ask: Ask, value: string, state: PState): Breakage | null => {
@@ -346,7 +348,7 @@ export function expandStage(params: Params, narrow = false): ExpandStage {
     };
   };
 
-  const question = { text: `${p.d} 片芯片，片选要几位地址`, at: many ? ['DEC', ...chipsOf(0)] : [chipId(0)] };
+  const question = { text: `${p.d} 片芯片，片选要几位地址`, at: narrow ? (many && G > 4 ? ['DEC'] : chipsOf(0)) : many ? ['DEC', ...chipsOf(0)] : [chipId(0)] };
   const conclusion = many
     ? `片选按组算，不按片算：一组里的${P > 1 ? '几片共用一个片选，同时工作才凑出一个完整的字' : '只有一片，它自己一个片选'}。${G} 组 = 2^${h}，所以 ${p.d} 片只要 ${h} 位高位地址进译码器，低 ${p.k} 位接每一片。`
     : `只有一组，${p.d} 片同时工作，片选共用，不要译码器。`;

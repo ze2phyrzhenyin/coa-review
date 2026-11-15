@@ -45,7 +45,7 @@ export function cellOf(point: string, ops: readonly Op[]): string {
 }
 
 /**
- * 格子表的摆法：宽屏一张表（部件 G，列是指令）；手机上每条指令一张窄表（G0、G1……），两张一排往下摆，
+ * 格子表的摆法：宽屏一张表（部件 G，列是指令）；手机上每条指令一张窄表（G0、G1……），一排往右摆，
  * 每张都带行名 M·T，镜头跟着正在看的那条指令走。
  */
 export interface GridView {
@@ -58,7 +58,7 @@ export const gridView = (ops: readonly Op[], narrow: boolean): GridView => ({ na
 const NARROW_DX = 4.7;
 const NARROW_DZ = 12.6;
 /** 手机上几排格子表一共多深（台面单位），后面的部件接着往下摆。 */
-export const gridDepth = (view: GridView): number => (view.narrow ? Math.ceil(view.ops.length / 2) * NARROW_DZ : 0);
+export const gridDepth = (view: GridView): number => (view.narrow ? NARROW_DZ : 0);
 
 export function gridParts(view: GridView, cells: string[][], origin: [number, number], name = '图 5.30 的流程'): PartSpec[] {
   const widest = Math.max(...cells.flat().map((t) => t.length), 4);
@@ -69,7 +69,8 @@ export function gridParts(view: GridView, cells: string[][], origin: [number, nu
   return view.ops.map((op, c): PartSpec => ({
     id: `G${c}`,
     kind: 'grid',
-    position: [origin[0] + (c % 2 === 0 ? -NARROW_DX / 2 : NARROW_DX / 2), origin[1] + Math.floor(c / 2) * NARROW_DZ],
+    // 一排往右摆，不往纵深摆：台面太深时靠前的部件会跑到镜头后面。
+    position: [origin[0] + (c - (view.ops.length - 1) / 2) * NARROW_DX, origin[1]],
     title: `${op} 的流程`,
     props: { name: op, columns: [op], rows: ROWS, cells: cells.map((row) => [row[c]!]), cellWidth },
   }));
@@ -164,9 +165,9 @@ function layout(narrow: boolean, terms: number, depth: number): Layout {
       grid: [0, 0],
       sig: [-1.6, -12.4],
       kind: [1.7, -12.4],
-      term: (i) => [i % 2 === 0 ? -1.75 : 1.75, z + Math.floor(i / 2) * 1.7],
-      expr: [0, z + 0.4 + Math.ceil(terms / 2) * 1.7],
-      cand: (i) => [0, z + 2.4 + Math.ceil(terms / 2) * 1.7 + i * 1.6],
+      term: (i) => [0, z + i * 1.0],
+      expr: [0, z + 0.3 + terms * 1.0],
+      cand: (i) => [0, z + 1.5 + terms * 1.0 + i * 1.0],
     };
   }
   return {
@@ -192,10 +193,21 @@ export function hardScene(trace: Trace<DeriveParams, DeriveState>, narrow: boole
     ...gridParts(view, cells, L.grid),
     { id: 'SIG', kind: 'register', position: L.sig, props: { name: '信号', value: p.signal, width: 2.4, ink: 'ctrl' } },
     { id: 'KIND', kind: 'register', position: L.kind, props: { name: '类型', value: '', width: 2.6 } },
-    ...final.terms.map((_, i): PartSpec => ({ id: `TERM_${i}`, kind: 'register', position: L.term(i), props: { name: `第 ${i + 1} 项`, value: '', width: narrow ? 3.2 : 4.2, ink: 'ctrl' } })),
-    { id: 'EXPR', kind: 'register', position: L.expr, props: { name: `${p.signal} =`, value: '', width: narrow ? 6.6 : 5.6, ink: 'ctrl' } },
+    // 手机上项牌、表达式牌、候选牌用小一号的字牌（一行写得下，不缩字）；宽屏是带名牌的块。
+    ...final.terms.map(
+      (_, i): PartSpec =>
+        narrow
+          ? { id: `TERM_${i}`, kind: 'label', position: L.term(i), title: `第 ${i + 1} 项`, props: { text: '', size: 0.31, plate: true, mono: true, hidden: true } }
+          : { id: `TERM_${i}`, kind: 'register', position: L.term(i), props: { name: `第 ${i + 1} 项`, value: '', width: 4.2, ink: 'ctrl' } },
+    ),
+    narrow
+      ? { id: 'EXPR', kind: 'label', position: L.expr, title: '表达式', props: { text: '', size: 0.31, plate: true, mono: true, hidden: true } }
+      : { id: 'EXPR', kind: 'register', position: L.expr, props: { name: `${p.signal} =`, value: '', width: 5.6, ink: 'ctrl' } },
     ...options.map(
-      (option, i): PartSpec => ({ id: `CAND_${i}`, kind: 'register', position: L.cand(i), title: option, props: { name: `候选 ${String.fromCharCode(65 + i)}`, value: option, width: narrow ? 6.6 : 5.6, hidden: true }, pick: true }),
+      (option, i): PartSpec =>
+        narrow
+          ? { id: `CAND_${i}`, kind: 'label', position: L.cand(i), title: option, props: { text: option, size: 0.31, plate: true, mono: true, hidden: true }, pick: true }
+          : { id: `CAND_${i}`, kind: 'register', position: L.cand(i), title: option, props: { name: `候选 ${String.fromCharCode(65 + i)}`, value: option, width: 5.6, hidden: true }, pick: true },
     ),
   ];
   return { parts, wires: [] };
@@ -230,10 +242,14 @@ export function hardBind(trace: Trace<DeriveParams, DeriveState>, narrow: boolea
   }
   Object.assign(table, {
     KIND: { value: { at: 'kind', as: (c: Ctx) => (c.state.kind === null ? '' : c.state.kind === '电位' ? '电位：只与 M' : '脉冲：与 M·T') } },
-    EXPR: { value: { at: 'expression', as: (c: Ctx) => c.state.expression ?? '' } },
+    EXPR: narrow
+      ? { text: { at: 'expression', as: (c: Ctx) => exprText(p.signal, c.state.expression ?? '', true) }, hidden: (c: Ctx) => !c.state.expression }
+      : { value: { at: 'expression', as: (c: Ctx) => c.state.expression ?? '' } },
   });
   final.terms.forEach((_, i) => {
-    table[`TERM_${i}`] = { value: { at: `terms.${i}.text`, as: (c: Ctx) => c.state.terms[i]?.text ?? '' } };
+    table[`TERM_${i}`] = narrow
+      ? { text: { at: `terms.${i}.text`, as: (c: Ctx) => c.state.terms[i]?.text ?? '' }, hidden: (c: Ctx) => !c.state.terms[i] }
+      : { value: { at: `terms.${i}.text`, as: (c: Ctx) => c.state.terms[i]?.text ?? '' } };
   });
   const options = trace.steps[total - 1]!.ask?.options ?? [];
   options.forEach((_, i) => {
@@ -242,6 +258,10 @@ export function hardBind(trace: Trace<DeriveParams, DeriveState>, narrow: boolea
   });
   return bindTable<DeriveState>(table as never);
 }
+
+/** 手机上的字牌写 text，宽屏的块写 value；手机的表达式牌把信号名写在前面。 */
+const plate = (text: string, narrow: boolean): Record<string, unknown> => (narrow ? { text, hidden: text === '' } : { value: text });
+const exprText = (signal: string, text: string, narrow: boolean): string => (narrow && text ? `${signal} = ${text}` : text);
 
 /** 合并那一步：亮着的格子按项飞到项牌上；最后一步：项牌拼进表达式牌。 */
 export function hardMoves(trace: Trace<DeriveParams, DeriveState>, narrow: boolean) {
@@ -317,7 +337,7 @@ function showExpression(text: string, trace: Trace<DeriveParams, DeriveState>, n
     cells[r!]![c!] = `漏：${cells[r!]![c!] || '保持'}`;
   }
   return {
-    patch: { ...gridPatch(gridView(ops, narrow), cells, keys, [...missing, ...extra].map((x) => cellOf(x, ops)), -1), EXPR: { value: text } },
+    patch: { ...gridPatch(gridView(ops, narrow), cells, keys, [...missing, ...extra].map((x) => cellOf(x, ops)), -1), EXPR: plate(exprText(trace.params.signal, text, narrow), narrow) },
     missing,
     extra,
   };
@@ -353,7 +373,7 @@ export function hardBreak(trace: Trace<DeriveParams, DeriveState>, narrow: boole
       const shown = showExpression(bare, trace, narrow);
       return {
         label: '弄坏它：去掉指令名',
-        patch: { ...shown.patch, TERM_0: { value: bare } },
+        patch: { ...shown.patch, TERM_0: plate(bare, narrow) },
         moves: [{ value: bare, from: 'TERM_0', to: 'EXPR', arc: true, ink: 'ctrl' }],
         message: `只写 ${bare}：${consequence(trace.params.signal, shown.missing, shown.extra)}`,
       };
@@ -363,7 +383,7 @@ export function hardBreak(trace: Trace<DeriveParams, DeriveState>, narrow: boole
     const shown = showExpression(kept, trace, narrow);
     return {
       label: `弄坏它：去掉第 ${drop + 1} 项`,
-      patch: { ...shown.patch, [`TERM_${drop}`]: { value: '' } },
+      patch: { ...shown.patch, [`TERM_${drop}`]: narrow ? { hidden: true } : { value: '' } },
       moves: [{ value: state.terms[drop]!.text, from: `TERM_${drop}`, to: 'SIG', arc: true, ink: 'ctrl' }],
       message: `去掉 ${state.terms[drop]!.text} 以后：${consequence(trace.params.signal, shown.missing, shown.extra)}`,
     };

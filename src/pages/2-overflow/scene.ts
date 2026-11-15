@@ -58,8 +58,9 @@ function textWidth(text: string, size: number): number {
 }
 
 export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solution: OverflowSolution, compact = false): OverflowScene {
-  const PITCH = compact ? 0.9 : 1.0;
   const { width: W, n, notation, op } = solution;
+  // 窄屏列距 0.76：360 宽的手机上七列加行名也装得下；减法有六行，靠前的几行离镜头近、在画面上更宽，同样不出右缘。
+  const PITCH = compact ? 0.76 : 1.0;
   const point = notation === '小数';
   const subtract = op === '减';
   const keys: RowKey[] = subtract ? ['y', 'inverted', 'carry', 'x', 'negY', 'sum'] : ['carry', 'x', 'y', 'sum'];
@@ -111,9 +112,9 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
       parts.push({ id: `dot-${key}`, kind: 'label', position: [(cx(2) + cx(3)) / 2, rz(key) + 0.18], props: { text: '.', size: 0.5, weight: 700 } });
     }
     const labelSize = compact ? 0.32 : 0.31;
-    // 窄屏上行名只留方括号那一段（[x]、+[−y]），全名在条件和解题表里。
+    // 窄屏上行名只留方括号那一段（[x]、+[y]；减法的加数写 [−y]，五个字符会伸出右缘），全名在条件和解题表里。
     // 结果行的 [x+y] 五个字符在手机上会伸出右缘，写成「和」「差」，全名在步骤标题里。
-    const shown = !compact ? label : key === 'sum' ? (subtract ? '差' : '和') : label.replace(/变补$/, '').replace(/\s+/g, '').replace('各位取反', '取反');
+    const shown = !compact ? label : key === 'sum' ? (subtract ? '差' : '和') : label.replace(/变补$/, '').replace(/\s+/g, '').replace('各位取反', '取反').replace(/^\+(\[[−-]y\])$/, '$1');
     parts.push({
       id: `label-${key}`,
       kind: 'label',
@@ -148,7 +149,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   };
 
   // 两个判定式并排。
-  const formulaWidth = compact ? Math.min(3.4, (span + 0.6) / 2) : 3.4;
+  const formulaWidth = compact ? Math.min(3.4, (span + 0.2) / 2) : 3.4;
   const zFormula = zSum + 3.1;
   parts.push({ id: 'vs', kind: 'register', position: [-(formulaWidth / 2 + 0.25), zFormula], props: { name: 'V = S_f1 ⊕ S_f2', value: '', width: formulaWidth } });
   parts.push({ id: 'vc', kind: 'register', position: [formulaWidth / 2 + 0.25, zFormula], props: { name: 'V = C_f ⊕ C_0', value: '', width: formulaWidth } });
@@ -161,14 +162,20 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   // 窄屏上数轴不比竖式宽，三段都能同时入画。
   // 窄屏上数轴三段的字不缩小：分区宽度按字来定，必要时比竖式宽一点。
   // 分区里的字最小缩到 0.31（手机上仍有 12 像素以上），数轴就不比竖式宽，整张竖式能横着放下。
-  const shrink = 0.31 / 0.36;
-  const L = compact ? Math.max(span + 0.9, 2 * (midText * shrink + 0.3)) : Math.max(10, span + 2.4, 4 * (sideText + 0.8), 2 * (midText + 0.8));
+  // 窄屏：两侧只写「负溢」「正溢」，各留一张名牌的宽度；范围写在中间一段（「−10000～+1111」），字不缩小。
+  // 三段不再按 1:2:1：360 宽的手机上按比例摆会比画面宽。
+  const midShown = compact ? `${low}～${high}` : `${low} 到 ${high}`;
+  const sideW = 1.02;
+  const midW = textWidth(midShown, 0.36) + 0.6;
+  const L = compact ? Math.max(span + 0.4, 2 * sideW + midW + 0.24) : Math.max(10, span + 2.4, 4 * (sideText + 0.8), 2 * (midText + 0.8));
   const zLine = zFormula + 1.75;
+  const side = compact ? (L - 0.24 - midW) / 2 : L / 4 - 0.12;
+  const mid = compact ? midW : L / 2 - 0.12;
+  const sideX = compact ? mid / 2 + 0.12 + side / 2 : (3 * L) / 8;
   const zones: { id: string; title: '负溢' | '无溢出' | '正溢'; x: number; w: number; value: string }[] = [
-    // 窄屏上两侧只写「负溢」「正溢」，范围写在中间一段，字不用缩小。
-    { id: 'zone-neg', title: '负溢', x: (-3 * L) / 8, w: L / 4 - 0.12, value: compact ? '' : `< ${low}` },
-    { id: 'zone-ok', title: '无溢出', x: 0, w: L / 2 - 0.12, value: `${low} 到 ${high}` },
-    { id: 'zone-pos', title: '正溢', x: (3 * L) / 8, w: L / 4 - 0.12, value: compact ? '' : `> ${high}` },
+    { id: 'zone-neg', title: '负溢', x: -sideX, w: side, value: compact ? '' : `< ${low}` },
+    { id: 'zone-ok', title: '无溢出', x: 0, w: mid, value: midShown },
+    { id: 'zone-pos', title: '正溢', x: sideX, w: side, value: compact ? '' : `> ${high}` },
   ];
   for (const zone of zones) {
     parts.push({ id: zone.id, kind: 'register', position: [zone.x, zLine], props: { name: zone.title, value: zone.value, width: zone.w }, pick: true, title: zone.title });
@@ -315,7 +322,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   // 符号位题看两个符号位那两列（进位、两个加数、结果）；判定题看结果的符号位和两个判定式。
   const signColumns = [1, 2].flatMap((c) => keys.map((key) => `${key}-${c}`));
   const askFrame = (ask: { kind: string }, index: number): string[] =>
-    index === asking ? [...signColumns, 'sign'] : ask.kind === 'choice' ? ['sum-1', 'sum-2', 'vs', 'vc'] : [];
+    index === asking ? [...signColumns, 'sign'] : ask.kind === 'choice' ? ['sum-1', 'sum-2', 'vs', 'vc', 'zone-neg', 'zone-ok', 'zone-pos'] : [];
 
   // 常见错误：都在判定那一步演，数取自这份 Trace。
   const judged = trace.steps.findIndex((step) => step.changes.some((change) => change.at === 'verdict'));
@@ -339,7 +346,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
         label: '',
         patch: { verdict: { text: '01 负溢？', hidden: false }, 'zone-neg': { focus: true } },
         moves: [],
-        message: 'S_f1 才是结果真正的符号。01 的第一位是 0：两个正数相加，结果本该是正数，第二位被数值位的进位改成了 1，所以 01 是正溢（教材 p37）。',
+        message: '结果的符号看 S_f1。01 的第一位是 0：两个正数相加，结果本该是正数，第二位被数值位的进位改成了 1，所以 01 是正溢（教材 p37）。',
       }),
     });
   }

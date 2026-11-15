@@ -12,7 +12,7 @@ import { Rich } from '../../player/Rich';
 import { CASES, breakMoves, breakTrace, breakWrong } from './break';
 import { subScene } from '../2-mul/code';
 import type { BreakState } from './break';
-import { DIV_CONCLUSION, DIV_NEEDS, DIV_QUESTION, EXAMPLES, exampleParams, lesson } from './lesson';
+import { DIV_CONCLUSION, DIV_NEEDS, DIV_QUESTION, DIV_QUESTION_NARROW, EXAMPLES, exampleParams, lesson } from './lesson';
 import { Paper } from './Paper';
 import { divScene } from './scene';
 import '../2-mul/mul.css';
@@ -104,7 +104,7 @@ function Learn() {
           onWrong={made.wrong}
           askFrame={made.askFrame}
           frame={made.frame}
-          question={DIV_QUESTION}
+          question={narrow ? DIV_QUESTION_NARROW : DIV_QUESTION}
           conclusion={DIV_CONCLUSION}
           needs={DIV_NEEDS}
           mistakes={made.mistakes}

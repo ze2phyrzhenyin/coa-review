@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { TargetedEvent } from 'preact';
 import { useIntParam, useParam } from '../../app/url-state';
+import { useNarrow } from '../../app/media';
 import { run, sampleParams } from '../../engines/cpu/model';
 import type { Instruction, Params, SignalNames } from '../../engines/cpu/model';
 import { Player } from '../../player/Player';
@@ -8,7 +9,7 @@ import { Rich } from '../../player/Rich';
 import { coarseMoves, coarsen, grainNames } from '../../player/coarsen';
 import type { Grain } from '../../player/coarsen';
 import { Gallery } from '../../player/Gallery';
-import { MACHINE_CONCLUSION, MACHINE_NEEDS, MACHINE_QUESTION, machineBind, machineBreak, machineCaption, machineFrame, machineConvention, machineMistakes, machineMoves, machineNames, machineScene, machineValues, machineWrong, withNotes } from './machine';
+import { MACHINE_CONCLUSION, MACHINE_NEEDS, MACHINE_QUESTION, machineBind, machineBreak, machineCaption, machineFrame, machineConvention, machineMistakes, machineMoves, machineNames, machinePhoneFrame, machineScene, machineValues, machineWrong, withNotes } from './machine';
 import { answerRows, describe, grade, makeInstruction } from './practice';
 import type { Entry, Grade } from './practice';
 import { TRY_DEFAULT, toParams } from './program';
@@ -72,6 +73,7 @@ function Choice<T extends string>({ label, value, options, names, onChange }: { 
 
 /** 一份参数 → 播放器要的全部东西。粒度换了，场景不变。 */
 function useMachine(params: Params | null, grain: Grain) {
+  const narrow = useNarrow();
   const full = useMemo(() => {
     if (!params) return { trace: null, error: '' };
     try {
@@ -80,7 +82,7 @@ function useMachine(params: Params | null, grain: Grain) {
       return { trace: null, error: error instanceof Error ? error.message : String(error) };
     }
   }, [params]);
-  const scene = useMemo(() => (full.trace ? machineScene(full.trace) : null), [full]);
+  const scene = useMemo(() => (full.trace ? machineScene(full.trace, narrow) : null), [full, narrow]);
   const bind = useMemo(() => (full.trace ? machineBind(full.trace) : null), [full]);
   const coarse = useMemo(() => (full.trace ? coarsen(full.trace, grain) : null), [full, grain]);
   const moves = useMemo(() => (coarse ? coarseMoves(coarse.members, machineMoves) : undefined), [coarse]);
@@ -88,7 +90,7 @@ function useMachine(params: Params | null, grain: Grain) {
   const mistakes = useMemo(() => (coarse ? machineMistakes(coarse.trace) : undefined), [coarse]);
   // 「选寄存器」这一步教材没有单独的信号名，是本站为讲清楚拆出来的：标「本站约定」。
   const convention = useMemo(() => machineConvention, []);
-  return { ...full, scene, bind, coarse, moves, wrong, mistakes, convention };
+  return { ...full, scene, bind, coarse, moves, wrong, mistakes, convention, narrow };
 }
 
 function useGrain() {
@@ -131,7 +133,7 @@ function Machine({ params, error, controls }: { params: Params | null; error?: s
       caption={machineCaption}
       breakIt={machineBreak}
       onWrong={made.wrong}
-      frame={grain === 'explain' ? machineFrame : undefined}
+      frame={made.narrow ? machinePhoneFrame : grain === 'explain' ? machineFrame : undefined}
       question={MACHINE_QUESTION}
       conclusion={MACHINE_CONCLUSION}
       needs={MACHINE_NEEDS}

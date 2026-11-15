@@ -78,7 +78,8 @@ for (const id of deep) {
   const withPlayer = implementedIds.filter((id) => id !== '');
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
-  for (const id of withPlayer) for (const other of withPlayer.filter((item) => item !== id)) {
+  // 每页配它后面的一页（末页配首页）：每页都当一次「离开的页」和一次「到达的页」。两两全配是 n² 组，27 页要跑二十多分钟。
+  for (const [at, id] of withPlayer.entries()) for (const other of withPlayer.length > 1 ? [withPlayer[(at + 1) % withPlayer.length]] : []) {
     // 停在靠后的一步（别的页面步数上限更小时，最容易把参数改掉）。
     await open(page, `${id}?s=999`);
     if (!(await page.locator('[data-player]').count())) continue;

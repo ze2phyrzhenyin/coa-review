@@ -1,0 +1,3 @@
+✗ /5-cycle 360×740：locator.click: Timeout 15000ms exceeded.
+✗ /5-cycle 390×844：locator.click: Timeout 15000ms exceeded.
+qa-clip：2 处问题

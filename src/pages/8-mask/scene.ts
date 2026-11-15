@@ -38,6 +38,7 @@ export interface MaskStage {
   names: (path: string) => string;
   values: (path: string, value: string) => string;
   caption: (state: State) => string;
+  question: { text: string; at: string[] };
   flipPart: (ask: Ask, index: number) => string | null;
   askFrame: (ask: Ask, index: number) => string[];
   frame: (step: Step<State>) => string[] | null;
@@ -57,7 +58,7 @@ export function kindOf(step: Step<State>): 'mask' | 'order' | 'arrive' | 'enter'
 }
 
 export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskStage {
-  const ROW = narrow ? 1.4 : 1.15;
+  const ROW = narrow ? 1.28 : 1.15;
   const n = trace.params.levels;
   const final = trace.steps.at(-1)?.state ?? trace.initial;
   const end = Math.max(1, final.t);
@@ -78,7 +79,7 @@ export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskSta
   const lanes = [...Array.from({ length: n }, (_, i) => `L${i}`), '主程序'];
   const trackDepth = lanes.length * 1.25 + 0.5;
   const TRX = narrow ? 0.45 : SX + 1.6 + 1.2 + trackLength / 2;
-  const TRZ = narrow ? SZ + 1.5 + trackDepth / 2 : (Z0 - 1.2 + ZB + 2 * ROW) / 2;
+  const TRZ = narrow ? SZ + 7.0 + trackDepth / 2 : (Z0 - 1.2 + ZB + 2 * ROW) / 2;
 
   const parts: PartSpec[] = [];
   const table: Parameters<typeof bindTable<State>>[0] = {};
@@ -90,7 +91,9 @@ export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskSta
   };
   for (let j = 0; j < n; j++) parts.push({ id: `h-${j}`, kind: 'label', position: [xs(j), Z0 - (narrow ? 1.25 : 0.9)], props: { text: `L${j}`, size: 0.31, tone: 'muted', weight: 600 } });
   for (let i = 0; i < n; i++) {
-    parts.push({ id: `m-${i}`, kind: 'bits', position: [TX, Z0 + i * ROW], props: { name: `L${i} 程序`, bits: blankRow, group: 8 }, pick: true, title: `L${i}` });
+    // 行名单独一块牌：翻片那一排的范围只包住位片，候选框才贴着这一排。
+    parts.push({ id: `r-${i}`, kind: 'label', position: [xs(0) - 1.35, Z0 + i * ROW], props: { text: `L${i} 程序`, size: 0.31, weight: 600, plate: true } });
+    parts.push({ id: `m-${i}`, kind: 'bits', position: [TX, Z0 + i * ROW], props: { bits: blankRow, group: 8 }, pick: true, title: `L${i}` });
     table[`m-${i}`] = { bits: from(`masks.${i}`, (c) => c.state.masks[i] || blankRow) };
   }
 
@@ -206,11 +209,16 @@ export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskSta
   const frame = (step: Step<State>): string[] | null => {
     const kind = kindOf(step);
     if (kind === 'run') return ['track'];
+    if (narrow) {
+      const rows = Array.from({ length: n }, (_, i) => `m-${i}`);
+      if (kind === 'arrive') return ['irr', 'imr', 'pass'];
+      if (kind === 'enter') return ['imr', 'pass', 'queue', 'stack'];
+      if (kind === 'finish') return ['imr', 'pass', 'stack'];
+      if (kind === 'mask') return ['h-0', ...rows];
+      if (kind === 'order') return ['order', 'h-0', ...rows];
+      return null;
+    }
     if (kind === 'arrive') return ['irr', 'imr', 'pass', 'track'];
-    if (narrow && kind === 'enter') return ['irr', 'imr', 'pass', 'queue', 'stack'];
-    if (narrow && kind === 'finish') return ['imr', 'pass', 'stack', 'done'];
-    if (narrow && kind === 'mask') return ['h-0', ...Array.from({ length: n }, (_, i) => `m-${i}`)];
-    if (narrow && kind === 'order') return ['order', 'h-0', ...Array.from({ length: n }, (_, i) => `m-${i}`)];
     return null;
   };
 
@@ -313,5 +321,7 @@ export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskSta
     return null;
   };
 
-  return { scene, bind, moves, names, values, caption, flipPart, askFrame, frame, wrong, mistakes, convention };
+  // 手机上一屏放不下整张表加三排寄存器：问题落在屏蔽寄存器和送排队器上。
+  const question = narrow ? { ...MASK_QUESTION, at: ['imr', 'pass'] } : MASK_QUESTION;
+  return { scene, bind, moves, names, values, caption, question, flipPart, askFrame, frame, wrong, mistakes, convention };
 }

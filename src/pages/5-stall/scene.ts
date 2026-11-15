@@ -133,9 +133,10 @@ export function stallStage(trace: T, narrow: boolean): StallStage {
   const columns = T_ + 1;
   const chartH = 0.48 + n * 0.59 + 0.16;
   const chartZ = narrow ? -1.0 - chartH * 0.3 : -1.4 - chartH * 0.45;
-  const lineZ = chartZ + (narrow ? 2.25 : 3.3);
+  // 窄屏：盒子上方有两层小牌，离时空表远一点，牌不压到表里的字。
+  const lineZ = chartZ + (narrow ? 2.75 : 3.3);
   const rows = list.map((x, j) => (narrow ? `I${j + 1}` : `I${j + 1} ${x.text}`));
-  const sw = narrow ? (k === 5 ? 1.08 : 1.25) : 1.8;
+  const sw = narrow ? (k === 5 ? 0.9 : 1.05) : 1.8;
 
   const parts: PartSpec[] = [
     {
@@ -144,13 +145,15 @@ export function stallStage(trace: T, narrow: boolean): StallStage {
       position: [0, chartZ],
       title: '时空表',
       props: {
-        name: '时空表',
-        corner: '指令＼周期',
+        // 窄屏不立名牌：板子顶上省出一行，整块板装得进画面。
+        ...(narrow ? {} : { name: '时空表' }),
+        corner: narrow ? '周期' : '指令＼周期',
         columns: Array.from({ length: columns }, (_, c) => String(c + 1)),
         rows,
         cells: rows.map(() => Array.from({ length: columns }, () => '')),
         cellWidth: narrow ? (k === 5 ? 0.82 : 0.74) : 0.8,
-        window: narrow ? 6 : 15,
+        window: narrow ? 5 : 15,
+        slide: narrow,
         lag: 380,
       } satisfies ChartProps,
       describe: () => '时空表',
@@ -167,7 +170,7 @@ export function stallStage(trace: T, narrow: boolean): StallStage {
         queue: list.map((_, j) => `I${j + 1}`),
         done: 0,
         stationWidth: sw,
-        padWidth: narrow ? 0.95 : 1.5,
+        padWidth: narrow ? (k === 5 ? 0.7 : 0.8) : 1.5,
         compact: narrow,
       } satisfies LineProps,
       describe: (p) => `装配线：${(p.items as string[]).map((item, s) => `${names[s]} ${item.startsWith('~') ? '空泡' : item || '空'}`).join('，')}`,
@@ -189,7 +192,7 @@ export function stallStage(trace: T, narrow: boolean): StallStage {
       const nextAt = s + 1 < k ? timing.enter[j]![s + 1]! : null;
       const why = s + 1 < k ? timing.reason[j]![s + 1] : null;
       if (why && nextAt !== null && t < nextAt) {
-        if (why.kind === 'data') {
+        if (why.kind === 'data' && t > timing.enter[j]![s]!) {
           const last = t === nextAt - 1;
           tags[s] = last ? (params.mode === '后推' ? `读 ${why.reg}` : `${why.reg} 将到`) : `等 ${why.reg}`;
           tones[s] = last ? '' : 'hot';

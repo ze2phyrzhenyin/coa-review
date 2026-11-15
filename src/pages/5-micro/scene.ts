@@ -376,7 +376,7 @@ export function microFrame(step: Step<MicroState>): string[] | null {
   const changed = (prefix: string) => step.changes.some((change) => change.at === prefix || change.at.startsWith(`${prefix}.`));
   if (step.level === 'cycle') return ['CM', 'uC1'];
   if (changed('branch')) return ['uAR', 'ATL', 'uN'];
-  if (changed('reg.IR')) return ['IR', 'uC2'];
+  if (changed('reg.IR')) return ['IR'];
   if (changed('loaded') && s.loaded.length) return [...s.loaded, 'BUS'];
   if (changed('alu.out')) return ['ALU', 'MX'];
   if (changed('reg.PC')) return ['PC', 'uC2'];
@@ -552,7 +552,7 @@ export function microMistakes(trace: Trace<MicroParams, MicroState>): Mistake<Mi
       const wrong = st.branch!.modified.slice(0, 3) + (st.branch!.modified[3] === '1' ? '0' : '1');
       const broken = rerun(trace.params, row.addr, (bits) => setBit(bits.slice(0, 19) + wrong, 19, '0'));
       out.push({
-        text: '容易把 P_2 的两支记反，以为 Cy=1 才去减 6，因为进位看着像「多了」',
+        text: '容易把 P_2 的两支记反，以为 Cy=1 才去减 6，因为有进位看着像加多了',
         at: p2At + 1,
         act: (state) => ({
           label: '',
@@ -586,7 +586,8 @@ export function microAskFrame(trace: Trace<MicroParams, MicroState>, narrow = fa
   return (ask: Ask, index: number): string[] => {
     if (ask.kind !== 'bits') return [];
     const st = index > 0 ? trace.steps[index - 1]!.state : trace.initial;
-    const ids = ['uAR', 'ATL', 'uN', 'uP'];
+    // 窄屏只看两排四件：下地址和地址转移逻辑、μAR 和 IR；P 字段在上面一排，题面里已经点了是 P_1 还是 P_2。
+    const ids = narrow ? ['uAR', 'ATL', 'uN'] : ['uAR', 'ATL', 'uN', 'uP'];
     if (st.uIR?.p1) ids.push('IR');
     // 窄屏上 Cy 在运算器那边，离得远；Cy 的值题面里已经写了。
     if (st.uIR?.p2 && !narrow) ids.push('Cy');

@@ -7,7 +7,7 @@ import { generate, masksFromOrder, run, simulate, validateParams } from '../../e
 import type { Arrival, Params } from '../../engines/mask/model';
 import { Player } from '../../player/Player';
 import { Rich } from '../../player/Rich';
-import { MASK_CONCLUSION, MASK_NEEDS, MASK_QUESTION, levelName, maskStage } from './scene';
+import { MASK_CONCLUSION, MASK_NEEDS, levelName, maskStage } from './scene';
 import { Paper } from './Paper';
 import type { Entry, PaperMiss } from './Paper';
 import { PageTabs, plainAsks, useSeed } from './shared';
@@ -65,7 +65,7 @@ function MaskPlayer({ params, lesson }: { params: Params; lesson?: boolean }) {
       frame={stage.frame}
       onWrong={stage.wrong}
       convention={stage.convention}
-      {...(lesson ? { question: MASK_QUESTION, conclusion: MASK_CONCLUSION, needs: MASK_NEEDS, mistakes: stage.mistakes } : {})}
+      {...(lesson ? { question: stage.question, conclusion: MASK_CONCLUSION, needs: MASK_NEEDS, mistakes: stage.mistakes } : {})}
     />
     <details class="mk-path">
       <summary>纸面上的运行轨迹</summary>

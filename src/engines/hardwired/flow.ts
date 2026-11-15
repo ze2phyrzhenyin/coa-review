@@ -115,7 +115,7 @@ export function runFlow(params: FlowParams): Trace<FlowParams, FlowState> {
     step({
       level: 'explain',
       title: `${format(ins)} 结束：～`,
-      why: `这条指令共 ${cycles.length} 个方框，也就是 ${cycles.length} 个 CPU 周期。末尾的「～」是公操作：处理外设请求，没有请求就去取下一条指令（p161）。`,
+      why: `这条指令共 ${cycles.length} 个方框，占 ${cycles.length} 个 CPU 周期。末尾的「～」是公操作：处理外设请求，没有请求就去取下一条指令（p161）。`,
       ref: '教材 p161–162',
       ...(ask ? { ask } : {}),
       update: (d) => {

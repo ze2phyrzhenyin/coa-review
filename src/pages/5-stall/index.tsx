@@ -37,7 +37,7 @@ const MODE_ITEMS = MODES.map((mode) => ({ key: mode, label: mode }));
 function Lead() {
   return (
     <p class="pp-lead">
-      前一条还没把结果写回，后一条就要读它（<Term k="RAW">RAW</Term>）。教材的口径：写回寄存器之后的<strong>下一个周期</strong>才读得到。三种做法：不处理（读到旧值），<Term k="后推">后推</Term>（在 ID 停下来等），<Term k="定向">定向</Term>（结果一算出来就从专用通路送过去）。
+      前一条还没把结果写回，后一条就要读它（<Term k="RAW">RAW</Term>）。教材的口径：写回寄存器之后的下一个周期才读得到。做法：不处理（读到旧值），<Term k="后推">后推</Term>（在 ID 停下来等），<Term k="定向">定向</Term>（结果一算出来就从专用通路送过去）。
     </p>
   );
 }

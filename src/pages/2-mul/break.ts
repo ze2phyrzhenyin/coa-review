@@ -59,7 +59,7 @@ export function breakTrace(which: number): Trace<MulParams, BreakState> {
   };
   builder.step({
     title: `E 都接 0：[x]补、[y]补 的数值位 ${fed.a}、${fed.b} 原样进阵列`,
-    why: '求补器不动作，阵列拿到的不是绝对值。负数补码的数值位按无符号读，比绝对值大了一截。',
+    why: `求补器不动作。负数补码的数值位按无符号读是 2^${N} − |x|，阵列拿到的不是绝对值。`,
     ref: '教材 p47 图 2.9',
     update: put(fed),
   });

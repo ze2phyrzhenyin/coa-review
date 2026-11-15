@@ -46,7 +46,7 @@ function Compare({ params }: { params: Params }) {
   return (
     <div class="t4-table-wrap">
       <table class="t4-table">
-        <caption>同一组数，三种映射</caption>
+        <caption>同一组数换映射方式</caption>
         <thead>
           <tr>
             <th scope="col">映射</th>

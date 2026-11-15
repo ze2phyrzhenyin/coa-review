@@ -391,7 +391,7 @@ function Break() {
         </div>
         <p class="mk-note">
           请求和讲解的例题相同。坏了以后授权次序是 <span class="mono">{result['授权次序']}</span>，得不到总线的是 <span class="mono">{result['得不到总线'] ?? '无'}</span>。真实机器里这些设备的 BR
-          一直挂着，仲裁器每轮都发 BG，却总在坏点停下；这就是链式查询「对电路故障敏感」的意思（教材 p212）。
+          一直挂着，仲裁器每轮都发 BG，却总在坏点停下。链式查询对电路故障敏感（教材 p212）。
         </p>
       </div>
       <ArbPlayer params={params} />

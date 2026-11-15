@@ -323,7 +323,7 @@ function runFrame(p: FrameParams): Trace<Params, State> {
     }
     step({
       title: `每位时间 ${timeText}`,
-      why: '一秒里排了「波特率」那么多个位，每一位占的时间是波特率的倒数。',
+      why: '一秒传的位数等于波特率，每一位占的时间是它的倒数。',
       ref: '教材 p211 例 6.2',
       update: (s) => {
         (s as FrameState).bitTime = timeText;
@@ -332,7 +332,7 @@ function runFrame(p: FrameParams): Trace<Params, State> {
     rows.push({ cells: ['每位时间', `1 ÷ ${formatNumber(r.baud).replace('≈ ', '')} s`, timeText], step: at() });
     step({
       title: `有效数据率 ${dataText} 位/秒`,
-      why: `每个字符里真正是数据的只有 ${p.dataBits} 位，起始、校验、停止位不算，所以用字符速率乘数据位数。`,
+      why: `每个字符里只有 ${p.dataBits} 位是数据，起始、校验、停止位不算，所以用字符速率乘数据位数。`,
       update: (s) => {
         (s as FrameState).dataRate = dataText;
       },

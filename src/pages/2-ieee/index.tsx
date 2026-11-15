@@ -56,6 +56,7 @@ function Learn() {
           flipPart={made.flipPart}
           onWrong={made.wrong}
           askFrame={made.askFrame}
+          frame={made.frame}
           question={made.question}
           conclusion={IEEE_CONCLUSION}
           needs={NEEDS}
@@ -186,6 +187,7 @@ function Try() {
             flipPart={made.flipPart}
             onWrong={made.wrong}
             askFrame={made.askFrame}
+          frame={made.frame}
             convention={made.convention}
           />
         </>
@@ -221,6 +223,7 @@ function Practice() {
         flipPart={made.flipPart}
         onWrong={made.wrong}
         askFrame={made.askFrame}
+          frame={made.frame}
         convention={made.convention}
       >
         <button type="button" class="btn" onClick={next}>
@@ -240,7 +243,7 @@ function Break() {
       <p class="cd-task">
         <Rich text="同一个 6.625 存三次，每次都让机器按 IEEE 754 单精度读回来，看指针停在哪一段。" />
       </p>
-      <Player key={`break-${narrow}`} trace={trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} onWrong={breakWrong} />
+      <Player key={`break-${narrow}`} trace={trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} frame={made.frame} onWrong={breakWrong} />
     </>
   );
 }

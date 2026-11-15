@@ -209,7 +209,7 @@ function Try() {
       <Player key={JSON.stringify(params)} trace={trace} scene={stage.scene} bind={stage.bind} moves={stage.moves} names={stage.names} values={stage.values} frame={stage.frame} askFrame={stage.askFrame(trace)} onWrong={wrong} />
       <div class="cr-compare-wrap">
         <table class="cr-compare">
-          <caption>同一串地址，换映射和替换算法</caption>
+          <caption>同一串地址换映射和替换算法</caption>
           <thead>
             <tr>
               <th scope="col">映射</th>

@@ -100,7 +100,6 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
     };
   }
 
-  if (narrow) parts.push({ id: 'cap', kind: 'label', position: [ARB[0], ARB[1] - 2.0], props: { text: '接口 0 离仲裁器最近', size: 0.31, tone: 'muted' } });
   const wires: SceneSpec['wires'] = [];
   if (chain) {
     // BG 链：仲裁器 → 接口 0 → 接口 1 → …
@@ -128,8 +127,8 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
       const [x, z] = devPos(i);
       if (narrow) {
         const xr = 1.7 + i * 0.5;
-        parts.push({ id: `sBR${i}`, kind: 'signal', position: [0, 0], props: { from: `D${i}.e`, to: 'ARB.e', text: `BR_${i}`, ink: 'ctrl', via: [[xr, z - 0.15], [xr, ARB[1] - 0.15]], labelAt: 0.06 } });
-        parts.push({ id: `sBG${i}`, kind: 'signal', position: [0, 0], props: { from: 'ARB.e', to: `D${i}.e`, text: `BG_${i}`, ink: 'ctrl', via: [[xr + 0.25, ARB[1] + 0.15], [xr + 0.25, z + 0.15]], labelAt: 0.55 } });
+        parts.push({ id: `sBR${i}`, kind: 'signal', position: [0, 0], props: { from: `D${i}.e`, to: 'ARB.e', text: `BR_${i}`, ink: 'ctrl', via: [[xr, z - 0.15], [xr, ARB[1] - 0.15]], labelAt: 0.36 } });
+        parts.push({ id: `sBG${i}`, kind: 'signal', position: [0, 0], props: { from: 'ARB.e', to: `D${i}.e`, text: `BG_${i}`, ink: 'ctrl', via: [[xr + 0.25, ARB[1] + 0.15], [xr + 0.25, z + 0.15]], labelAt: 0.38 } });
       } else {
         const lane = 1.2 + i * 0.62;
         parts.push({ id: `sBR${i}`, kind: 'signal', position: [0, 0], props: { from: `D${i}.s`, to: 'ARB.s', text: `BR_${i}`, ink: 'ctrl', via: [[x - 0.35, z + lane], [ARB[0] - 0.35, z + lane]], labelAt: 0.12 } });
@@ -217,18 +216,23 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
   const caption = (s: State): string => `t = ${s.t}　BS = ${s.bs}${s.owner === null ? '' : `　设备 ${s.owner} 占用总线`}`;
 
   const devices = Array.from({ length: n }, (_, i) => `D${i}`);
-  const askFrame = (): string[] => [...(narrow ? ['cap'] : []), 'ARB', ...devices];
+  const askFrame = (): string[] => ['ARB', ...devices];
   const frame = (step: Step<State>): string[] | null => {
     const kind = kindOf(step);
     const st = step.state;
-    const top = narrow ? ['cap'] : [];
-    if (kind === 'release' || kind === 'grant') return narrow && own ? [...top, 'ARB', ...devices] : [...top, 'ARB', ...devices, 'track'];
     if (kind === 'bg') {
       const i = st.devices.findLastIndex((d) => d.bg === 1);
-      return i > 0 ? [`D${i - 1}`, `D${i}`] : [...top, 'ARB', 'D0'];
+      return i > 0 ? [`D${i - 1}`, `D${i}`] : ['ARB', 'D0'];
     }
-    if (kind === 'count' && st.counter !== null) return [...top, 'ARB', `D${st.counter}`];
-    return [...top, 'ARB', ...devices];
+    if (kind === 'count' && st.counter !== null) return ['ARB', `D${st.counter}`];
+    if (narrow) {
+      // 手机上一屏放不下整条链加时间轴：置 BS 看仲裁器和得到总线的接口，释放看时间轴。
+      if (kind === 'grant' && st.owner !== null) return ['ARB', `D${st.owner}`];
+      if (kind === 'release') return own ? ['ARB', ...devices] : ['track'];
+      return ['ARB', ...devices];
+    }
+    if (kind === 'release' || kind === 'grant') return ['ARB', ...devices, 'track'];
+    return ['ARB', ...devices];
   };
 
   /** 答错：学生选的设备举着手，却看着 BG 被别人截走。 */
@@ -280,7 +284,7 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
           label: '',
           patch,
           moves: [{ value: 'BG', from: `D${w}`, to: `D${Math.min(n - 1, w + 1)}`, arc: true, shape: 'level' }],
-          message: `BR 是公共线，仲裁器只知道「有人要」，不知道是谁。BG 到了接口 ${w} 就被截住，不再往下送${behind.length ? `，${behind.map((i) => `设备 ${i}`).join('、')} 这一轮根本收不到 BG` : ''}。它们只能等下一轮，而下一轮 BG 还是先经过前面的接口。`,
+          message: `BR 是公共线，仲裁器只知道有设备在请求，不知道是哪一台。BG 到了接口 ${w} 就被截住，不再往下送${behind.length ? `，${behind.map((i) => `设备 ${i}`).join('、')} 这一轮收不到 BG` : ''}。它们只能等下一轮，而下一轮 BG 还是先经过前面的接口。`,
         };
       },
     });

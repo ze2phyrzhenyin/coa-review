@@ -68,7 +68,7 @@ export function withAsks(trace: Trace<IeeeParams, IeeeState>): Trace<IeeeParams,
         else if (changed(step, 'hex') && s.hex) ask = { prompt: '整个机器码写成十六进制（带 H）', kind: 'text', answer: s.hex, hint: '从左起 4 位一组，每组换成一位十六进制。' };
       } else {
         if (changed(step, 'e') && s.e && !changed(step, 'kind')) ask = { prompt: '指数 e 是多少', kind: 'number', answer: ascii(s.e), hint: L.teach ? '按阶码的码制读出它的真值。' : '规格化数 e = E − 偏移量；非规格化数 e = 1 − 偏移量。' };
-        else if (changed(step, 'decimal') && /^[−-]?\d+(\.\d{1,10})?$/.test(s.decimal)) ask = { prompt: 'x 的十进制值是多少', kind: 'number', answer: ascii(s.decimal), hint: '1.M 的小数点按 e 移，再按位权换成十进制，别忘了符号。' };
+        else if (changed(step, 'decimal') && /^[−-]?\d+(\.\d{1,10})?$/.test(s.decimal)) ask = { prompt: 'x 的十进制值是多少', kind: 'number', answer: ascii(s.decimal), hint: '1.M 的小数点按 e 移，再按位权换成十进制，符号看符号位。' };
       }
       return ask ? { ...step, ask } : step;
     }),

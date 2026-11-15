@@ -24,7 +24,7 @@ export function useEa(params: EaParams | null) {
           moves: eaMoves(params, rows),
           names: eaNames(params),
           frame: eaFrame(params, narrow),
-          askFrame: eaAskFrame(params),
+          askFrame: eaAskFrame(trace, narrow),
           wrong: eaWrong(params, rows),
           breakIt: eaBreak(params, rows),
           mistakes: eaMistakes(trace, rows),

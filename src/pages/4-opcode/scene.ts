@@ -27,14 +27,17 @@ interface Layout {
   verdict: (n: number) => [number, number];
 }
 
-function layout(narrow: boolean, codeW: number): Layout {
+function layout(narrow: boolean, codeW: number, n: number): Layout {
   if (narrow) {
-    const dz = 10.4;
+    // 手机：一类一栏，从左往右排（格式牌、可用牌在上，抽屉柜在下），镜头跟着当前这一类横着走。
+    // 不往纵深排：台面太深时靠前的部件会跑到镜头后面。
+    const dx = Math.max(8.2, codeW + 3.2);
+    const x0 = -((n - 1) * dx) / 2;
     return {
-      fmt: (i) => [-1.3, -6 + i * dz],
-      cap: (i) => [2.4, -6 + i * dz],
-      shelf: (i) => [0, -0.9 + i * dz],
-      verdict: (n) => [0, -6 + n * dz],
+      fmt: (i) => [x0 + i * dx, -5.4],
+      cap: (i) => [x0 + i * dx, -3.5],
+      shelf: (i) => [x0 + i * dx, 1.7],
+      verdict: (k) => [x0 + (k - 1) * dx, 7.4],
     };
   }
   // 宽屏一类一行：格式牌、可用牌、抽屉柜从左往右。
@@ -64,11 +67,11 @@ export function opScene(trace: Trace<OpcodeParams, OpcodeState>, narrow: boolean
   const n = p.levels.length;
   const longest = Math.max(...trace.steps.flatMap((s) => s.state.levels.flatMap((l) => [...(l.range ?? []), ...(l.reservedRange ?? [])].map((t) => t.length))), 4);
   const codeW = Math.min(5.2, longest * 0.2 + 0.4);
-  const L = layout(narrow, codeW);
+  const L = layout(narrow, codeW, n);
   const parts: PartSpec[] = [];
   p.levels.forEach((l, i) => {
-    parts.push({ id: `FMT_${i}`, kind: 'register', position: L.fmt(i), props: { name: levelName(l.addresses), value: formatText(p, i), width: narrow ? 3.6 : Math.min(5.4, Math.max(4.2, formatText(p, i).length * 0.2 + 0.5)), ink: 'ctrl' } });
-    parts.push({ id: `CAP_${i}`, kind: 'register', position: L.cap(i), props: { name: '可用', value: '', width: narrow ? 2.6 : 2.8 } });
+    parts.push({ id: `FMT_${i}`, kind: 'register', position: L.fmt(i), props: { name: levelName(l.addresses), value: formatText(p, i), width: narrow ? Math.max(3.6, Math.min(5.6, formatText(p, i).length * 0.21 + 0.5)) : Math.min(5.4, Math.max(4.2, formatText(p, i).length * 0.2 + 0.5)), ink: 'ctrl' } });
+    parts.push({ id: `CAP_${i}`, kind: 'register', position: L.cap(i), props: { name: '可用', value: '', width: narrow ? 2.4 : 2.8 } });
     parts.push({
       id: `SHELF_${i}`,
       kind: '4-opcode:cabinet',
@@ -274,10 +277,29 @@ export const opQuestion = (p: OpcodeParams, narrow: boolean) => ({
   at: narrow ? ['FMT_0', 'CAP_0'] : p.levels.flatMap((_, i) => [`FMT_${i}`, `SHELF_${i}`]),
 });
 
-/** 宽屏每一步都看整张台面，上面几层不被切掉；手机上按焦点走。 */
+/**
+ * 宽屏每一步都看整张台面，上面几层不被切掉。手机上一步只看这一步讲的那一两块：
+ * 算可用编码看格式牌和可用牌，取码看抽屉柜，最后看方案牌。
+ */
 export function opFrame(p: OpcodeParams, narrow: boolean) {
   const all = [...p.levels.flatMap((_, i) => [`FMT_${i}`, `CAP_${i}`, `SHELF_${i}`]), 'VERDICT'];
-  return (): string[] | null => (narrow ? null : all);
+  return (step?: Step<OpcodeState>): string[] | null => {
+    if (!narrow) return all;
+    if (!step) return null;
+    const i = step.state.current;
+    if (step.changes.some((c) => c.at === 'feasible') && step.state.feasible) return ['VERDICT'];
+    if (i === null) return null;
+    return step.changes.some((c) => c.at === `levels.${i}.available`) ? [`FMT_${i}`, `CAP_${i}`] : [`SHELF_${i}`];
+  };
+}
+
+/** 手机上出题时看题目问的那一类的格式牌和可用牌。 */
+export function opAskFrame(trace: Trace<OpcodeParams, OpcodeState>, narrow: boolean) {
+  return (_ask: Ask, index: number): string[] => {
+    if (!narrow) return [];
+    const i = trace.steps[index]?.state.current ?? 0;
+    return [`FMT_${i}`, `CAP_${i}`];
+  };
 }
 export const OP_CONCLUSION =
   '从地址最多的一类排起：第一类可用 2^操作码位数 个编码，每类从小到大取够自己的条数，其余的码全部留作扩展；下一类可用 = 上一类留下的码数 × 2^多出的操作码位数。哪一类要的条数比它可用的多，方案就不可行，要缩减前面某一类。';

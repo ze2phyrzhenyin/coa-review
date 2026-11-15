@@ -49,9 +49,13 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
   // 每列宽：放得下「命中」两个字。
   const colW = narrow ? 0.62 : 0.98;
   const at = <T>(wide: T, small: T): T => (narrow ? small : wide);
-  const beltW = 1.2;
+  // 手机上页面不多于 3 个时，访问页、传送带、淘汰排成一排（带子窄一点，不挂名牌），整张台面矮一截，360 宽也装得下表和传送带。
+  // 页面更多时一排放不下，访问页和淘汰排到传送带下面。
+  const inline = narrow && n <= 3;
+  const beltW = inline ? 0.95 : 1.2;
   const beltLen = n * beltW + 0.5;
-  const tableZ = at(-3.7, -4.5 - Math.max(0, n - 3) * 0.3);
+  const rowZ = inline ? -1.25 : -1.6;
+  const tableZ = at(-3.7, (inline ? -3.3 : -4.2) - Math.max(0, n - 3) * 0.3);
 
   const parts: PartSpec[] = [
     {
@@ -60,44 +64,45 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
       position: [0, tableZ],
       title: '列表',
       props: {
-        name: '页面访问序列',
+        // 手机上列宽只够一个字，行名再写「命中」表就比 360 的屏宽：最下一行打 ✓，名牌上说明。
+        name: narrow ? '页面访问序列（✓ 是命中）' : '页面访问序列',
         // 宽屏照例 3.11 在最右加一列「命中率」；手机上放不下，改成表下面的一块牌。
         columns: [...pages.map((p) => ({ title: String(p), width: colW })), ...(narrow ? [] : [{ title: '命中率', width: 2.3 }])],
         rows: Array.from({ length: n + 1 }, () => [...pages.map(() => ''), ...(narrow ? [] : [''])]),
-        labels: [...Array.from({ length: n }, (_, i) => slot(i)), narrow ? '命中' : ''],
+        labels: [...Array.from({ length: n }, (_, i) => slot(i)), ''],
       },
     },
     {
       id: 'conv',
       kind: 'conveyor',
-      position: at([0.2, 0.3], [0.5, -1.6]),
+      position: at([0.2, 0.3], inline ? [0, rowZ] : [0.5, rowZ]),
       title: '主存页面',
-      props: { name: '主存', slots: n, items: items(trace.initial.frames), inLabel: slot(0), outLabel: slot(n - 1), slotWidth: beltW },
+      props: { ...(inline ? {} : { name: '主存' }), slots: n, items: items(trace.initial.frames), inLabel: slot(0), outLabel: slot(n - 1), slotWidth: beltW },
     },
-    { id: 'cur', kind: 'register', position: at([-beltLen / 2 - 3.0, 0.3], [-1.75, 0.6]), props: { name: '访问页', value: '', width: params.addresses ? 2.6 : 2.0 } },
-    { id: 'out', kind: 'register', position: at([beltLen / 2 + 3.1, 0.3], [1.75, 0.6]), props: { name: '淘汰', value: '', width: 2.6 } },
+    { id: 'cur', kind: 'register', position: at([-beltLen / 2 - 3.0, 0.3], inline ? [-2.65, rowZ] : [-1.75, 0.6]), props: { name: '访问页', value: '', width: inline ? 1.55 : params.addresses ? 2.6 : 2.0 } },
+    { id: 'out', kind: 'register', position: at([beltLen / 2 + 3.1, 0.3], inline ? [2.65, rowZ] : [1.75, 0.6]), props: { name: '淘汰', value: '', width: inline ? 1.55 : 2.6 } },
     {
       id: 'cmp',
       kind: 'compare',
-      position: at([-1.6, 2.7], [0, 2.5]),
+      position: at([-1.6, 2.7], [0, inline ? 1.2 : 2.5]),
       title: '找这一页',
       props: { left: '', right: '', ...(narrow ? {} : { leftName: '访问页', rightName: '主存里' }) },
     },
-    { id: 'hit', kind: 'label', position: at([2.4, 2.7], [-1.2, 3.9]), props: { text: '命中 0', plate: true, size: 0.36, weight: 600, mono: true }, pick: true, title: '命中' },
-    { id: 'miss', kind: 'label', position: at([4.4, 2.7], [1.2, 3.9]), props: { text: '缺页 0', plate: true, size: 0.36, weight: 600, mono: true }, pick: true, title: '缺页' },
+    { id: 'hit', kind: 'label', position: at([2.4, 2.7], [-1.2, inline ? 2.6 : 3.9]), props: { text: '命中 0', plate: true, size: 0.36, weight: 600, mono: true }, pick: true, title: '命中' },
+    { id: 'miss', kind: 'label', position: at([4.4, 2.7], [1.2, inline ? 2.6 : 3.9]), props: { text: '缺页 0', plate: true, size: 0.36, weight: 600, mono: true }, pick: true, title: '缺页' },
   ];
-  if (narrow) parts.push({ id: 'ratio', kind: 'label', position: [0, 5.4], props: { text: '', plate: true, size: 0.36, weight: 600, mono: true } });
+  if (narrow) parts.push({ id: 'ratio', kind: 'label', position: [0, inline ? 3.9 : 5.4], props: { text: '', plate: true, size: 0.36, weight: 600, mono: true } });
   // 传送带自己只在两端写 a 和最后一格的字母；中间几格补上，和表的行名对得上。
   const convAt = parts.find((part) => part.id === 'conv')!.position;
   for (let k = 1; k < n - 1; k++) {
     parts.push({ id: `slot${k}`, kind: 'label', position: [convAt[0] - (n * beltW) / 2 + beltW * (k + 0.5), convAt[1] + 0.82], props: { text: slot(k), size: 0.31, weight: 600, tone: 'text' } });
   }
   const wires = [
-    { id: 'cur-conv', from: narrow ? 'cur.n' : 'cur', to: 'conv' },
-    { id: 'conv-out', from: 'conv', to: narrow ? 'out.n' : 'out' },
+    { id: 'cur-conv', from: narrow && !inline ? 'cur.n' : 'cur', to: 'conv' },
+    { id: 'conv-out', from: 'conv', to: narrow && !inline ? 'out.n' : 'out' },
   ];
 
-  // 窄屏上列宽只够一个字：「命中」那一行写 ✓，行名写「命中」。
+  // 窄屏上列宽只够一个字：「命中」那一行写 ✓。
   const mark = (text: string): string => (narrow && text === '命中' ? '✓' : text);
   const comparing = (c: BindContext<State>): boolean => !!c.step && c.step.level === 'explain' && c.state.current.n > 0 && c.state.current.hit !== null && c.state.current.n <= count && !isTail(c);
   /** 页面自己加的最后一步（命中率）。 */
@@ -126,10 +131,11 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
       value: from<State>(['current.page'], (c) => {
         if (c.state.current.page === null || isTail(c)) return '';
         const address = params.addresses?.[c.state.current.n - 1];
-        return address === undefined ? `页 ${c.state.current.page}` : `页 ${c.state.current.page}（${address}）`;
+        return address === undefined || inline ? `页 ${c.state.current.page}` : `页 ${c.state.current.page}（${address}）`;
       }),
     },
-    out: { value: from<State>(['evicted'], (c) => (c.state.evicted.length === 0 ? '' : c.state.evicted.join('、'))) },
+    // 排成一排时「淘汰」的牌窄：只写最近两个，前面的用省略号带过；完整的顺序在最后一步的说明和表下的结果里。
+    out: { value: from<State>(['evicted'], (c) => { const list = c.state.evicted; return list.length === 0 ? '' : inline && list.length > 2 ? `…${list.slice(-2).join('、')}` : list.join('、'); }) },
     cmp: {
       left: from<State>(['current.page'], (c) => (c.state.current.page === null ? '' : String(c.state.current.page))),
       right: from<State>(['current.hit'], (c) => {
@@ -233,7 +239,7 @@ export function replaceWrong(trace: Trace<Params, State>) {
         label: '',
         patch: { hit: { text: `命中 ${state.hits + 1}` }, cur: { value: `页 ${p}` } },
         moves: [{ value: `页 ${p}？`, from: 'conv', to: 'cur', arc: true }],
-        message: `各格里都没有页 ${p}。按命中处理，就要到主存里取一页根本不在那里的数据。`,
+        message: `各格里都没有页 ${p}。按命中处理，就要到主存里取一页不在主存的数据。`,
       };
     }
     // 命中后 a 格是哪一页

@@ -110,7 +110,7 @@ export function breakTrace(params: Params, into: number): Trace<Params, State> {
     },
   });
   b.step({
-    title: `再读地址 ${a}，块 ${j} 其实已经在行 ${r}`,
+    title: `再读地址 ${a}，块 ${j} 已经在行 ${r}`,
     why: `地址没变，切出来还是标记 ${f.tag}、行号 ${i}。`,
     ref: '教材 p104',
     focus: ['access.indexBits', `rows.${r}`],
@@ -156,7 +156,7 @@ export function breakTrace(params: Params, into: number): Trace<Params, State> {
   });
   b.step({
     title: `行 ${r} 的标记也是 ${tagText}，判为命中，取到的却是块 ${j}`,
-    why: `标记相同，硬件就认定行 ${r} 装的是块 ${o.block}。这一行装的其实是块 ${j}，CPU 读走的是块 ${j} 里的字，数据错了，而且没有任何信号报错。`,
+    why: `标记相同，硬件就认定行 ${r} 装的是块 ${o.block}。这一行装的是块 ${j}，CPU 读走的是块 ${j} 里的字，数据错了，硬件不报错。`,
     ref: '教材 p104',
     focus: ['access.tag', `rows.${r}.tag`],
     update: (s) => {

@@ -87,7 +87,7 @@ export function intrStage(trace: Trace<Params, State>, narrow: boolean): IntrSta
     };
   }
   const lastX = devX(n - 1);
-  if (narrow) parts.push({ id: 'cap', kind: 'label', position: [0, devZ - 2.0], props: { text: '接口 0 离 CPU 最近', size: 0.31, tone: 'muted' } });
+
   // 公共请求线 INTR、沿链传的 INTA。
   if (narrow) {
     parts.push({ id: 'sINTR', kind: 'signal', position: [0, 0], props: { from: `D${n - 1}.s`, to: 'CPU.n', text: 'INTR', ink: 'ctrl', via: [[lastX, devZ + 1.5], [P.CPU[0] + 0.6, devZ + 1.5]], labelAt: 0.5 } });
@@ -233,13 +233,30 @@ export function intrStage(trace: Trace<Params, State>, narrow: boolean): IntrSta
 
   const askFrame = (ask: Ask): string[] => {
     if (ask.options?.includes('硬件')) return ['hw', 'sw'];
-    if (ask.options?.includes('响应')) return ['IR', 'IM', 'PC', 'cycle'];
-    return [...(narrow ? ['cap'] : []), 'CPU', ...p.devices.map((_, i) => `D${i}`)];
+    if (ask.options?.includes('响应')) return narrow ? ['CPU', 'PC', 'IR', 'IM'] : ['IR', 'IM', 'PC', 'cycle'];
+    return ['CPU', ...p.devices.map((_, i) => `D${i}`)];
   };
   const frame = (step: Step<State>): string[] | null => {
     const box = step.state.box;
-    const top = narrow ? ['cap'] : [];
-    if (['设备就绪', '发出请求', '响应中断', '找出中断源', '设备服务'].includes(box)) return [...top, 'CPU', ...p.devices.map((_, i) => `D${i}`)];
+    const chain = ['CPU', ...p.devices.map((_, i) => `D${i}`)];
+    if (['设备就绪', '发出请求', '响应中断', '找出中断源', '设备服务', '还有请求'].includes(box)) return chain;
+    if (narrow) {
+      // 手机上各排离得远：每一步只看它动到的那几个部件。
+      const near: Record<string, string[]> = {
+        执行指令: ['CPU', 'PC'],
+        '中断？': ['CPU', 'IR', 'IM'],
+        响应条件: ['CPU', 'PC', 'IR', 'IM'],
+        开中断指令: ['PC', 'IR', 'IM'],
+        关中断: ['CPU', 'IR', 'IM'],
+        保存断点: ['PC', 'stack'],
+        转移: ['CPU', 'PC'],
+        保存现场: ['regs', 'stack'],
+        恢复现场: ['regs', 'stack'],
+        开中断: ['CPU', 'IR', 'IM'],
+        中断返回: ['PC', 'stack'],
+      };
+      return near[box] ?? null;
+    }
     if (box === '转移') return ['CPU', 'PC', 'cards'];
     if (box === '中断返回') return ['PC', 'stack', 'cards'];
     return null;
@@ -281,7 +298,7 @@ export function intrStage(trace: Trace<Params, State>, narrow: boolean): IntrSta
             label: '',
             patch: { CPU: { value: '主程序？' } },
             moves: [{ value: 'IR=1', from: 'IR', to: 'CPU', arc: true, shape: 'pulse' }],
-            message: 'IR=1、IM=0、指令也执行完了，三个条件都满足，不响应就没有理由了。',
+            message: 'IR=1、IM=0、指令也执行完了，三个条件都满足，CPU 就响应。',
           };
     }
     const picked = p.devices.findIndex((d) => d.name === value);

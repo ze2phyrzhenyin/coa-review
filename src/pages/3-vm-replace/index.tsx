@@ -233,7 +233,7 @@ function Try() {
       <ExamTable raw={made.raw} trace={made.trace} />
       <div class="t4-table-wrap">
         <table class="t4-table">
-          <caption>同一串访问，换算法</caption>
+          <caption>同一串访问换算法</caption>
           <thead>
             <tr>
               <th scope="col">算法</th>

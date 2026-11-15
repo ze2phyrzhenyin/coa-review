@@ -188,9 +188,9 @@ function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
       const why = timing.reason[result.row]![result.stage];
       const hint =
         result.stage === 2 && params.mode === '后推'
-          ? '要读的寄存器在哪个周期写回？下一个周期才能在 ID 读，再下一个周期进 EX。'
+          ? '找要读的寄存器在哪个周期写回：下一个周期才能在 ID 读，再下一个周期进 EX。'
           : result.stage === 2 && params.mode === '定向'
-            ? '结果在哪一段末尾算出来？下一个周期就能进 EX。'
+            ? '找结果在哪一段末尾算出来：下一个周期就能进 EX。'
             : why?.kind === 'memory'
               ? '取指和访存用的是同一个存储器。'
               : '一段一个周期只能放一条：前一条还没离开下一段，这一条就留在原段。';

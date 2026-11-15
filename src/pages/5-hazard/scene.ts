@@ -65,7 +65,8 @@ export function hazardStage(trace: T, narrow: boolean, options: { regs?: string[
   // 答题牌紧挨着指令板的前沿；时空表再往前，板子立起来不挡住后面的牌。
   // 答题牌：这份 Trace 里出现过的全部选项。
   const options_ = [...new Set(trace.steps.flatMap((step) => step.ask?.options ?? []))];
-  const stampRows = Math.ceil(options_.length / (narrow ? 3 : 4));
+  const perRow = narrow ? (options_.some((o) => o.length > 4) ? 2 : 3) : 4;
+  const stampRows = Math.ceil(options_.length / perRow);
   const stampZ = depsZ + 1.3 + (stampRows - 1) * 0.48;
   const chartZ = stampZ + 1.0 + (stampRows - 1) * 0.48 + chartH / 0.79;
 
@@ -107,7 +108,6 @@ export function hazardStage(trace: T, narrow: boolean, options: { regs?: string[
   options_.forEach((option, k) => {
     const id = stamps.get(option)!;
     // 一排放不下时分两排；牌距按最长的字定。
-    const perRow = narrow ? 3 : 4;
     const rowsOf = Math.ceil(options_.length / perRow);
     const inRow = Math.min(perRow, options_.length - Math.floor(k / perRow) * perRow);
     const col = k % perRow;

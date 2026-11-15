@@ -536,7 +536,7 @@ export function run(params: OverflowParams): Trace<OverflowParams, OverflowState
       kind: 'choice',
       options: ['无溢出', '正溢', '负溢'],
       answer: verdict,
-      hint: '比较两个符号位是否相同；不同时看最高符号位，它才是结果真实的符号。',
+      hint: '比较两个符号位是否相同；不同时结果的符号看最高符号位。',
     },
     update: (s) => {
       s.sf1 = sf1;

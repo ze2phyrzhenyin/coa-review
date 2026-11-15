@@ -23,8 +23,6 @@ export interface TrackProps extends CommonProps {
   compact?: boolean;
 }
 
-const TILE = 0.5;
-const PITCH = 0.56;
 const DROP = 0.12;
 
 /** 位串按小数点摆进固定的格子：左边不够补空，右边接盒子里的位。 */
@@ -65,71 +63,94 @@ class Track extends Part<TrackProps> {
   private readonly extras: TextPlane[] = [];
   private chars: string[] = [];
   private readonly count: number;
+  private tile = 0.5;
+  private pitch = 0.56;
 
   constructor(kit: Kit, id: string, position: Vec2, props: TrackProps) {
     super(kit, id, position);
     const { int, frac, box } = props;
+    // 窄屏：位片收窄一点，名牌挪到滑轨左上角，整条滑轨连盒子不超过 6.5。
+    const TILE = 0.5;
+    const PITCH = 0.56;
+    this.tile = TILE;
+    this.pitch = PITCH;
     this.count = int + frac + box;
     const POINT = 0.22;
     const WALL = 0.34;
+    // 窄屏：盒子不接在右头，改成滑轨前面的第二排（右端对齐），移出几位都放得下。
+    const under = !!props.compact;
+    const inRail = under ? int + frac : this.count;
     let x = 0;
-    for (let i = 0; i < this.count; i++) {
+    for (let i = 0; i < inRail; i++) {
       if (i > 0) x += PITCH + (i === int ? POINT : 0) + (i === int + frac ? WALL : 0);
       this.xs.push(x);
     }
     const span = x;
-    for (let i = 0; i < this.count; i++) this.xs[i] = this.xs[i]! - span / 2;
+    for (let i = 0; i < inRail; i++) this.xs[i] = this.xs[i]! - span / 2;
+    if (under) for (let j = 0; j < box; j++) this.xs.push(this.xs[inRail - 1]! - (box - 1 - j) * PITCH);
     const left = this.xs[0]! - TILE / 2 - 0.2;
-    const boxLeft = this.xs[int + frac]! - TILE / 2 - 0.12;
+    const boxLeft = under ? this.xs[inRail]! - TILE / 2 - 0.12 : this.xs[int + frac]! - TILE / 2 - 0.12;
     const right = this.xs[this.count - 1]! + TILE / 2 + 0.16;
+    const ROW2 = sizes.tileHeight + 0.2;
     // 滑轨本体，盒子是右边一块矮一点的槽，中间一道挡板。
-    const rail = solid(new Mesh(blockGeometry(boxLeft - left - 0.06, 0.3, 0.9), kit.mats.block));
-    rail.position.x = (left + boxLeft - 0.06) / 2;
+    const railRight = under ? right : boxLeft - 0.06;
+    const rail = solid(new Mesh(blockGeometry(railRight - left, 0.3, 0.9), kit.mats.block));
+    rail.position.x = (left + railRight) / 2;
     this.group.add(rail);
-    const tray = solid(new Mesh(blockGeometry(right - boxLeft, 0.16, 0.9), kit.mats.plinth));
+    const tray = solid(new Mesh(blockGeometry(right - boxLeft, 0.16, under ? 0.5 : 0.9), kit.mats.plinth));
     tray.position.x = (boxLeft + right) / 2;
+    if (under) tray.position.z = 0.72;
     this.group.add(tray);
-    const wall = solid(new Mesh(blockGeometry(0.08, 0.55, 0.9, 0.02), kit.mats.line));
-    wall.position.x = boxLeft - 0.03;
-    this.group.add(wall);
+    if (!under) {
+      const wall = solid(new Mesh(blockGeometry(0.08, 0.55, 0.9, 0.02), kit.mats.line));
+      wall.position.x = boxLeft - 0.03;
+      this.group.add(wall);
+    }
     this.footprint = { w: right - left, d: 0.9 };
     this.face.position.set(0, 0.33, 0.2);
     for (let i = 0; i < this.count; i++) {
       const tile = new Card(kit, '', { kind: 'slot', width: TILE, height: sizes.tileHeight, size: 0.38, mono: true, weight: 600 });
-      const y = sizes.tileHeight / 2 - (i >= int + frac ? DROP : 0);
-      tile.group.position.set(this.xs[i]!, y, 0);
+      const y = sizes.tileHeight / 2 - (i >= int + frac ? (under ? ROW2 : DROP) : 0);
+      // 第二排的片往镜头这边挪出来，落在滑轨前面的托盘上，不被滑轨挡住。
+      tile.group.position.set(this.xs[i]!, y, under && i >= int + frac ? 0.9 : 0);
       this.base.push(y);
       this.tiles.push(tile);
       this.face.add(tile.group);
     }
     // 小数点：小数点左右两格中间的一个圆点。
     const dot = new TextPlane(kit, '.', { size: 0.5, tone: 'text', weight: 700 });
-    dot.place((this.xs[int - 1]! + this.xs[int]!) / 2, 0.02);
+    dot.place((this.xs[int - 1]! + this.xs[int]!) / 2, 0.16);
     this.face.add(dot.mesh);
     this.extras.push(dot);
     this.sign = new TextPlane(kit, '', { size: 0.42, tone: 'text', weight: 600, align: 'right' });
     this.sign.place(left - 0.05, sizes.tileHeight / 2 - 0.2);
     this.face.add(this.sign.mesh);
     this.chip = new Card(kit, props.name, { kind: 'chip', height: sizes.chipHeight, size: sizes.name, weight: 600, minWidth: 0.62 });
-    this.chip.group.position.set(left - 0.42 - this.chip.width / 2, sizes.tileHeight / 2, 0);
+    if (props.compact) this.chip.group.position.set(left + this.chip.width / 2, sizes.tileHeight + 0.3, 0);
+    else this.chip.group.position.set(left - 0.42 - this.chip.width / 2, sizes.tileHeight / 2, 0);
+    this.above = !!props.compact;
     this.face.add(this.chip.group);
-    const boxName = new TextPlane(kit, props.compact ? '移出' : '移出的位', { size: 0.31, tone: 'muted' });
-    boxName.place((boxLeft + right) / 2, sizes.tileHeight + 0.12);
+    const boxName = new TextPlane(kit, '移出的位', { size: 0.31, tone: 'muted', ...(under ? { align: 'right' as const } : {}) });
+    if (under) boxName.place(boxLeft - 0.08, sizes.tileHeight / 2 - ROW2 - 0.12, 0.9);
+    else boxName.place((boxLeft + right) / 2, sizes.tileHeight + 0.12);
     // 「移出的位」比一格的小盒宽：边界要算上它，否则窄屏取景会把它裁掉。
-    this.boxLabelRight = (boxLeft + right) / 2 + ((props.compact ? 2 : 4) * 0.31 * 1.15) / 2;
+    this.boxLabelRight = under ? right : (boxLeft + right) / 2 + (4 * 0.31 * 1.15) / 2;
     this.face.add(boxName.mesh);
     this.extras.push(boxName);
-    this.faceHeight = sizes.tileHeight + 0.2;
-    this.faceWidth = this.footprint.w + this.chip.width * 2 + 1.2;
+    this.faceHeight = sizes.tileHeight + (props.compact ? 0.6 : 0.2);
+    this.faceWidth = props.compact ? this.footprint.w : this.footprint.w + this.chip.width * 2 + 1.2;
     this.update(props, false);
   }
 
   private boxLabelRight = 0;
+  private above = false;
 
   override bounds(): Box3 {
     const box3 = super.bounds();
-    box3.min.x = this.center.x + this.xs[0]! - TILE / 2 - this.chip.width - 1.0;
-    box3.max.x = this.center.x + Math.max(this.xs[this.count - 1]! + TILE / 2, this.boxLabelRight) + 0.3;
+    // 左边到名牌的外沿为止（名牌离第一格 0.42），不多留：手机上整条滑轨连同移出的盒子要一起装进画面。
+    if (this.above) box3.max.z += 0.85;
+    box3.min.x = this.center.x + this.xs[0]! - this.tile / 2 - (this.above ? 0.5 : this.chip.width + 0.55);
+    box3.max.x = this.center.x + Math.max(this.xs[this.count - 1]! + this.tile / 2, this.boxLabelRight) + 0.3;
     return box3;
   }
 
@@ -168,7 +189,7 @@ class Track extends Part<TrackProps> {
       update: (t) => {
         this.tiles.forEach((tile, i) => {
           const j = i + k;
-          const tx = j >= 0 && j < this.count ? this.xs[j]! : this.xs[i]! + k * PITCH;
+          const tx = j >= 0 && j < this.count ? this.xs[j]! : this.xs[i]! + k * this.pitch;
           const ty = j >= 0 && j < this.count ? this.base[j]! : this.base[i]! - 0.4;
           tile.group.position.x = from[i]! + (tx - from[i]!) * t;
           tile.group.position.y = fromY[i]! + (ty - fromY[i]!) * t;

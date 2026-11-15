@@ -125,6 +125,8 @@ export class SceneView {
     initial: Pose,
   ) {
     this.stage = new Stage(host, canvasHost);
+    // 走查脚本用：从舞台元素上拿到场景（看各部件在画面上的位置）。
+    (host as HTMLElement & { sceneView?: SceneView }).sceneView = this;
     this.pose = initial;
     const { kit } = this.stage;
     for (const partSpec of spec.parts) {
@@ -310,13 +312,24 @@ export class SceneView {
           this.cams.push(pose);
           continue;
         }
+        // 和这一步的焦点装不到一起：出题时候选要紧。全部候选装得下就看候选；
+        // 装不下就看装得下的最大一组（其余的按「看……」过去）。
+        const ids = [...new Set((this.picks[i] ?? []).map((at) => this.ref(at).id))];
+        const groups = this.groupsOf(ids, this.poses[i]?.parts);
+        const best = groups.reduce<string[]>((a, b) => (b.length > a.length ? b : a), []);
+        if (best.length > 0) {
+          const boxes = boxesAt(i, best);
+          if (!stage.sees(pose, boxes, 0.03)) pose = follow(boxes).pose;
+          this.cams.push(pose);
+          continue;
+        }
       }
       if (!wholeFits && main.length > 0 && this.pinned[i]) {
         // 页面指定的部件放在画面正中，不为了台面边上的留白或切边再挪。
         // 字号不变时一起装不下，就只看最后一个（页面把收值的部件放在最后），不让两头都被切掉一半。
         if (!stage.sees(pose, main, 0.03)) {
-          const both = stage.fit(main, (stage.legibleScale / stage.minScale) * 1.04, 0, true);
-          pose = main.length > 1 && !stage.sees(both, main, 0) ? stage.fit(main.slice(-1), (stage.legibleScale / stage.minScale) * 1.04, 0, true) : both;
+          const both = stage.fit(main, (stage.legibleScale / stage.minScale) * 1.06, 0, true);
+          pose = main.length > 1 && !stage.sees(both, main, 0) ? stage.fit(main.slice(-1), (stage.legibleScale / stage.minScale) * 1.06, 0, true) : both;
         }
         this.cams.push(pose);
         continue;
@@ -348,7 +361,7 @@ export class SceneView {
   private follow(boxes: Box3[]): { pose: CamPose; fits: boolean } {
     const { stage } = this;
     let pose = stage.fit(boxes, 1, 0, true);
-    if (!stage.sees(pose, boxes, 0)) pose = stage.fit(boxes, (stage.legibleScale / stage.minScale) * 1.04, 0, true);
+    if (!stage.sees(pose, boxes, 0)) pose = stage.fit(boxes, (stage.legibleScale / stage.minScale) * 1.06, 0, true);
     pose = this.wholeEdges(stage.keepInScene(pose), boxes);
     return { pose, fits: stage.sees(pose, boxes, 0) };
   }
@@ -358,7 +371,8 @@ export class SceneView {
    * 在几种平移里挑切开最少、要看的部件仍在画面里、移动最小的。很宽、很高的部件（总线、主存板这类）不算。
    */
   private wholeEdges(pose: CamPose, keep: Box3[]): CamPose {
-    return this.edgeAxis(this.edgeAxis(pose, keep, 'x'), keep, 'y');
+    // 上下挪过以后，透视会让两侧的部件在画面上略微外移，所以左右再看一遍。
+    return this.edgeAxis(this.edgeAxis(this.edgeAxis(pose, keep, 'x'), keep, 'y'), keep, 'x');
   }
 
   private edgeAxis(pose: CamPose, keep: Box3[], axis: 'x' | 'y'): CamPose {
@@ -374,6 +388,8 @@ export class SceneView {
     const list = [...this.parts.entries()]
       .filter(([id]) => !props[id]?.hidden)
       .map(([, part]) => stage.project(part.bounds(), pose))
+      // 在另一个方向上根本不在画面里的部件（在舞台上面、下面）不参加：它们没有被切开可言。
+      .filter((r) => (axis === 'x' ? r.y + r.h > 0 && r.y < stage.height : r.x + r.w > 0 && r.x < stage.width))
       .filter((r) => span(r) < size * 0.6)
       .map((r) => ({ at: lead(r), len: span(r) }));
     const cutsAfter = (d: number) => list.filter((r) => (r.at + d < 0 && r.at + r.len + d > 0) || (r.at + d < size && r.at + r.len + d > size)).length;
@@ -403,6 +419,11 @@ export class SceneView {
       }
       return { ...pose, target };
     };
+    // 要看的部件本来就装不下（比画面宽）：镜头留在它们正中，不为了边上的小部件把它们再挪出去一截。
+    if (keep.length > 0) {
+      const whole = keep.reduce((box, item) => box.union(item), new Box3());
+      if (span(stage.project(whole, pose)) > size) return pose;
+    }
     let best = { d: 0, cuts: cutsAfter(0), ok: stage.sees(pose, keep, 0) };
     for (const d of shifts) {
       if (Math.abs(d) > size * 0.4) continue;
@@ -650,6 +671,10 @@ export class SceneView {
       this.host.dataset.minTextLabel = smallest.text;
       // 互相压住的字，自动检查用。
       this.host.dataset.textOverlaps = this.stage.textOverlaps().join('；');
+      // 被左右边切开的部件（按各部件自己报的范围），自动检查和走查用。
+      this.host.dataset.cutParts = this.cutParts().join(' ');
+      this.host.dataset.clipped = this.clipped().join(' ');
+      this.host.dataset.unreachable = this.unreachable().join(' ');
       this.host.dataset.settled = 'true';
       this.emitRects();
       this.onSettle(hash);
@@ -703,6 +728,96 @@ export class SceneView {
     stage.motion.after(took + 60 + 1100, restore);
     this.emitRects();
     this.settleSoon();
+  }
+
+  /** 这一步看得见、却被画面左边或右边切开的部件。比画面还宽的不算；只露出一点边（不到 6 像素）或只差一点没进来的也不算。 */
+  cutParts(): string[] {
+    const { stage } = this;
+    const out: string[] = [];
+    const slack = 6;
+    for (const id of this.parts.keys()) {
+      if (this.pose.parts[id]?.hidden) continue;
+      const r = stage.rectOf(id, stage.goal);
+      if (!r || r.w >= stage.width || r.y + r.h < 0 || r.y > stage.height) continue;
+      const left = r.x < -slack && r.x + r.w > slack;
+      const right = r.x < stage.width - slack && r.x + r.w > stage.width + slack;
+      if (left || right) out.push(id);
+    }
+    return out;
+  }
+
+  /** 一个部件在某个镜头下是否完整在画面里（按 focusBox，出界不到 6 像素算在）。比画面还大的算在。 */
+  private inView(id: string, pose: CamPose): boolean {
+    const { stage } = this;
+    const box = stage.boxesOf([id], true, this.pose.parts)[0];
+    if (!box) return true;
+    const q = stage.project(box, pose);
+    if (q.w >= stage.width || q.h >= stage.height) return true;
+    const slack = 6;
+    return q.x >= -slack && q.x + q.w <= stage.width + slack && q.y >= -slack && q.y + q.h <= stage.height + slack;
+  }
+
+  /** 这些部件里，现在的镜头下没有完整在画面里的。 */
+  offStage(ids: string[]): string[] {
+    return ids.filter((id) => this.parts.has(id) && !this.pose.parts[id]?.hidden && !this.inView(id, this.stage.goal));
+  }
+
+  /**
+   * 把不在画面里的候选分成几组，每组一个镜头装得下（从左到右，能并就并）。
+   * 「看其余部件」每组一个按钮：任何一个候选按一次就完整地看到。
+   */
+  lookGroups(ids: string[]): string[][] {
+    return this.groupsOf(ids, this.pose.parts);
+  }
+
+  private groupsOf(ids: string[], parts?: Record<string, Record<string, unknown>>): string[][] {
+    const { stage } = this;
+    const center = (id: string) => stage.boxesOf([id], true, parts)[0]?.getCenter(new Vector3()).x ?? 0;
+    const sorted = ids.filter((id) => stage.boxesOf([id], true, parts).length > 0).sort((a, b) => center(a) - center(b));
+    const groups: string[][] = [];
+    for (const id of sorted) {
+      const last = groups[groups.length - 1];
+      if (last && this.follow(stage.boxesOf([...last, id], true, parts)).fits) last.push(id);
+      else groups.push([id]);
+    }
+    return groups;
+  }
+
+  /** 这一步的候选里，既不在这一步的画面里、按一次「看……」也不能完整看到的。应当为空。 */
+  unreachable(): string[] {
+    const { stage } = this;
+    const picks = [...new Set((this.picks[this.index] ?? []).map((at) => this.ref(at).id))];
+    const out: string[] = [];
+    for (const group of this.lookGroups(this.offStage(picks))) {
+      const pose = this.follow(stage.boxesOf(group, true, this.pose.parts)).pose;
+      for (const id of group) if (!this.inView(id, pose)) out.push(id);
+    }
+    return out;
+  }
+
+  /**
+   * 这一步的焦点和题目候选里，没有完整留在画面里的部件（按部件报的 focusBox）。比画面还宽、还高的不算，
+   * 出界不到 6 像素的不算。`scripts/qa-clip.mjs` 读它。
+   */
+  clipped(): string[] {
+    const { stage } = this;
+    const i = this.index;
+    // 出题的那一步镜头看题目问的部件和候选；上一步的焦点可以已经不在画面里。
+    const asked = this.asks[i] ?? [];
+    // 候选不在这里查：它们可以分在几个画面里，按「看……」过去（见 unreachable）。
+    // 点选题没有另外指定要看什么时，镜头看候选，上一步的焦点可以不在画面里。
+    const ids = new Set((asked.length ? asked : (this.picks[i] ?? []).length ? [] : (this.frames[i] ?? [])).map((at) => this.ref(at).id));
+    const slack = 6;
+    const out: string[] = [];
+    for (const id of ids) {
+      if (this.pose.parts[id]?.hidden) continue;
+      const box = stage.boxesOf([id], true, this.pose.parts)[0];
+      if (!box) continue;
+      const q = stage.project(box, stage.goal);
+      if (q.w >= stage.width || q.h >= stage.height) continue;
+      if (q.x < -slack || q.x + q.w > stage.width + slack || q.y < -slack || q.y + q.h > stage.height + slack) out.push(id);
+    }
+    return out;
   }
 
   /** 被拒绝的选择：这个部件轻摇一下。 */

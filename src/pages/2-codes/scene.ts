@@ -224,6 +224,9 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
   };
 
   const frame = (step: Step<CodesState>): string[] | null => {
+    // 窄屏：每一步只看刚写的那种码（位片和它的盘），上一种码已经在上一屏看过。
+    const written = codeOf(step);
+    if (compact && written) return [`bits-${written}`, `ring-${written}`];
     // 最后核对补码和移码：两排位片和两个盘一起看。
     if (step.changes.length === 0 && step.state.codes.移码.status === '有') return compact ? ['bits-补码', 'bits-移码'] : ['bits-补码', 'bits-移码', 'ring-补码', 'ring-移码'];
     return null;

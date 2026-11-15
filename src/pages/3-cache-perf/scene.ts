@@ -86,9 +86,11 @@ export function perfStage(trace: Trace<Params, State>, narrow: boolean): PerfSta
   const at = <T>(wide: T, small: T): T => (narrow ? small : wide);
 
   // 结果牌：宽屏一排（二级 cache 两排各三个），手机两列。
-  const perRow = narrow ? 2 : l2 ? 3 : keys.length;
-  const cellW = at(l2 ? 3.4 : keys.length > 3 ? 2.9 : 3.3, 3.6);
-  const regW = at(l2 ? 3.0 : 2.6, 3.3);
+  // 手机上三四个量排成一排（名牌只写字母），少一排牌，算式条、牌、尺子才一起装得下；二级 cache 六个量排三排。
+  const oneRow = narrow && !l2;
+  const perRow = oneRow ? keys.length : narrow ? 2 : l2 ? 3 : keys.length;
+  const cellW = at(l2 ? 3.4 : keys.length > 3 ? 2.9 : 3.3, oneRow ? 6.6 / keys.length : 3.6);
+  const regW = at(l2 ? 3.0 : 2.6, oneRow ? 6.6 / keys.length - 0.15 : 3.3);
   const rowsOf = Math.ceil(keys.length / perRow);
   const zGiven = at(-6.9, -7.3 - (rowsOf - 2) * 1.7);
   const zCalc = at(-4.9, -5.8 - (rowsOf - 2) * 1.7);
@@ -113,7 +115,7 @@ export function perfStage(trace: Trace<Params, State>, narrow: boolean): PerfSta
     props: { name: g.name, value: g.value, width: gW },
   }));
   parts.push({ id: 'calc', kind: 'label', position: [0, zCalc], props: { text: '', plate: true, size: at(0.31, 0.36), mono: true } });
-  keys.forEach((key, i) => parts.push({ id: id(key), kind: 'register', position: placeAt(i), props: { name: nameOf(key), value: '', width: regW } }));
+  keys.forEach((key, i) => parts.push({ id: id(key), kind: 'register', position: placeAt(i), props: { name: oneRow ? key : nameOf(key), value: '', width: regW }, title: nameOf(key) }));
 
   // 时间尺。
   const length = at(9.0, 5.4);
@@ -381,5 +383,5 @@ export function polish(trace: Trace<Params, State>): Trace<Params, State> {
 
 export const PERF_QUESTION = { text: 'h、r、e、t_a 四个量，知道哪两个就能求出其余的', at: ['calc', 'track'] };
 export const PERF_CONCLUSION =
-  '四个量靠三条式子连着：h = N_c/(N_c + N_m)，t_a = h·t_c + (1 − h)·t_m，e = t_c/t_a = 1/[r + (1 − r)h]，其中 r = t_m/t_c。正向按 h、r、e、t_a 的次序代；知道 t_a 就由式(3.5) 解出 h = (t_m − t_a)/(t_m − t_c)；知道 e 就由式(3.6) 解出 h = (r − 1/e)/(r − 1)。';
+  'h = N_c/(N_c + N_m)，t_a = h·t_c + (1 − h)·t_m，e = t_c/t_a = 1/[r + (1 − r)h]，其中 r = t_m/t_c。正向按 h、r、e、t_a 的次序代；知道 t_a 就由式(3.5) 解出 h = (t_m − t_a)/(t_m − t_c)；知道 e 就由式(3.6) 解出 h = (r − 1/e)/(r − 1)。';
 export const PERF_NEEDS = [{ href: '/3-cache-run', text: '命中和缺失' }];

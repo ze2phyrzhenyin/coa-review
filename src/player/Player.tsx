@@ -411,7 +411,15 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
   const flat = mode === 'flat';
   const pickable = scene.parts.filter((part) => part.pick);
   // 有候选不在画面上时，题目下列出全部候选（答错一次后也不会只剩一个）。
-  const missing = !flat && picking ? [...picking].filter(([, id]) => !onStage(rects[id], size)).map(([option]) => option) : [];
+  // rects 变了会重新渲染，这里按场景现在的镜头算哪些候选没有完整在画面里。
+  const offIds = !flat && picking ? (view.current ? view.current.offStage([...picking.values()]) : [...picking.values()].filter((id) => !onStage(rects[id], size))) : [];
+  const missing = picking ? [...picking].filter(([, id]) => offIds.includes(id)).map(([option]) => option) : [];
+  const lookGroups = offIds.length > 0 && view.current ? view.current.lookGroups(offIds) : [];
+  const optionOf = (id: string) => [...(picking ?? [])].find(([, part]) => part === id)?.[0] ?? id;
+  const looks = lookGroups.map((group) => ({
+    label: lookGroups.length === 1 ? '看其余部件' : `看 ${group.map(optionOf).join('、')}`,
+    go: () => view.current?.lookAt(group),
+  }));
   const offStage = missing.length > 0 && picking ? [...picking.keys()] : [];
   const offer = !pending && !breakage && breakIt ? breakIt(state, null) : null;
   const status = caption ? caption(state) : '';
@@ -488,7 +496,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
                 if (id) answer(option, id);
               }}
               onReveal={() => go((i) => Math.min(total, i + 1))}
-              onLook={missing.length > 0 && picking ? () => view.current?.lookAt([...picking].filter(([option]) => missing.includes(option)).map(([, id]) => id)) : undefined}
+              looks={looks}
               note={stray}
               consequence={consequence?.index === index ? consequence.text : ''}
               flip={flipId ? { bits: flipBits, toggle: (i) => onPick(flipId, i) } : undefined}
