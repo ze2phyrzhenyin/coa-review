@@ -1,0 +1,81 @@
+/* 答题纸（第 6、8 章四页共用）。 */
+.pp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.pp > .pp-stage {
+  /* 播放器在窄屏上给舞台排了次序；答题纸按文档顺序排。 */
+  order: 0;
+}
+.pp-task {
+  max-width: var(--measure);
+}
+.pp-task p {
+  margin: 0;
+}
+.pp .pl-given {
+  font-size: var(--fs-sm);
+}
+.pp-stage {
+  height: clamp(300px, 46vh, 460px);
+  cursor: default;
+}
+.pp-fill {
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-raised);
+  border: var(--bw) solid var(--c-border);
+  border-radius: var(--r-md);
+}
+.pp-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+  margin: 0;
+  font-weight: var(--fw-strong);
+}
+.pp-head .tnum {
+  color: var(--c-muted);
+  font-weight: var(--fw-regular);
+}
+.pp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--sp-2) var(--sp-3);
+}
+.pp-field {
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.pp-label {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-strong);
+}
+.pp-field .input {
+  width: 100%;
+}
+.pp-field .seg {
+  flex-wrap: wrap;
+}
+.pp-field.is-wrong .pp-label {
+  color: var(--c-bad);
+}
+.pp-field.is-wrong .seg {
+  outline: var(--bw) solid var(--c-bad);
+}
+.pp-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.pp-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0;
+  max-width: var(--measure);
+}

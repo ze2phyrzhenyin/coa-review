@@ -1,0 +1,54 @@
+.pg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.pg-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.mk-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.mk-note,
+.mk-terms {
+  margin: 0;
+  max-width: var(--measure);
+}
+.mk-terms {
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+.mk-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--sp-3) var(--sp-4);
+  align-items: end;
+}
+.mk-form .input,
+.mk-form .select {
+  width: 100%;
+}
+.mk-wide {
+  grid-column: 1 / -1;
+}
+.mk-run {
+  justify-self: start;
+}
+.mk-compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--sp-2) var(--sp-5);
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.mk-compare dt {
+  color: var(--c-muted);
+}
+.mk-compare dd {
+  margin: 0;
+}

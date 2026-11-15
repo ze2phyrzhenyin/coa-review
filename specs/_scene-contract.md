@@ -47,11 +47,11 @@ const bind = bindTable<State>({ R1: { value: 'reg.R1' }, C2: { open: 'ctl.C2' } 
 | `token` | `value` `at` `via?` `ink?` | 停在 `at` 指的部件上，`at` 变了沿 `via` 走过去 |
 | `sheet` | `title?` `columns` `rows` `shown` `current?` | 答题纸。不绑定时自动取 `trace.table`，按当前步填到第几行 |
 | `label` | `text` `size?` `tone?` `weight?` `plate?` `mono?` | 一行字；`plate` 为真时画在小牌上 |
-| `chip` | `name` `label?` `pins[{id,name,side,value?,lines?,ink?}]` `selected?` `width?` `depth?` | 存储芯片，四边伸出几束引脚（地址、数据、CS、WE），每束旁一张名牌和读数；`selected` 时从板上抬起。连线接引脚 `'U1.cs'` |
+| `chip` | `name` `label?` `pins[{id,name,side,value?,lines?,at?,ink?}]` `selected?` `width?` `depth?` | 存储芯片，四边伸出几束引脚（地址、数据、CS、WE），每束旁一张名牌和读数；`selected` 时从板上抬起。连线接引脚 `'U1.cs'` |
 | `decoder` | `inputs` `input?` `enableName?` `enable?` `outputs?` `outputNames?` `active?` `low?` `name?` | n–2^n 译码器，左输入、右一列输出 `Y_0…`、前面使能端；`active` 由引擎给，那根输出的名牌翻成强调色。引脚 `'D.y3'`、`'D.in0'`、`'D.en'` |
 | `grid` | `columns` `rows` `cells[行][列]` `current?` `changedCells?` `bubbles?` `cellWidth?` `tones?` `name?` | 时空格：空格是槽，填上翻成白牌，同列从上往下错开；`bubbles` 的格子放空泡（停顿）；`current` 框一列。`'P.行.列'` 可作移动的起落点 |
 | `track` | `length` `span[起,止]` `lanes` `segments[{lane,from,to,text?,ink?,high?}]` `markers?[{at,text,lane?}]` `ticks?` `now?` `name?` | 时间轴：新的一段从左往右长出来；标记是细杆加小牌；`now` 是一根竖线 |
-| `signal` | `from` `to` `text` `on?` `ink?` `via?` `offset?` `labelAt?` `heads?` | 两个部件之间带箭头、带名字的线（BR、BG、BS）。端点同连线写法，可接引脚；`on` 时实色从起点走到终点；`offset` 错开几根平行线。`position` 不用，写 `[0, 0]` |
+| `signal` | `from` `to` `text` `on?` `ink?` `via?` `offset?` `labelAt?` `heads?` | 两个部件之间带箭头、带名字的线（BR、BG、BS）。端点同连线写法，可接引脚；`on` 时实色从起点走到终点；`offset` 错开几根平行线；`text` 为空不立牌。`position` 不用，写 `[0, 0]` |
 | `dial` | `size` `pointer` `from?` `dir?` `marks?[[格,字]]` `seam?` `crossed?` `sectors?` `radius?` `ink?` `name?` | 刻度盘（模 2^n 一圈，0 在正上方顺时针）：从 `from` 转到 `pointer`，转过的画成弧；越过 `seam` 且 `crossed` 时接缝亮起、崩一下。`sectors` 是节拍盘，`pointer` 那格亮，`-1` 都不亮 |
 | `balance` | `left` `right` `leftName?` `rightName?` `tilt(-1/0/1)` `name?` | 天平：哪边沉哪边落下，摆一下停住 |
 | `conveyor` | `slots` `items` `inLabel?` `outLabel?` `slotWidth?` `name?` | 传送带（a 进 c 出）：按字认出谁挪到哪；新的从 a 端落进，c 端的掉下去，往 a 端回的抬起来从上面过。一行里的字不能重复 |

@@ -1,0 +1,229 @@
+/* 5-spacetime、5-hazard、5-stall 共用。颜色、字号、间距只用 tokens.css 的变量。 */
+.pp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.pp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.pp-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+  align-items: flex-end;
+}
+.pp-field {
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.pp-field .seg {
+  flex-wrap: wrap;
+}
+.pp-lead {
+  margin: 0;
+  max-width: var(--measure);
+  line-height: 1.7;
+}
+.pp-note {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+  max-width: var(--measure);
+}
+.pp-formula {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  line-height: 1.7;
+}
+.pp-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-4);
+  align-items: flex-end;
+}
+.pp-form .input {
+  min-width: 0;
+}
+.pp-grow {
+  flex: 1 1 18rem;
+}
+.pp-grow .input,
+.pp-grow textarea {
+  width: 100%;
+}
+.pp-num .input {
+  width: 7rem;
+}
+.pp-form textarea.input {
+  height: auto;
+  min-height: 7.5rem;
+  padding-block: var(--sp-2);
+  line-height: 1.6;
+  resize: vertical;
+}
+
+/* 练习：答题纸和填写栏 */
+.pp-quiz {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.pp-task {
+  margin: 0;
+  max-width: var(--measure);
+}
+.pp-paper {
+  cursor: default;
+}
+.pp-paper.is-tall {
+  height: clamp(420px, 60vh, 560px);
+}
+.pp-quiz .pl-given {
+  font-size: var(--fs-sm);
+}
+.pp-fill {
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--c-raised);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  max-width: 46rem;
+}
+.pp-fill-head {
+  margin: 0;
+  font-weight: 600;
+}
+.pp-fill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: var(--sp-2) var(--sp-3);
+}
+.pp-fill-grid label,
+.pp-fill-grid .pp-fill-group {
+  display: grid;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+.pp-fill-grid .pp-fill-group {
+  grid-column: 1 / -1;
+}
+.pp-fill-grid .pp-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+}
+.pp-fill-grid .pp-pair > span {
+  min-width: 3.5rem;
+  color: var(--c-ink);
+  font-family: var(--font-mono);
+}
+.pp-fill .input,
+.pp-fill .select {
+  width: 100%;
+}
+.pp-fill-grid .is-wrong > span {
+  color: var(--c-bad);
+}
+.pp-fill-grid .is-wrong .input,
+.pp-fill-grid .is-wrong .select {
+  border-color: var(--c-bad);
+}
+.pp-fill-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.pp-fill-foot .is-primary {
+  margin-left: auto;
+}
+.pp-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0;
+  max-width: var(--measure);
+}
+.pp-verdict .is-bad-text,
+.pp-verdict .is-ok-text {
+  font-weight: 600;
+}
+.pp-quiz > .pl-stage {
+  order: 0;
+}
+.pp-sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-5);
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+  font-variant-numeric: tabular-nums;
+}
+.pp-sum b {
+  color: var(--c-ink);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+/* 考试版式的小表 */
+.pp-table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.pp-table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.pp-table caption {
+  text-align: left;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  padding-bottom: var(--sp-2);
+}
+.pp-table th,
+.pp-table td {
+  height: 44px;
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--c-line);
+  text-align: center;
+  white-space: nowrap;
+}
+.pp-table thead th {
+  border-bottom: 1px solid var(--c-ink);
+  font-weight: 600;
+}
+.pp-table th[scope='row'] {
+  text-align: left;
+  font-weight: 400;
+}
+.pp-table td {
+  font-family: var(--font-mono);
+}
+.pp-table .is-current {
+  background: var(--c-tint);
+}
+
+@media (max-width: 600px) {
+  .pp-quiz > .pl-stage {
+    margin-inline: calc(-1 * var(--gutter));
+  }
+  .pp-fill-grid .pp-fill-group .seg {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+/* 练习的舞台不在播放器里，台面颜色自己给。 */
+.pp-paper {
+  background: var(--c-surface);
+}

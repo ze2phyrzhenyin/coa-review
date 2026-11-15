@@ -1,0 +1,226 @@
+/* 3-cache-addr、3-cache-perf、3-vm-addr、3-vm-replace 共用。颜色、字号、间距只用 tokens.css 的变量。 */
+.t4 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.t4-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.t4-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+  align-items: flex-end;
+}
+.t4-field {
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.t4-field .seg {
+  flex-wrap: wrap;
+}
+.t4-lead {
+  margin: 0;
+  max-width: var(--measure);
+  line-height: 1.7;
+}
+.t4-note {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+  max-width: var(--measure);
+}
+.t4-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-4);
+  align-items: flex-end;
+}
+.t4-form .input {
+  min-width: 0;
+}
+.t4-grow {
+  flex: 1 1 18rem;
+}
+.t4-grow .input {
+  width: 100%;
+}
+.t4-num .input {
+  width: 7rem;
+}
+
+/* 横排的考试表：一列一次访问，或一行一个量。 */
+.t4-table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.t4-table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.t4-table caption {
+  text-align: left;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  padding-bottom: var(--sp-2);
+}
+.t4-table th,
+.t4-table td {
+  height: 44px;
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--c-line);
+  text-align: center;
+  white-space: nowrap;
+}
+.t4-table thead th {
+  border-bottom: 1px solid var(--c-ink);
+  font-weight: 600;
+}
+.t4-table th[scope='row'] {
+  text-align: left;
+  font-weight: 400;
+  color: var(--c-muted);
+}
+.t4-table td {
+  font-family: var(--font-mono);
+}
+.t4-table .is-later {
+  color: transparent;
+}
+.t4-table .is-current {
+  background: var(--c-tint);
+}
+.t4-table .is-new {
+  color: var(--c-change-text);
+  font-weight: 600;
+}
+.t4-col {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--sp-1);
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.t4-col:disabled {
+  cursor: default;
+}
+.t4-col:focus-visible {
+  outline: 2px solid var(--c-focus);
+  outline-offset: -2px;
+}
+
+/* 练习：答题纸和填写栏 */
+.t4-quiz {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.t4-task {
+  margin: 0;
+  max-width: var(--measure);
+}
+.t4-paper {
+  cursor: default;
+}
+.t4-paper.is-wide {
+  height: clamp(480px, 66vh, 620px);
+}
+.t4-quiz .pl-given {
+  font-size: var(--fs-sm);
+}
+.t4-fill {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--c-raised);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+}
+.t4-fill.is-anchored {
+  position: absolute;
+  box-shadow: var(--shadow-float);
+}
+.t4-fill-head {
+  margin: 0;
+  font-weight: 600;
+}
+.t4-fill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: var(--sp-2);
+}
+.t4-fill-grid label,
+.t4-fill-grid .t4-fill-group {
+  display: grid;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+.t4-fill-grid .t4-fill-group.is-span {
+  grid-column: 1 / -1;
+}
+.t4-fill .input {
+  width: 100%;
+}
+.t4-fill-grid .is-wrong > span {
+  color: var(--c-bad);
+}
+.t4-fill-grid .is-wrong .input {
+  border-color: var(--c-bad);
+}
+.t4-fill-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.t4-fill-foot .is-primary {
+  margin-left: auto;
+}
+.t4-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0;
+  max-width: var(--measure);
+}
+.t4-verdict .is-bad-text,
+.t4-verdict .is-ok-text {
+  font-weight: 600;
+}
+/* 播放器的手机样式给舞台排了 order；练习不用播放器，按文档顺序排。 */
+.t4-quiz > .pl-stage {
+  order: 0;
+}
+@media (max-width: 600px) {
+  .t4-quiz > .pl-stage {
+    margin-inline: calc(-1 * var(--gutter));
+  }
+  .t4-fill-grid .t4-fill-group {
+    grid-column: 1 / -1;
+  }
+  .t4-fill-grid .t4-fill-group .seg {
+    width: 100%;
+  }
+  .t4-fill-grid .t4-fill-group .seg > button {
+    flex: 1;
+  }
+}
+.t4-size {
+  width: 6.5rem;
+}
+.t4-fill-grid .t4-fill-group.is-pair {
+  grid-column: span 2;
+}
+/* 答题纸只有几行、填写栏排在舞台下面时，舞台矮一点。 */
+.t4-paper.is-compact {
+  height: clamp(240px, 38vh, 340px);
+}

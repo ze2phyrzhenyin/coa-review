@@ -9,6 +9,7 @@ import type { Ask, Step, StepLevel, Trace } from '../engines/trace';
 import { accentName, canUseWebGL, currentScheme, frameAt, hashPose, inkNames, loadRuntime, palettes, poseAt, revealedRows } from '../scene';
 import type { Binding, Ink, Move, Patch, PartSpec, Pose, Rect, SceneSpec, SceneView, Scheme } from '../scene';
 import { Answer } from './Answer';
+import { breakFrame, sameAnswer } from './answers';
 import { Rich } from './Rich';
 import { plainRich } from '../scene/rich';
 import { onSoundChange, setSound, soundOn } from '../scene/sound';
@@ -78,13 +79,6 @@ const levelNames: Record<StepLevel, string> = {
   cycle: '一个 CPU 周期',
   instruction: '一条指令',
   access: '一次访问',
-};
-
-const normalize = (ask: Ask, value: string): string => {
-  const text = value.trim();
-  if (ask.kind === 'bits') return text.replace(/[\s_]/g, '');
-  if (ask.kind === 'number' && text !== '' && Number.isFinite(Number(text))) return String(Number(text));
-  return text;
 };
 
 /** 选项全都是可点选的部件时，这道题用点部件来答。返回 选项 → 部件 id。 */
@@ -223,7 +217,8 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
     lastIndex.current = index;
     shown.current = key;
     if (breakage) {
-      current.show(index, pose, { animate: true, forward: true, moves: breakage.moves, frame: [...new Set(breakage.moves.flatMap((move) => [move.from, move.to]))] });
+      const look = breakFrame(breakage.moves);
+      current.show(index, pose, { animate: true, forward: true, moves: breakage.moves, ...(look ? { frame: look } : {}) });
     } else {
       const forward = index === from + 1;
       current.show(index, pose, { animate: true, forward, moves: forward && step && moves ? moves(step) : [] });
@@ -295,7 +290,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
   const answer = useCallback(
     (value: string, partId?: string) => {
       if (!pending) return;
-      if (normalize(pending, value) === normalize(pending, pending.answer)) {
+      if (sameAnswer(pending, value)) {
         go((i) => Math.min(total, i + 1));
         setNotice('答对了。');
         return;

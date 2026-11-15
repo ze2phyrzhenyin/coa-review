@@ -1,0 +1,79 @@
+/* 5-micro 微程序控制器。颜色、字号、间距只用 tokens.css 的变量。 */
+.mc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.mc-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.mc-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.mc-note {
+  margin: 0;
+  max-width: var(--measure);
+}
+.mc-seg {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  min-width: 0;
+}
+.mc-seg-label {
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+.mc-seg .seg {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.mc-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--sp-3) var(--sp-4);
+  align-items: end;
+}
+.mc-form .input,
+.mc-form .select {
+  width: 100%;
+}
+.mc-wide {
+  grid-column: 1 / -1;
+}
+.mc-cm {
+  height: auto;
+  min-height: 7.5rem;
+  padding-block: var(--sp-2);
+  line-height: 1.6;
+  resize: vertical;
+}
+.mc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  grid-column: 1 / -1;
+}
+.mc-error {
+  margin: 0;
+  max-width: var(--measure);
+}
+.mc-compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--sp-2) var(--sp-5);
+  margin: 0;
+}
+.mc-compare dt {
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+.mc-compare dd {
+  margin: 0;
+}

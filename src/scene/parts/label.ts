@@ -51,6 +51,12 @@ export class Label extends Part<LabelProps> {
     }
   }
 
+  /** 占地按现在的字宽算：翻面换字是晚一点才发生的，点选按钮和镜头要跟上新的宽度。 */
+  override bounds() {
+    this.footprint = { w: this.card ? this.card.width : Math.max(0.5, this.text?.width ?? 0.5), d: 0.3 };
+    return super.bounds();
+  }
+
   override dispose(): void {
     this.text?.dispose();
     this.card?.dispose();

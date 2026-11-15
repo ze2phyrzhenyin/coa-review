@@ -1,0 +1,173 @@
+/* 4-ea、4-opcode、5-flow、5-hardwired 共用。颜色、字号、间距只用 tokens.css 的变量。 */
+.ix {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.ix-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.ix-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+  align-items: flex-end;
+}
+.ix-seg-wrap {
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.ix-seg-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.ix-seg-select {
+  display: none;
+}
+.ix-field {
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.ix-field.is-grow {
+  flex: 1 1 16rem;
+}
+.ix-field .input {
+  width: 100%;
+}
+.ix-lead {
+  margin: 0;
+  max-width: var(--measure);
+  line-height: 1.7;
+}
+.ix-note {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+  max-width: var(--measure);
+}
+.ix-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-4);
+  align-items: flex-end;
+}
+.ix-form .input {
+  min-width: 0;
+}
+.ix-formula {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 练习：答题纸和填写栏 */
+.ix-quiz {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.ix-task {
+  margin: 0;
+  max-width: var(--measure);
+}
+.ix-paper {
+  cursor: default;
+}
+.ix-paper.is-wide {
+  height: clamp(480px, 66vh, 620px);
+}
+.ix-quiz .pl-given {
+  font-size: var(--fs-sm);
+}
+.ix-fill {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--c-raised);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+}
+.ix-fill.is-anchored {
+  position: absolute;
+  box-shadow: var(--shadow-float);
+}
+.ix-fill-head {
+  margin: 0;
+  font-weight: 600;
+}
+.ix-fill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--sp-2);
+}
+.ix-fill-grid label,
+.ix-fill-grid .ix-fill-group {
+  display: grid;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+.ix-fill-grid .is-span {
+  grid-column: 1 / -1;
+}
+.ix-fill .input,
+.ix-fill .select {
+  width: 100%;
+}
+.ix-fill-grid .is-wrong > span {
+  color: var(--c-bad);
+}
+.ix-fill-grid .is-wrong .input,
+.ix-fill-grid .is-wrong .select {
+  border-color: var(--c-bad);
+}
+.ix-fill-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.ix-fill-foot .is-primary {
+  margin-left: auto;
+}
+.ix-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0;
+  max-width: var(--measure);
+}
+.ix-verdict .is-bad-text,
+.ix-verdict .is-ok-text {
+  font-weight: 600;
+}
+.ix-quiz > .pl-stage {
+  order: 0;
+}
+.ix-back {
+  align-self: flex-start;
+}
+@media (max-width: 600px) {
+  .ix-quiz > .pl-stage {
+    margin-inline: calc(-1 * var(--gutter));
+  }
+  .ix-seg-many {
+    display: none;
+  }
+  .ix-seg-select {
+    display: block;
+  }
+  .ix-fill-grid .ix-fill-group {
+    grid-column: 1 / -1;
+  }
+  .ix-fill-grid .ix-fill-group .seg {
+    width: 100%;
+  }
+  .ix-fill-grid .ix-fill-group .seg > button {
+    flex: 1;
+  }
+}

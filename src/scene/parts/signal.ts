@@ -128,6 +128,8 @@ export class Signal extends Part<SignalProps> {
     const ink = next.ink ?? 'ctrl';
     const on = isOn(next.on);
     if (!previous || next.text !== previous.text) this.card.set(next.text);
+    // 没有名字的线不立空牌。
+    this.label.visible = next.text !== '';
     this.card.setChanged(!!next.changed);
     if (on === this.on && previous) return;
     this.on = on;

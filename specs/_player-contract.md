@@ -18,7 +18,7 @@ import { Player } from '../../player/Player';
 | `names?` | `(path) => string`，把状态路径换成学生认识的名字，用在「变化」里 |
 | `values?` | `(path, value) => string`，「变化」里值的写法（true 写成「开」）；空串和 null 已写成「空」 |
 | `caption?` | `(state) => string`，舞台上方一行读数（模型机：CPU 周期、节拍、有效信号） |
-| `breakIt?` | `(state, part \| null) => Breakage \| null`，弄坏它：`{ label, patch, moves, message }`。有就在舞台下方给按钮，学生点场景里对应的部件也行；演出时把 `patch` 盖在画面上，`message` 显示在舞台下，「恢复」收回。有待答的题时不给 |
+| `breakIt?` | `(state, part \| null) => Breakage \| null`，弄坏它：`{ label, patch, moves, message }`。有就在舞台下方给按钮，学生点场景里对应的部件也行；演出时把 `patch` 盖在画面上（`moves` 可以是空数组，镜头不动），`message` 显示在舞台下，「恢复」收回。有待答的题时不给 |
 | `onWrong?` | `(ask, value, state, next) => Breakage \| null`，答错时页面演后果（任何题型）：把 `patch` 盖上、`moves` 走一遍，约 2.6 秒后自己退回；`message` 留在题目下的提示前面 |
 | `askFrame?` | `(ask, index) => 部件 id[]`，出题时镜头看这些部件（题目问的格子、要比的式子）；候选装不下时靠「看其余部件」 |
 | `flipPart?` | `(ask, index) => 部件 id \| null`，`bits` 题在这个 `bits` 部件上翻位片作答 |
@@ -55,7 +55,7 @@ import { Player } from '../../player/Player';
 
 - 题目一律放在舞台正下方，不盖住任何部件。先写题面和提示，再放操作。
 - 点选：`kind: 'choice'` 且每个选项都是某个可点选部件的 id 或 `name` 时，学生点场景里的部件，或用 `Tab` 走到对应的 `button[data-pick]` 按回车。不在画面上的选项在题目下另给按钮。
-- 其余 `choice`：选项按钮。`number`、`text`、没给 `flipPart` 的 `bits`：输入框，文字 16 像素，回车或「确定」提交。`bits` 忽略空格和下划线，`number` 按数值比较。
+- 其余 `choice`：选项按钮。`number`、`text`、没给 `flipPart` 的 `bits`：输入框，文字 16 像素，回车或「确定」提交。比对在 `src/player/answers.ts`：全角先换半角；`bits` 忽略空格和下划线，`number` 按数值，`text` 不分大小写、不看空格，十六进制结尾的 H 可写可不写（16bh = 16BH）；`choice` 原样比。
 - 翻位片：给了 `flipPart` 的 `bits` 题，那个部件出现空槽，点一位翻一位（空槽先变 0），题目下有同样一排位按钮，翻满后「确定」。
 - 点选题的候选在 14 像素的字下装不进画面时，题目下有「看其余部件」（镜头移过去）和这些候选的按钮。
 - 答对：直接前进到这一步，值走过去就是确认。

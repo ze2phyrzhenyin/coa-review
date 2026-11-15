@@ -135,6 +135,8 @@ export interface PinGroup {
   value?: string;
   /** 一束有几根线（画几根腿），默认 1。 */
   lines?: number;
+  /** 在这条边上的位置（相对部件中心，沿边的方向，世界单位）。不写时同一边的几组均匀排开。 */
+  at?: number;
   ink?: Ink;
 }
 

@@ -1,0 +1,143 @@
+/* 3-expand 和 3-decode 共用的页面样式。颜色、字号、间距只用 tokens.css 的变量。 */
+.xp,
+.xp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.xp-lead {
+  margin: 0;
+  max-width: var(--measure);
+  line-height: 1.7;
+}
+.xp-needs {
+  margin: 0;
+  color: var(--c-muted);
+}
+.xp-examples {
+  align-self: flex-start;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+/* 试一试 */
+.xp-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-3) var(--sp-5);
+}
+.xp-pair {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.xp-pair .input {
+  width: 7rem;
+}
+.xp-pair .select {
+  width: 6.5rem;
+}
+.xp-addr {
+  width: 9rem;
+}
+.xp-formulas {
+  display: grid;
+  gap: var(--sp-1);
+  margin: 0;
+}
+.xp-formulas p {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.xp-regions {
+  display: grid;
+  gap: var(--sp-2);
+}
+.xp-region {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-2) var(--sp-3);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--c-line);
+}
+.xp-region .input {
+  width: 7.5rem;
+}
+.xp-region .select {
+  width: auto;
+}
+
+/* 练习：答题纸 */
+.xp-quiz {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.xp-task {
+  margin: 0;
+  max-width: var(--measure);
+}
+.xp-paper {
+  cursor: default;
+}
+.xp-paper.is-wide {
+  height: clamp(480px, 70vh, 640px);
+}
+.xp-quiz .pl-given {
+  font-size: var(--fs-sm);
+}
+.xp-fill {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--c-raised);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+}
+.xp-fill.is-anchored {
+  position: absolute;
+  box-shadow: var(--shadow-float);
+}
+.xp-fill-head {
+  margin: 0;
+  font-weight: 600;
+}
+.xp-fill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--sp-2) var(--sp-3);
+}
+.xp-fill-grid .field {
+  display: grid;
+  gap: var(--sp-1);
+}
+.xp-fill-grid .is-wrong .field-label {
+  color: var(--c-bad);
+}
+.xp-fill-grid .input {
+  width: 100%;
+}
+.xp-fill-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.xp-fill-foot .is-primary {
+  margin-left: auto;
+}
+.xp-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0;
+}
+
+/* 台面比样板页深：宽屏舞台高一些，第 0 步装得下全景。 */
+@media (min-width: 901px) {
+  .xp .pl-wide .pl-stage {
+    height: clamp(460px, 74vh, 700px);
+  }
+}

@@ -1,0 +1,77 @@
+/* 答题纸（照 8-mask）。 */
+.mpp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.mpp-task {
+  max-width: var(--measure);
+}
+.mpp-task p {
+  margin: 0;
+}
+.mpp .pl-given {
+  font-size: var(--fs-sm);
+}
+.mpp-stage {
+  height: clamp(300px, 46vh, 460px);
+  cursor: default;
+}
+.mpp-fill {
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-raised);
+  border: var(--bw) solid var(--c-border);
+  border-radius: var(--r-md);
+}
+.mpp-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+  margin: 0;
+  font-weight: var(--fw-strong);
+}
+.mpp-head .tnum {
+  color: var(--c-muted);
+  font-weight: var(--fw-regular);
+}
+.mpp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--sp-2) var(--sp-3);
+}
+.mpp-field {
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.mpp-label {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-strong);
+}
+.mpp-field .input {
+  width: 100%;
+}
+.mpp-field .seg {
+  flex-wrap: wrap;
+}
+.mpp-field.is-wrong .mpp-label {
+  color: var(--c-bad);
+}
+.mpp-field.is-wrong .seg {
+  outline: var(--bw) solid var(--c-bad);
+}
+.mpp-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.mpp-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0;
+  max-width: var(--measure);
+}

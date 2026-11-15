@@ -417,6 +417,8 @@ export class SceneView {
   /** 临时把这些部件放进画面（已经都在画面里就不动）。返回镜头要走多久。 */
   private peek(ids: string[], parts?: Record<string, Record<string, unknown>>): number {
     const { stage } = this;
+    // 没有要看的部件（弄坏它、答错重演没给移动）：镜头不动。
+    if (ids.length === 0) return 0;
     // 落点：值牌停靠的位置附近（空着的总线没有范围，也要能看到值落在哪）。
     const spot = this.dock(ids[ids.length - 1]!);
     const last = spot ? [new Box3(spot.clone().add(new Vector3(-1.2, -0.6, -0.9)), spot.clone().add(new Vector3(1.2, 0.6, 0.9)))] : [];
@@ -485,9 +487,10 @@ export class SceneView {
     const animate = options.animate && !kit.reduced;
     stage.ensureVisible(this.cam(), stage.boxesOf(this.frames[index] ?? [], true, pose.parts));
     stage.moveTo(this.cam(), animate);
-    if (options.frame) this.peek(options.frame, pose.parts);
+    const looking = !!options.frame && options.frame.length > 0;
+    if (looking) this.peek(options.frame!, pose.parts);
     // 临时看别处（弄坏它）时，演完停在那里，不回到这一步本来的镜头。
-    const cam = options.frame ? stage.goal : this.cam();
+    const cam = looking ? stage.goal : this.cam();
     this.emitRects();
 
     const moves = options.forward ? options.moves.filter((move) => this.ref(move.from).part && this.ref(move.to).part) : [];

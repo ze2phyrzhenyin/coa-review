@@ -39,7 +39,7 @@ export class Chip extends Part<ChipProps> {
       const along = side === 'n' || side === 's';
       const spots = spread(list.length, (along ? W : D) - 0.3);
       list.forEach((pin, i) => {
-        const group = new PinGroup(kit, this.group, { id: pin.id, name: pin.name, side, at: spots[i]!, lines: pin.lines ?? 1, ink: pin.ink ?? 'addr', value: pin.value }, W / 2, D / 2);
+        const group = new PinGroup(kit, this.group, { id: pin.id, name: pin.name, side, at: pin.at ?? spots[i]!, lines: pin.lines ?? 1, ink: pin.ink ?? 'addr', value: pin.value }, W / 2, D / 2);
         this.groups.set(pin.id, group);
       });
     }

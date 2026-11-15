@@ -1,0 +1,79 @@
+/* 练习的答题纸（2-mul、2-div 共用）：台面、填写栏、判分。 */
+.md-quiz {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.md-task {
+  margin: 0;
+  max-width: var(--measure);
+}
+.md-sheet {
+  cursor: pointer;
+}
+.md-sheet.is-wide {
+  height: clamp(520px, 72vh, 680px);
+}
+.md-fill {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--c-raised);
+  border: var(--bw, 1px) solid var(--c-border);
+  border-radius: var(--r-md);
+  cursor: auto;
+}
+.md-fill.is-anchored {
+  position: absolute;
+  box-shadow: var(--shadow-float);
+}
+.md-fill-head {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.md-fill-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.md-fill-foot .is-primary {
+  margin-left: auto;
+}
+.md-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}
+.md-key {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+.md-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0;
+}
+.md-hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+@media (max-width: 600px) {
+  .md-fill-foot .is-primary {
+    margin-left: 0;
+  }
+}
+/* 播放器的手机版式给舞台排了 order；答题纸按文档顺序排：题面、台面、填写栏。 */
+.md-quiz > .md-sheet {
+  order: 0;
+}
+@media (max-width: 600px) {
+  .md-quiz > .md-sheet {
+    height: min(60dvh, 520px);
+  }
+}
