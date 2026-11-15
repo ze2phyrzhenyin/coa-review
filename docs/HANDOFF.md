@@ -14,24 +14,16 @@
 - `scripts/tasks.mjs`、`loop.sh`、`fanout.sh`、`release.sh` 已写，`loop.sh` 和 `fanout.sh` 还没实际跑过。
 - `.agents/skills/no-ai-flavor` 已复制，`.claude/skills` 软链接已建。
 
-## 开发进度（11-14 上午）
+## 现状（2026-11-15 18:35）
 
-已完成并复核（测试全部通过，没有提交）：
-
-| 范围 | 内容 | 测试 |
-|---|---|---|
-| `src/engines/cpu/`、`specs/5-cycle.md` | 图 5.1 模型机引擎 | 82 |
-| `src/engines/cache/`、`specs/3-cache-run.md` | cache 逐次访问引擎 | 69 |
-| `src/lib/bits.ts`、`src/engines/overflow/`、`specs/2-overflow.md` | 位运算库和变形补码引擎 | 86 |
-| `src/scene/`、`src/player/` | three.js 部件库和逐步播放器；`/5-cycle?demo=kit` 演示 | qa-pages 通过 |
-
-**0.2 已上线**（2026-11-14 23:53，版本 `20261114T225321Z-e11c878`）：https://coa.zhaoyang.fr ，三个样板页 `/5-cycle`、`/2-overflow`、`/3-cache-run` 都过了独立验收（3–4 轮）和学生试读（记录在 `evals/look/`）。回滚：`bash scripts/release.sh rollback`。0.1 是 `20261114T110520Z-047361a`。
-
-剩余的低优先级问题见各页 `evals/look/<页面>/report-r3.md`、`report-r4.md`；桌面场景文字约 10–11 px；MOV 第 12 步手机上 DR 在画面左外。
-
-下一步（按 docs/PLAN.md）：一批 24 页。先用 planner 写规格、拆任务图，引擎和页面分道并行（`fanout.sh` 或 Agent 工具），每页走同样的验收和学生试读。
-
-引擎在教材没写清处的选择记在 `docs/DECISIONS.md` D16–D18，等任课老师口径。
+- 线上 https://coa.zhaoyang.fr ：版本 `20261115T173129Z-9f951e8`，24 页（三个样板页加一批 21 页），都过了独立验收。回滚 `bash scripts/release.sh rollback`。公开仓库 https://github.com/ze2phyrzhenyin/coa-review 。
+- 一批还差两页没上线：`6-serial`、`5-flow`。作者已按 `evals/look/final-recheck.md` 修好，等独立复核；通过后把 `plan/features.json` 的 `passes` 和 `src/content/pages.ts` 的 `live` 置 true 再发布。
+- 二批 30 页还没开始（`docs/PLAN.md`）。做法照一批：引擎和规格 → 独立测试 → 页面 → 验收 → 发布。
+- 负责人后加的要求都在 `docs/INTERACTION.md`：形象直观有趣、易懂、专业、美观、去 AI 味；场景和控制条在所有步骤里位置固定（qa-pages 会查）。
+- 新增检查：`scripts/qa-clip.mjs`（手机 360–390 px 每步主体完整入画；`--strict` 只作参考）、qa-pages 的位置固定检查、门禁按线上构建再查一遍导航。
+- 验收的教训：只看桌面和 390 px 的人工验收会漏掉 360 px 裁切和「手机上少内容」；作者会为了过检查删内容，要单独做手机与桌面一致性复查（`evals/look/final-parity.md`）。
+- 低优先级遗留见 `evals/look/final-recheck.md`、各页 `report-b3.md`；共用答题纸的合并计划在 `plan/progress/T101.md`。
+- Codex 仍未登录（`codex login`）。
 
 ## 框架验收（11-14，在临时副本里做，没动本仓库的提交记录）
 
