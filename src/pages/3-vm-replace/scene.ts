@@ -75,12 +75,12 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
     {
       id: 'conv',
       kind: 'conveyor',
-      position: at([0.2, 0.3], inline ? [0, rowZ] : [0.5, rowZ]),
+      position: at([0.2, 0.3], inline ? [-0.4, rowZ] : [0.5, rowZ]),
       title: '主存页面',
       props: { ...(inline ? {} : { name: '主存' }), slots: n, items: items(trace.initial.frames), inLabel: slot(0), outLabel: slot(n - 1), slotWidth: beltW },
     },
-    { id: 'cur', kind: 'register', position: at([-beltLen / 2 - 3.0, 0.3], inline ? [-2.65, rowZ] : [-1.75, 0.6]), props: { name: '访问页', value: '', width: inline ? 1.55 : params.addresses ? 2.6 : 2.0 } },
-    { id: 'out', kind: 'register', position: at([beltLen / 2 + 3.1, 0.3], inline ? [2.65, rowZ] : [1.75, 0.6]), props: { name: '淘汰', value: '', width: inline ? 1.55 : 2.6 } },
+    { id: 'cur', kind: 'register', position: at([-beltLen / 2 - 3.0, 0.3], inline ? [-2.8, rowZ] : [-1.75, 0.6]), props: { name: '访问页', value: '', width: inline ? 1.2 : params.addresses ? 2.6 : 2.0 } },
+    { id: 'out', kind: 'register', position: at([beltLen / 2 + 3.1, 0.3], inline ? [2.4, rowZ] : [1.75, 0.6]), props: { name: '淘汰', value: '', width: inline ? 2.0 : 2.6 } },
     {
       id: 'cmp',
       kind: 'compare',
@@ -88,8 +88,11 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
       title: '找这一页',
       props: { left: '', right: '', ...(narrow ? {} : { leftName: '访问页', rightName: '主存里' }) },
     },
-    { id: 'hit', kind: 'label', position: at([2.4, 2.7], [-1.2, inline ? 2.6 : 3.9]), props: { text: '命中 0', plate: true, size: 0.36, weight: 600, mono: true }, pick: true, title: '命中' },
-    { id: 'miss', kind: 'label', position: at([4.4, 2.7], [1.2, inline ? 2.6 : 3.9]), props: { text: '缺页 0', plate: true, size: 0.36, weight: 600, mono: true }, pick: true, title: '缺页' },
+    { id: 'hit', kind: 'label', position: at([2.4, 2.7], [-1.2, inline ? 2.6 : 3.9]), props: { text: '命中 0', plate: true, size: 0.36, weight: 600, mono: true }, title: '命中次数' },
+    { id: 'miss', kind: 'label', position: at([4.4, 2.7], [1.2, inline ? 2.6 : 3.9]), props: { text: '缺页 0', plate: true, size: 0.36, weight: 600, mono: true }, title: '缺页次数' },
+    // 答「命中吗」用的两块牌：只在出这道题时摆出来。和计数牌分开，牌上的次数不会被当成选项，牌的大小也不随计数变。
+    { id: 'ansHit', kind: 'label', position: at([2.4, 4.1], [-1.2, inline ? 3.9 : 5.4]), props: { text: '命中', plate: true, size: 0.36, weight: 600 }, pick: true, title: '命中' },
+    { id: 'ansMiss', kind: 'label', position: at([4.4, 4.1], [1.2, inline ? 3.9 : 5.4]), props: { text: '缺页', plate: true, size: 0.36, weight: 600 }, pick: true, title: '缺页' },
   ];
   if (narrow) parts.push({ id: 'ratio', kind: 'label', position: [0, inline ? 3.9 : 5.4], props: { text: '', plate: true, size: 0.36, weight: 600, mono: true } });
   // 传送带自己只在两端写 a 和最后一格的字母；中间几格补上，和表的行名对得上。
@@ -107,6 +110,8 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
   const comparing = (c: BindContext<State>): boolean => !!c.step && c.step.level === 'explain' && c.state.current.n > 0 && c.state.current.hit !== null && c.state.current.n <= count && !isTail(c);
   /** 页面自己加的最后一步（命中率）。 */
   const isTail = (c: BindContext<State>): boolean => c.index > count * 2;
+  /** 这一步的画面上正等着答「命中吗」。 */
+  const asking = (c: BindContext<State>): boolean => !!trace.steps[c.index]?.ask?.prompt.endsWith('命中吗');
   const table: Record<string, Record<string, unknown>> = {
     tbl: {
       rows: from<State>(['frames', 'current.n'], (c) => {
@@ -134,8 +139,8 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
         return address === undefined || inline ? `页 ${c.state.current.page}` : `页 ${c.state.current.page}（${address}）`;
       }),
     },
-    // 排成一排时「淘汰」的牌窄：只写最近两个，前面的用省略号带过；完整的顺序在最后一步的说明和表下的结果里。
-    out: { value: from<State>(['evicted'], (c) => { const list = c.state.evicted; return list.length === 0 ? '' : inline && list.length > 2 ? `…${list.slice(-2).join('、')}` : list.join('、'); }) },
+    // 排成一排时「淘汰」的牌窄：页号之间用空格，整串都写得下。
+    out: { value: from<State>(['evicted'], (c) => { const list = c.state.evicted; return list.join(inline ? ' ' : '、'); }) },
     cmp: {
       left: from<State>(['current.page'], (c) => (c.state.current.page === null ? '' : String(c.state.current.page))),
       right: from<State>(['current.hit'], (c) => {
@@ -148,6 +153,8 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
       hidden: (c: BindContext<State>) => !comparing(c),
     },
     ...(narrow ? { ratio: { text: (c: BindContext<State>) => (isTail(c) ? `命中率 ${sheet.rows[0]?.cells[count + 1] ?? ''}` : ''), hidden: (c: BindContext<State>) => !isTail(c) } } : {}),
+    ansHit: { hidden: (c: BindContext<State>) => !asking(c) },
+    ansMiss: { hidden: (c: BindContext<State>) => !asking(c) },
     hit: { text: from<State>(['hits'], (c) => `命中 ${c.state.hits}`) },
     miss: { text: from<State>(['faults'], (c) => `缺页 ${c.state.faults}`) },
   };
@@ -176,7 +183,7 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
     if (path === 'current.marked' && /^\d+$/.test(value)) return `${slot(Number(value))} 格`;
     return value;
   };
-  const askFrame = (): string[] => ['conv', 'cur', 'hit', 'miss'];
+  const askFrame = (ask: unknown): string[] => ((ask as { prompt?: string }).prompt?.endsWith('命中吗') ? ['conv', 'ansHit', 'ansMiss'] : ['conv', 'cur']);
   // 填列的那一步看表和传送带（手机上两样要同时看见）；比较的那一步看传送带、访问页和比较。
   const frame = (step: Step<State>): string[] | null => {
     if (step.state.current.n === 0) return null;

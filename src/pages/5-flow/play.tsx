@@ -14,7 +14,7 @@ export function FlowPlayer({ params, lesson }: { params: FlowParams; lesson: boo
   const made = useMemo(() => {
     try {
       const L = link(runFlow(params));
-      return { L, scene: flowScene(L), bind: flowBind(L), moves: flowMoves(L), frame: flowFrame(L, narrow), caption: flowCaption(L), values: flowValues(L), wrong: flowWrong(L), breakIt: flowBreak(L), mistakes: flowMistakes(L), error: '' };
+      return { L, scene: flowScene(L), bind: flowBind(L), moves: flowMoves(L), frame: flowFrame(L, narrow), caption: flowCaption(L), values: flowValues(L), wrong: flowWrong(L), breakIt: flowBreak(L, narrow), mistakes: flowMistakes(L), error: '' };
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) };
     }

@@ -68,6 +68,8 @@ export interface ChartProps extends CommonProps {
   lag?: number;
   /** 手机上镜头只看当前列附近的几列；0 看整张。 */
   window?: number;
+  /** 开窗看哪一列附近（不画当前列的框）；不写时按 current。 */
+  at?: number;
   /** 开窗时板子自己横着挪，让当前这几列停在部件原位的正上方（窄屏用）。 */
   slide?: boolean;
   links?: ChartLink[];

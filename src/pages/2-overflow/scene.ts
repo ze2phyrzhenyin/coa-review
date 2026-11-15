@@ -34,11 +34,14 @@ export interface OverflowScene {
   mistakes: Mistake<OverflowState>[];
   /** 和写完的那一步镜头停在和这一行上（和送到刻度盘时镜头跟过去再回来）。 */
   frame: (step: Step<OverflowState>) => string[] | null;
+  /** 第 0 步镜头看的部件（窄屏）。 */
+  questionFrame: string[] | undefined;
 }
 
 /** 第 0 步的问题、最后的结论、需要先会。 */
 export const OVERFLOW_QUESTION = { text: '和的两个符号位读出来是 01 还是 10，最高位丢掉的进位算不算溢出', at: ['sign', 'drop'] };
 export const OVERFLOW_CONCLUSION = '两个符号位 01 是正溢，10 是负溢，00 和 11 没有溢出。最高符号位向外的进位按模丢掉，它本身不说明溢出；单符号位时看 C_f ⊕ C_0。';
+export const OVERFLOW_ASIDES = [{ label: '看刻度盘', ids: ['dial'] }];
 export const OVERFLOW_NEEDS = [{ href: '/2-codes', text: '补码怎么写' }];
 
 /** 符号位与数值位之间多空的一点、行距。列距宽屏 1.0，窄屏 0.9（整张竖式不出左右边）。 */
@@ -60,7 +63,7 @@ function textWidth(text: string, size: number): number {
 export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solution: OverflowSolution, compact = false): OverflowScene {
   const { width: W, n, notation, op } = solution;
   // 窄屏列距 0.76：360 宽的手机上七列加行名也装得下；减法有六行，靠前的几行离镜头近、在画面上更宽，同样不出右缘。
-  const PITCH = compact ? 0.76 : 1.0;
+  const PITCH = compact ? 0.66 : 1.0;
   const point = notation === '小数';
   const subtract = op === '减';
   const keys: RowKey[] = subtract ? ['y', 'inverted', 'carry', 'x', 'negY', 'sum'] : ['carry', 'x', 'y', 'sum'];
@@ -85,7 +88,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   // 列头：符号位和各数值位的权。
   const zHead = -0.95;
   // 窄屏上「出界」这一列也有列头，下面的小牌只写 1 或 无，牌就不比格子宽。
-  if (compact) parts.push({ id: 'head-0', kind: 'label', position: [cx(0), zHead], props: { text: '出界', size: 0.36, tone: 'muted', weight: 500 } });
+  if (compact) parts.push({ id: 'head-0', kind: 'label', position: [cx(0), zHead], props: { text: '丢掉', size: 0.31, tone: 'muted', weight: 500 } });
   for (let c = 1; c <= W; c++) {
     const name = colName(c);
     parts.push({ id: `head-${c}`, kind: 'label', position: [cx(c), zHead], props: { text: name, size: compact ? 0.36 : c < 3 ? 0.34 : 0.31, tone: c < 3 ? 'text' : 'muted', weight: c < 3 ? 600 : 500 } });
@@ -111,14 +114,17 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
     if (point && key !== 'carry') {
       parts.push({ id: `dot-${key}`, kind: 'label', position: [(cx(2) + cx(3)) / 2, rz(key) + 0.18], props: { text: '.', size: 0.5, weight: 700 } });
     }
-    const labelSize = compact ? 0.32 : 0.31;
+    const labelSize = 0.31;
     // 窄屏上行名只留方括号那一段（[x]、+[y]；减法的加数写 [−y]，五个字符会伸出右缘），全名在条件和解题表里。
     // 结果行的 [x+y] 五个字符在手机上会伸出右缘，写成「和」「差」，全名在步骤标题里。
-    const shown = !compact ? label : key === 'sum' ? (subtract ? '差' : '和') : label.replace(/变补$/, '').replace(/\s+/g, '').replace('各位取反', '取反').replace(/^\+(\[[−-]y\])$/, '$1');
+    // 窄屏行名也写全（[x]变补、[x+y]变补，码名是小一号的下标）；只把「各位取反」缩成「取反」，减法的加数不写前面的加号。
+    const shown = !compact ? label : label.replace(/\s+/g, '').replace('各位取反', '取反').replace(/^\+(\[[−-]y\])/, '$1');
+    // 码名排成下标后比原字窄：宽度按下标的字号算。
+    const shownWidth = textWidth(shown.replace(/变补$/, ''), labelSize) + (/变补$/.test(shown) ? 2 * labelSize * 0.68 : 0);
     parts.push({
       id: `label-${key}`,
       kind: 'label',
-      position: [cx(W) + HALF_TILE + (compact ? 0.22 : 0.35) + textWidth(shown, labelSize) / 2, rz(key)],
+      position: [cx(W) + (compact ? 0.38 : HALF_TILE + 0.35) + (compact ? shownWidth : textWidth(shown, labelSize)) / 2, rz(key)],
       props: { text: shown, size: labelSize, tone: key === 'carry' ? 'muted' : 'text' },
     });
   });
@@ -149,7 +155,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   };
 
   // 两个判定式并排。
-  const formulaWidth = compact ? Math.min(3.4, (span + 0.2) / 2) : 3.4;
+  const formulaWidth = compact ? Math.min(3.4, (span - 0.3) / 2) : 3.4;
   const zFormula = zSum + 3.1;
   parts.push({ id: 'vs', kind: 'register', position: [-(formulaWidth / 2 + 0.25), zFormula], props: { name: 'V = S_f1 ⊕ S_f2', value: '', width: formulaWidth } });
   parts.push({ id: 'vc', kind: 'register', position: [formulaWidth / 2 + 0.25, zFormula], props: { name: 'V = C_f ⊕ C_0', value: '', width: formulaWidth } });
@@ -165,20 +171,22 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   // 窄屏：两侧只写「负溢」「正溢」，各留一张名牌的宽度；范围写在中间一段（「−10000～+1111」），字不缩小。
   // 三段不再按 1:2:1：360 宽的手机上按比例摆会比画面宽。
   const midShown = compact ? `${low}～${high}` : `${low} 到 ${high}`;
-  const sideW = 1.02;
+  // 窄屏分两排：无溢出在上，负溢、正溢在下一排的左右，三块都写全读数（360 宽时一排放不下带读数的三块）。
+  const sideW = textWidth(`< ${low}`, 0.36) + 0.7;
   const midW = textWidth(midShown, 0.36) + 0.6;
-  const L = compact ? Math.max(span + 0.4, 2 * sideW + midW + 0.24) : Math.max(10, span + 2.4, 4 * (sideText + 0.8), 2 * (midText + 0.8));
+  const L = compact ? Math.max(span + 0.4, 2 * sideW + 0.24) : Math.max(10, span + 2.4, 4 * (sideText + 0.8), 2 * (midText + 0.8));
   const zLine = zFormula + 1.75;
-  const side = compact ? (L - 0.24 - midW) / 2 : L / 4 - 0.12;
+  const zSide = compact ? zLine + 1.6 : zLine;
+  const side = compact ? sideW : L / 4 - 0.12;
   const mid = compact ? midW : L / 2 - 0.12;
-  const sideX = compact ? mid / 2 + 0.12 + side / 2 : (3 * L) / 8;
-  const zones: { id: string; title: '负溢' | '无溢出' | '正溢'; x: number; w: number; value: string }[] = [
-    { id: 'zone-neg', title: '负溢', x: -sideX, w: side, value: compact ? '' : `< ${low}` },
-    { id: 'zone-ok', title: '无溢出', x: 0, w: mid, value: midShown },
-    { id: 'zone-pos', title: '正溢', x: sideX, w: side, value: compact ? '' : `> ${high}` },
+  const sideX = compact ? side / 2 + 0.12 : (3 * L) / 8;
+  const zones: { id: string; title: '负溢' | '无溢出' | '正溢'; x: number; z: number; w: number; value: string }[] = [
+    { id: 'zone-neg', title: '负溢', x: -sideX, z: zSide, w: side, value: `< ${low}` },
+    { id: 'zone-ok', title: '无溢出', x: 0, z: zLine, w: mid, value: midShown },
+    { id: 'zone-pos', title: '正溢', x: sideX, z: zSide, w: side, value: `> ${high}` },
   ];
   for (const zone of zones) {
-    parts.push({ id: zone.id, kind: 'register', position: [zone.x, zLine], props: { name: zone.title, value: zone.value, width: zone.w }, pick: true, title: zone.title });
+    parts.push({ id: zone.id, kind: 'register', position: [zone.x, zone.z], props: { name: zone.title, value: zone.value, width: zone.w }, pick: true, title: zone.title });
     table[zone.id] = {
       focus: (ctx) => ctx.state.verdict === zone.title && (ctx.changed.has('verdict') || ctx.changed.has('conclusion')),
     };
@@ -192,7 +200,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   const xv = (exact / 2 ** (n + 1)) * (L / 2);
   const inset = Math.max(0, home.w / 2 - markWidth / 2);
   const markX = Math.max(home.x - inset, Math.min(home.x + inset, xv));
-  parts.push({ id: 'mark', kind: 'register', position: [markX, zLine + 1.5], props: { name: compact ? `= ${formatDecimal(exact, n, notation)}` : `${expression} = ${formatDecimal(exact, n, notation)}`, value: '', width: markWidth } });
+  parts.push({ id: 'mark', kind: 'register', position: [markX, zSide + 1.5], props: { name: `${expression} = ${formatDecimal(exact, n, notation)}`, value: '', width: markWidth } });
   table.mark = {
     value: from('conclusion', (ctx) => (ctx.state.conclusion ? exactText : '')),
     hidden: from('conclusion', (ctx) => !ctx.state.conclusion),
@@ -210,7 +218,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   const R = compact ? 1.45 : 1.6;
   const dialX = compact ? 0 : span / 2 + R + 2.3;
   // 窄屏上刻度盘在结果落点的前面，离得够远：落点的牌不压到盘后面的名牌。
-  const dialZ = compact ? zLine + 4.7 : (rz(keys[0]!) + zSum) / 2;
+  const dialZ = compact ? zSide + 4.7 : (rz(keys[0]!) + zSum) / 2;
   parts.push({
     id: 'dial',
     kind: 'dial',
@@ -334,7 +342,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
       at: judged + 1,
       act: (state) => ({
         label: '',
-        patch: { verdict: { text: `${state.sf1}${state.sf2} 有进位丢掉，溢出？`, hidden: false }, 'zone-pos': { focus: true } },
+        patch: { 'sum-1': {}, 'sum-2': {}, verdict: { text: `${state.sf1}${state.sf2} 有进位丢掉，溢出？`, hidden: false }, 'zone-pos': { focus: true } },
         moves: [],
         message: `最高符号位向外的进位按${modulus ? `模 ${modulus}` : '模'}丢掉，丢掉它不改变结果的变形补码。判溢出只看两个符号位：01 正溢、10 负溢，和这个进位有没有无关。`,
       }),
@@ -344,7 +352,7 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
       at: judged + 1,
       act: () => ({
         label: '',
-        patch: { verdict: { text: '01 负溢？', hidden: false }, 'zone-neg': { focus: true } },
+        patch: { 'sum-1': {}, 'sum-2': {}, verdict: { text: '01 负溢？', hidden: false }, 'zone-neg': { focus: true } },
         moves: [],
         message: '结果的符号看 S_f1。01 的第一位是 0：两个正数相加，结果本该是正数，第二位被数值位的进位改成了 1，所以 01 是正溢（教材 p37）。',
       }),
@@ -356,18 +364,25 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
       at: carried + 1,
       act: (state) => ({
         label: '',
-        patch: { vc: { value: `只看 C_f = ${state.cf}` } },
-        moves: [],
+                // 只把 C_f 从进位行拿到判定式里：宽屏两头同框；手机上装不下时镜头停在判定式，牌从进位行飞进来。
+        patch: { vc: { value: `C_f = ${state.cf}` } },
+        moves: [{ value: `C_f = ${state.cf}`, from: 'carry-1', to: 'vc', arc: true }],
         message: '单符号位判溢出看 C_f ⊕ C_0：符号位送出的进位和最高数值位送出的进位不同才溢出。两个负数相加不溢出时 C_f 也是 1，只看它会误判。',
       }),
     });
   }
   const frame = (step: Step<OverflowState>): string[] | null => {
+    // 一次写出一整行（[x]变补、[y]变补、取反）：带上列头，手机上列名不被上缘切掉。
+    const rowsWritten = [...new Set(step.changes.map((change) => /^rows\.(\w+)\.cells\.\d+$/.exec(change.at)?.[1]).filter((key): key is string => !!key && key !== 'carry' && key !== 'sum'))];
+    if (compact && rowsWritten.length === 1 && step.changes.length >= W - 1) return ['head-0', `head-${W}`, `${rowsWritten[0]}-1`, `${rowsWritten[0]}-${W}`, ...keys.map((key) => `label-${key}`)];
     const written = step.changes.some((change) => change.at.startsWith('rows.sum.cells.') && change.from === '');
     // 结论那一步：三个分区、落点和刻度盘一起看（手机上刻度盘在最前面，不能只露半个）。
-    if (step.changes.some((change) => change.at === 'conclusion')) return ['zone-neg', 'zone-ok', 'zone-pos', 'mark', 'dial'];
+    // 窄屏上分区两排加落点已经一屏，刻度盘按「看刻度盘」过去。
+    if (step.changes.some((change) => change.at === 'conclusion')) return compact ? ['zone-neg', 'zone-ok', 'zone-pos', 'mark'] : ['zone-neg', 'zone-ok', 'zone-pos', 'mark', 'dial'];
     if (!written || sumDone(step.state.rows.sum) === null) return null;
     return Array.from({ length: W }, (_, c) => `sum-${c + 1}`);
   };
-  return { scene, bind, moves, names, values, flipPart, wrong, askFrame, mistakes, frame };
+  // 第 0 步：手机上看列头和前四行（减法六行一屏放不下），列名不被切。
+  const questionFrame = compact ? ['head-0', 'carry-0', `head-${W}`, ...keys.slice(0, 4).flatMap((key) => [`${key}-1`, `${key}-${W}`, `label-${key}`])] : undefined;
+  return { scene, bind, moves, names, values, flipPart, wrong, askFrame, mistakes, frame, questionFrame };
 }

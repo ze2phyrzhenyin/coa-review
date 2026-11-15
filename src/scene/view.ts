@@ -752,7 +752,8 @@ export class SceneView {
     const box = stage.boxesOf([id], true, this.pose.parts)[0];
     if (!box) return true;
     const q = stage.project(box, pose);
-    if (q.w >= stage.width || q.h >= stage.height) return true;
+    // 比画面还大的部件：只要和画面有交叠就算在（它本来就看不全）；完全在画面外的不算。
+    if (q.w >= stage.width || q.h >= stage.height) return q.x < stage.width && q.x + q.w > 0 && q.y < stage.height && q.y + q.h > 0;
     const slack = 6;
     return q.x >= -slack && q.x + q.w <= stage.width + slack && q.y >= -slack && q.y + q.h <= stage.height + slack;
   }

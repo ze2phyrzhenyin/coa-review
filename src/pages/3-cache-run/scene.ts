@@ -452,6 +452,7 @@ export function cacheWrong(params: Params) {
 export const CACHE_QUESTION = { text: '这次访问的块能放进哪几行，放满了换出谁', at: ['r0', 'r1'] };
 export const CACHE_CONCLUSION =
   '直接映射时块 j 只能放进行 j mod m；组相联时放进组 j mod u 里的任意一行，组里没有空行才替换。LRU 换出计数器最大的那一行，也就是最久没用到的；换出的块修改位是 1 时，先写回主存再调入新块。';
+export const CACHE_ASIDES = [{ label: '看算式', ids: ['calcJ', 'calcI'] }];
 export const CACHE_NEEDS = [{ href: '/3-cache-addr', text: '地址切成标记、行号（组号）、字地址' }];
 
 /** 计数规则教材有（p108）；本站自己定的只有两点：只加同组的行、调入也算用了一次（docs/DECISIONS.md D16）。 */

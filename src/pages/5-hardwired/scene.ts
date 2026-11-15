@@ -72,7 +72,7 @@ export function gridParts(view: GridView, cells: string[][], origin: [number, nu
     // 一排往右摆，不往纵深摆：台面太深时靠前的部件会跑到镜头后面。
     position: [origin[0] + (c - (view.ops.length - 1) / 2) * NARROW_DX, origin[1]],
     title: `${op} 的流程`,
-    props: { name: op, columns: [op], rows: ROWS, cells: cells.map((row) => [row[c]!]), cellWidth },
+    props: { name: `${name}：${op}`, columns: [op], rows: ROWS, cells: cells.map((row) => [row[c]!]), cellWidth },
   }));
 }
 
@@ -206,7 +206,7 @@ export function hardScene(trace: Trace<DeriveParams, DeriveState>, narrow: boole
     ...options.map(
       (option, i): PartSpec =>
         narrow
-          ? { id: `CAND_${i}`, kind: 'label', position: L.cand(i), title: option, props: { text: option, size: 0.31, plate: true, mono: true, hidden: true }, pick: true }
+          ? { id: `CAND_${i}`, kind: 'label', position: L.cand(i), title: option, props: { text: `候选 ${String.fromCharCode(65 + i)}  ${option}`, size: 0.31, plate: true, mono: true, hidden: true }, pick: true }
           : { id: `CAND_${i}`, kind: 'register', position: L.cand(i), title: option, props: { name: `候选 ${String.fromCharCode(65 + i)}`, value: option, width: 5.6, hidden: true }, pick: true },
     ),
   ];
@@ -248,7 +248,7 @@ export function hardBind(trace: Trace<DeriveParams, DeriveState>, narrow: boolea
   });
   final.terms.forEach((_, i) => {
     table[`TERM_${i}`] = narrow
-      ? { text: { at: `terms.${i}.text`, as: (c: Ctx) => c.state.terms[i]?.text ?? '' }, hidden: (c: Ctx) => !c.state.terms[i] }
+      ? { text: { at: `terms.${i}.text`, as: (c: Ctx) => (c.state.terms[i] ? `第 ${i + 1} 项  ${c.state.terms[i]!.text}` : '') }, hidden: (c: Ctx) => !c.state.terms[i] }
       : { value: { at: `terms.${i}.text`, as: (c: Ctx) => c.state.terms[i]?.text ?? '' } };
   });
   const options = trace.steps[total - 1]!.ask?.options ?? [];
@@ -373,7 +373,7 @@ export function hardBreak(trace: Trace<DeriveParams, DeriveState>, narrow: boole
       const shown = showExpression(bare, trace, narrow);
       return {
         label: '弄坏它：去掉指令名',
-        patch: { ...shown.patch, TERM_0: plate(bare, narrow) },
+        patch: { ...shown.patch, TERM_0: plate(narrow ? `第 1 项  ${bare}` : bare, narrow) },
         moves: [{ value: bare, from: 'TERM_0', to: 'EXPR', arc: true, ink: 'ctrl' }],
         message: `只写 ${bare}：${consequence(trace.params.signal, shown.missing, shown.extra)}`,
       };

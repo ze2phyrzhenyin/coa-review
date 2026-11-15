@@ -126,9 +126,11 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
     for (let i = 0; i < n; i++) {
       const [x, z] = devPos(i);
       if (narrow) {
-        const xr = 1.7 + i * 0.5;
-        parts.push({ id: `sBR${i}`, kind: 'signal', position: [0, 0], props: { from: `D${i}.e`, to: 'ARB.e', text: `BR_${i}`, ink: 'ctrl', via: [[xr, z - 0.15], [xr, ARB[1] - 0.15]], labelAt: 0.36 } });
-        parts.push({ id: `sBG${i}`, kind: 'signal', position: [0, 0], props: { from: 'ARB.e', to: `D${i}.e`, text: `BG_${i}`, ink: 'ctrl', via: [[xr + 0.25, ARB[1] + 0.15], [xr + 0.25, z + 0.15]], labelAt: 0.38 } });
+        const xr = 2.0 + i * 0.55;
+        // 线长：两段横的加一段竖的。BR 的牌贴在本接口右边，BG 的牌在本接口上方的竖线上，各排各的。
+        const run = 2 * (xr - 1.4) + (z - ARB[1]);
+        parts.push({ id: `sBR${i}`, kind: 'signal', position: [0, 0], props: { from: `D${i}.e`, to: 'ARB.e', text: `BR_${i}`, ink: 'ctrl', via: [[xr, z - 0.15], [xr, ARB[1] - 0.15]], labelAt: (xr - 1.4 + 0.1) / run } });
+        parts.push({ id: `sBG${i}`, kind: 'signal', position: [0, 0], props: { from: 'ARB.e', to: `D${i}.e`, text: `BG_${i}`, ink: 'ctrl', via: [[xr + 0.25, ARB[1] + 0.15], [xr + 0.25, z + 0.15]], labelAt: 1 - (xr - 1.15 + 0.85) / (run + 0.5) } });
       } else {
         const lane = 1.2 + i * 0.62;
         parts.push({ id: `sBR${i}`, kind: 'signal', position: [0, 0], props: { from: `D${i}.s`, to: 'ARB.s', text: `BR_${i}`, ink: 'ctrl', via: [[x - 0.35, z + lane], [ARB[0] - 0.35, z + lane]], labelAt: 0.12 } });

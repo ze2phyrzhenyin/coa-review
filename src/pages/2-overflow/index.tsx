@@ -10,7 +10,7 @@ import { Player } from '../../player/Player';
 import { Rich } from '../../player/Rich';
 import { breakScene, breakTrace } from './break';
 import { EXAMPLES, exampleParams, lesson } from './lesson';
-import { OVERFLOW_CONCLUSION, OVERFLOW_NEEDS, OVERFLOW_QUESTION } from './scene';
+import { OVERFLOW_ASIDES, OVERFLOW_CONCLUSION, OVERFLOW_NEEDS, OVERFLOW_QUESTION } from './scene';
 import { Sheet } from './Sheet';
 import './overflow.css';
 
@@ -99,7 +99,8 @@ function Learn() {
           onWrong={made.wrong}
           askFrame={made.askFrame}
           frame={made.frame}
-          question={OVERFLOW_QUESTION}
+          question={made.questionFrame ? { ...OVERFLOW_QUESTION, frame: made.questionFrame } : OVERFLOW_QUESTION}
+          asides={OVERFLOW_ASIDES}
           conclusion={OVERFLOW_CONCLUSION}
           needs={OVERFLOW_NEEDS}
           mistakes={made.mistakes}

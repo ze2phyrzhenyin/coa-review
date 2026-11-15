@@ -59,12 +59,12 @@ export function intrStage(trace: Trace<Params, State>, narrow: boolean): IntrSta
     PC: at([-5.6, -1.4], [1.55, -4.6]),
     IR: at([-3.5, -1.4], [-1.55, -2.6]),
     IM: at([-2.0, -1.4], [0.0, -2.6]),
-    cards: at([4.65, -1.6], [0.0, 12.8]),
-    regs: at([-5.7, 3.6], [-1.75, 1.3]),
-    stack: at([-2.4, 3.6], [1.45, 1.3]),
-    cycle: at([1.0, 3.6], [-2.25, 7.6]),
-    hw: at([3.45, 3.6], [0.0, 7.6]),
-    sw: at([5.9, 3.6], [2.25, 7.6]),
+    cards: at([4.65, -1.6], [0.0, 0.6]),
+    regs: at([-5.7, 3.6], [-1.3, 4.8]),
+    stack: at([-2.4, 3.6], [1.65, 4.8]),
+    cycle: at([1.0, 3.6], [-2.25, 11.2]),
+    hw: at([3.45, 3.6], [0.0, 11.2]),
+    sw: at([5.9, 3.6], [2.25, 11.2]),
   };
   const colW = narrow ? 2.2 : 2.2;
 
@@ -248,12 +248,12 @@ export function intrStage(trace: Trace<Params, State>, narrow: boolean): IntrSta
         响应条件: ['CPU', 'PC', 'IR', 'IM'],
         开中断指令: ['PC', 'IR', 'IM'],
         关中断: ['CPU', 'IR', 'IM'],
-        保存断点: ['PC', 'stack'],
-        转移: ['CPU', 'PC'],
-        保存现场: ['regs', 'stack'],
-        恢复现场: ['regs', 'stack'],
+        保存断点: ['cards', 'stack'],
+        转移: ['CPU', 'PC', 'cards'],
+        保存现场: ['cards', 'regs', 'stack'],
+        恢复现场: ['cards', 'regs', 'stack'],
         开中断: ['CPU', 'IR', 'IM'],
-        中断返回: ['PC', 'stack'],
+        中断返回: ['CPU', 'PC', 'cards'],
       };
       return near[box] ?? null;
     }

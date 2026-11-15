@@ -57,7 +57,9 @@ export interface PlayerProps<P, S> {
   /** 粒度标签的页面叫法，只写要改的几项，例如 { beat: '一个时钟周期' }。 */
   levelNames?: Partial<Record<StepLevel, string>> | undefined;
   /** 第 0 步：这一页要回答的问题，和它落在哪些部件上（这些部件垫上焦点纸，手机上镜头先看它们）。 */
-  question?: { text: string; at: string[] } | undefined;
+  question?: { text: string; at: string[]; frame?: string[] } | undefined;
+  /** 不一定在这一步画面里、但学生随时可能想看的部件（刻度盘、算式）。不在画面里时舞台下出一个按钮，按一下镜头移过去；换步时回来。 */
+  asides?: { label: string; ids: string[] }[] | undefined;
   /** 讲解的最后一步之后：一句话结论，回答页面标题。 */
   conclusion?: string | undefined;
   /** 「需要先会」：前置页面的链接。 */
@@ -99,7 +101,7 @@ function pickTargets(scene: SceneSpec, ask: Ask | undefined): Map<string, string
 const onStage = (rect: Rect | undefined, size: { width: number; height: number }): boolean =>
   !!rect && rect.x + rect.w / 2 > 0 && rect.x + rect.w / 2 < size.width && rect.y + rect.h / 2 > 0 && rect.y + rect.h / 2 < size.height;
 
-export function Player<P, S>({ trace, scene, bind, moves, names, values, caption, breakIt, onWrong, flipPart, askFrame, frame, wide, children, levelNames, question, conclusion, needs, mistakes, convention }: PlayerProps<P, S>) {
+export function Player<P, S>({ trace, scene, bind, moves, names, values, caption, breakIt, onWrong, flipPart, askFrame, frame, wide, children, levelNames, asides, question, conclusion, needs, mistakes, convention }: PlayerProps<P, S>) {
   const show = (path: string, value: string) => (value === '' || value === 'null' ? '空' : values ? values(path, value) : value);
   const total = trace.steps.length;
   const [index, setIndex] = useIntParam('s', 0, 0, total);
@@ -135,6 +137,10 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
   /** 点选题时点了不是候选的部件：给一句说明。 */
   const [stray, setStray] = useState('');
   const flipBits = flipId ? (draft?.index === index ? draft.bits : ' '.repeat(slots)) : '';
+  // 翻位片作答的部件不用另外声明 pick：告诉舞台这一片现在可以点。
+  useEffect(() => {
+    if (view.current) view.current.stage.flipTarget = flipId;
+  });
 
   /** 每一步的目标画面。等学生点选时，可选的部件多一个标记。 */
   const poseFor = useCallback(
@@ -178,7 +184,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
           targets.push([...new Set(planned.filter((move) => (move.phase ?? 0) === last).map((move) => move.to.split('.')[0]!))]);
           const chosen = i > 0 && frame ? frame(trace.steps[i - 1]!) : null;
           pinned.push(!!chosen);
-          frames.push(chosen ?? (i === 0 && question ? question.at : frameAt(input, i)));
+          frames.push(chosen ?? (i === 0 && question ? (question.frame ?? question.at) : frameAt(input, i)));
           // 等学生作答时，接下来要动的部件装得下就一起留在画面里。
           extras.push(trace.steps[i]?.ask ? frameAt(input, i + 1) : []);
           picks.push([...(pickTargets(scene, trace.steps[i]?.ask)?.values() ?? [])]);
@@ -481,6 +487,17 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
             )}
           </div>
 
+          {!flat && view.current && (asides ?? []).some((aside) => view.current!.offStage(aside.ids).length > 0) ? (
+            <div class="pl-asides">
+              {(asides ?? [])
+                .filter((aside) => view.current!.offStage(aside.ids).length > 0)
+                .map((aside) => (
+                  <button key={aside.label} type="button" class="pl-btn" onClick={() => view.current?.lookAt(aside.ids)}>
+                    {aside.label}
+                  </button>
+                ))}
+            </div>
+          ) : null}
           {pending ? (
             <Answer
               key={index}

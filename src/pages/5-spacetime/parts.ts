@@ -663,6 +663,9 @@ class Chart extends Part<ChartProps> {
   private readonly labelLeft: number;
   private readonly links = new Group();
   private linkKey = '';
+  private readonly headTexts: TextPlane[] = [];
+  private cornerText: TextPlane | null = null;
+  private rowTextX = 0;
   private readonly sphere = new SphereGeometry(0.5, 16, 10);
 
   constructor(kit: Kit, id: string, position: Vec2, props: ChartProps) {
@@ -683,17 +686,20 @@ class Chart extends Part<ChartProps> {
     this.face.add(board);
     const left = -W / 2 + PAD + labelWidth;
     this.labelLeft = -W / 2 + PAD;
+    this.rowTextX = left - 0.12;
     props.columns.forEach((title, c) => {
       const x = left + c * (this.cellW + GAP) + this.cellW / 2;
       this.colX.push(x);
       const head = new TextPlane(kit, title, { size: HEAD_TEXT, tone: 'muted', mono: true });
       head.place(x, H - HEAD / 2 - 0.02);
       this.texts.push(head);
+      this.headTexts.push(head);
       this.face.add(head.mesh);
     });
     if (props.corner) {
       const corner = new TextPlane(kit, props.corner, { size: HEAD_TEXT, tone: 'muted', align: 'right' });
       corner.place(left - 0.12, H - HEAD / 2 - 0.02);
+      this.cornerText = corner;
       this.texts.push(corner);
       this.face.add(corner.mesh);
     }
@@ -784,6 +790,17 @@ class Chart extends Part<ChartProps> {
       if (animate && previous && !this.kit.reduced && Math.abs(from - x) > 1e-3) {
         this.kit.motion.add({ duration: timing.camera * 0.6, ease: easeInOut, update: (t) => (this.group.position.x = from + (x - from) * t), done: () => (this.group.position.x = x) });
       } else this.group.position.x = x;
+      // 行名和左上角的字跟着窗走；滑到窗左边去的列收起来，不和行名叠在一起（回到前面的步还看得到）。
+      const dx = range ? range.left - this.labelLeft : 0;
+      this.rowTexts.forEach((text, r) => text.place(this.rowTextX + dx, this.rowY[r]!));
+      this.cornerText?.place(this.rowTextX + dx, this.height - HEAD / 2 - 0.02);
+      if (this.chip) this.chip.group.position.x = this.labelLeft - PAD + this.chip.width / 2 + dx;
+      const lo = range?.lo ?? 0;
+      for (let c = 0; c < this.colX.length; c++) {
+        const show = c >= lo;
+        this.headTexts[c]!.opacity = show ? 1 : 0;
+        for (let r = 0; r < this.cells.length; r++) this.cells[r]![c]!.group.visible = show;
+      }
     }
   }
 
@@ -873,13 +890,16 @@ class Chart extends Part<ChartProps> {
 
   /** 手机上镜头只看当前列附近的几列。 */
   /** 这一步要看的几列（板面局部坐标的左右边）。不开窗时返回 null。 */
-  private windowOf(p: ChartProps | null | undefined): { left: number; right: number } | null {
+  private windowOf(p: ChartProps | null | undefined): { left: number; right: number; lo: number } | null {
     const win = p?.window ?? 0;
     if (!win || this.colX.length <= win) return null;
-    const current = Math.max(0, p?.current ?? -1);
+    const current = Math.max(0, p?.at ?? p?.current ?? -1);
     const lo = Math.max(0, Math.min(this.colX.length - win, current - win + 2));
     const hi = Math.min(this.colX.length - 1, lo + win - 1);
-    return { left: lo === 0 ? this.labelLeft : this.colX[lo]! - this.cellW / 2 - 0.1, right: this.colX[hi]! + this.cellW / 2 + 0.1 };
+    const labelW = this.colX[0]! - this.cellW / 2 - this.labelLeft;
+    // slide 时行名钉在窗的左边，窗里总带着它。
+    const left = lo === 0 ? this.labelLeft : this.colX[lo]! - this.cellW / 2 - (p?.slide ? labelW : 0.1);
+    return { left, right: this.colX[hi]! + this.cellW / 2 + 0.1, lo };
   }
 
   /** 手机上镜头只看当前列附近的几列。slide 时板子自己横着挪，这几列总在原位正上方。 */
@@ -936,16 +956,17 @@ class Deps extends Part<DepsProps> {
     this.spec = props.rows;
     const n = props.rows.length;
     const compact = !!props.compact;
-    const CHIP_W = compact ? 0.86 : 1.0;
+    const CHIP_W = compact ? 0.78 : 1.0;
     this.chipW = CHIP_W;
-    const textSize = compact ? 0.33 : sizes.value;
+    const textSize = compact ? 0.31 : sizes.value;
     const textW = Math.max(...props.rows.map((row) => estimateWidth(row.text, textSize) + 0.12), 2.0);
-    const labelW = compact ? 0.5 : 0.62;
+    const labelW = compact ? 0.4 : 0.62;
     const maxReads = Math.max(1, ...props.rows.map((row) => row.reads.length));
     const readsW = maxReads * (CHIP_W + 0.08) - 0.08;
-    const laneW = compact ? 1.0 : 1.25;
-    const W = PAD + labelW + 0.14 + textW + (compact ? 0.18 : 0.3) + readsW + laneW + CHIP_W + (compact ? 0.62 : 0.9) + PAD;
-    const legendH = props.legend === false ? 0 : 0.62;
+    const laneW = compact ? 0.72 : 1.25;
+    const W = PAD + labelW + 0.14 + textW + (compact ? 0.18 : 0.3) + readsW + laneW + CHIP_W + (compact ? 0.36 : 0.9) + PAD;
+    // 窄屏图例排两行：一行放不下三种线形的全名。
+    const legendH = props.legend === false ? 0 : compact ? 1.08 : 0.62;
     const H = HEAD + n * (D_ROW + D_GAP) - D_GAP + PAD + legendH + 0.1;
     this.footprint = { w: W + 0.2, d: 1.0 };
     this.group.add(solid(new Mesh(blockGeometry(W + 0.2, 0.26, 1.0), kit.mats.block)));
@@ -958,7 +979,7 @@ class Deps extends Part<DepsProps> {
     const readX0 = textX + textW + (compact ? 0.18 : 0.3);
     const laneX = readX0 + readsW + laneW / 2;
     this.writeX = readX0 + readsW + laneW + CHIP_W / 2;
-    this.lanes = { raw: laneX - 0.24, war: laneX + 0.24, waw: this.writeX + CHIP_W / 2 + (compact ? 0.3 : 0.4) };
+    this.lanes = { raw: laneX - (compact ? 0.16 : 0.24), war: laneX + (compact ? 0.16 : 0.24), waw: this.writeX + CHIP_W / 2 + (compact ? 0.2 : 0.4) };
     const head = (text: string, x: number, align: 'left' | 'center' = 'center') => {
       const plane = new TextPlane(kit, text, { size: HEAD_TEXT, tone: 'muted', align });
       plane.place(x, H - HEAD / 2 - 0.02);
@@ -1005,31 +1026,29 @@ class Deps extends Part<DepsProps> {
     });
     // 图例：三种线形。
     if (props.legend !== false) {
-      const items: [LinkKind, string][] = props.compact
-        ? [
-            ['RAW', 'RAW'],
-            ['WAR', 'WAR'],
-            ['WAW', 'WAW'],
-          ]
-        : [
-            ['RAW', 'RAW 写后读'],
-            ['WAR', 'WAR 读后写'],
-            ['WAW', 'WAW 写后写'],
-          ];
-      const y = PAD + legendH / 2 - 0.04;
-      const widths = items.map(([, text]) => 0.62 + 0.14 + estimateWidth(text, HEAD_TEXT));
-      const space = compact ? 0.6 : 0.5;
-      const total = widths.reduce((a, b) => a + b, 0) + space * (items.length - 1);
-      let x = -total / 2;
-      items.forEach(([kind, text], i) => {
-        const stroke = new Stroke(kit, [new Vector2(x, y), new Vector2(x + 0.62, y)], kind, hue(kit, 'ink'), false, 0.05);
-        stroke.reveal(1);
-        this.face.add(stroke.group);
-        const plane = new TextPlane(kit, text, { size: HEAD_TEXT, tone: 'muted', align: 'left' });
-        plane.place(x + 0.76, y);
-        this.texts.push(plane);
-        this.face.add(plane.mesh);
-        x += widths[i]! + space;
+      const items: [LinkKind, string][] = [
+        ['RAW', 'RAW 写后读'],
+        ['WAR', 'WAR 读后写'],
+        ['WAW', 'WAW 写后写'],
+      ];
+      const sample = compact ? 0.45 : 0.62;
+      const space = 0.5;
+      const lines = compact ? [items.slice(0, 2), items.slice(2)] : [items];
+      lines.forEach((line, li) => {
+        const y = PAD + legendH - 0.3 - li * 0.46 - (compact ? 0 : 0.05);
+        const widths = line.map(([, text]) => sample + 0.14 + estimateWidth(text, HEAD_TEXT));
+        const total = widths.reduce((a, b) => a + b, 0) + space * (line.length - 1);
+        let x = -total / 2;
+        line.forEach(([kind, text], i) => {
+          const stroke = new Stroke(kit, [new Vector2(x, y), new Vector2(x + sample, y)], kind, hue(kit, 'ink'), false, 0.05);
+          stroke.reveal(1);
+          this.face.add(stroke.group);
+          const plane = new TextPlane(kit, text, { size: HEAD_TEXT, tone: 'muted', align: 'left' });
+          plane.place(x + sample + 0.14, y);
+          this.texts.push(plane);
+          this.face.add(plane.mesh);
+          x += widths[i]! + space;
+        });
       });
     }
     // 全部可能的连线先建好，按步显示。

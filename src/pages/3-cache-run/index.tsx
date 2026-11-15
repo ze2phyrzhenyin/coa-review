@@ -8,7 +8,7 @@ import { Player } from '../../player/Player';
 import { useNarrow } from '../../app/media';
 import { BreakIt } from './BreakIt';
 import { Paper } from './Paper';
-import { CACHE_CONCLUSION, CACHE_NEEDS, CACHE_QUESTION, cacheConvention, cacheMistakes, cacheStage, cacheWrong, polish, withRowAsks } from './scene';
+import { CACHE_ASIDES, CACHE_CONCLUSION, CACHE_NEEDS, CACHE_QUESTION, cacheConvention, cacheMistakes, cacheStage, cacheWrong, polish, withRowAsks } from './scene';
 import {
   encodeSequence,
   exampleParams,
@@ -92,6 +92,7 @@ function Walkthrough() {
         askFrame={stage.askFrame(trace)}
         onWrong={wrong}
         question={CACHE_QUESTION}
+        asides={CACHE_ASIDES}
         conclusion={CACHE_CONCLUSION}
         needs={CACHE_NEEDS}
         mistakes={mistakes}

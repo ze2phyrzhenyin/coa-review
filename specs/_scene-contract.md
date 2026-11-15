@@ -43,7 +43,7 @@ const bind = bindTable<State>({ R1: { value: 'reg.R1' }, C2: { open: 'ctl.C2' } 
 | `bus` | `name` `length` `value` `drivers?` `ink?` `tileAt?` `showDriver?` `idleText?` | 导轨。`value` 为空表示没有部件驱动；`drivers` 是数组或用顿号隔开的字符串，两个以上画成冲突。`tileAt` 可以随状态变（值牌停在驱动者正对的地方），牌旁写「X 驱动」 |
 | `gate` | `name` `open` `dir?` `ink?` `states?` | 三态门，尖指向 `dir`（n s e w）。导通时转到与线对齐并落下，关断时横过来抬起。`open` 接受布尔值或 `'1'` |
 | `memory` | `name` `columns[{title,width?,ink?}]` `rows: string[][]` `labels?` `active?` `cell?` `changedCells?` `open?` | 行列格子。`active` 框一整行，`cell` 框一格，`changedCells` 标强调色，格子写 `'行.列'`；`open`（行号或数组）像抽屉一样拉出来 |
-| `bits` | `name?` `bits` `pitch?` `carry?` `group?` `from?` | 翻片，白面 0 深色面 1，其余字符（空格）是空槽。多位同时变时逐位错开 30 毫秒。`carry` 是产生进位的列，进位牌跳到左边一列。点到某一位时点选带上位号（翻位片作答） |
+| `bits` | `name?` `bits` `pitch?` `carry?` `group?` `from?` | 翻片，白面 0 深色面 1，其余字符（空格）是空槽。多位同时变时逐位错开 30 毫秒。`carry` 是产生进位的列，进位牌跳到左边一列。点到某一位时点选带上位号（翻位片作答；`flipPart` 指到的 `bits` 部件不用声明 `pick`，出题时自动可点。页面自带部件要支持翻片，就在每一位的网格上写 `userData.bit = 位号`） |
 | `token` | `value` `at` `via?` `ink?` | 停在 `at` 指的部件上，`at` 变了沿 `via` 走过去 |
 | `sheet` | `title?` `columns` `rows` `shown` `current?` | 答题纸。不绑定时自动取 `trace.table`，按当前步填到第几行 |
 | `label` | `text` `size?` `tone?` `weight?` `plate?` `mono?` | 一行字；`plate` 为真时画在小牌上 |

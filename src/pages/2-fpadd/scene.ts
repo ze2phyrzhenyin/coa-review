@@ -109,15 +109,20 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
   table.ovf = { value: 'overflow' };
   table.stay = { value: from('shift', (c) => (c.state.shift === '不移' ? '两阶相等' : '')) };
   const resultZ = zBoards + (W ? 2 * 1.45 + 0.1 : 1.6);
-  parts.push({ id: 'result', kind: 'register', position: [W ? 0 : trackX - 0.4, resultZ], props: { name: '结果', value: '', width: W ? 6.3 : 7.4 }, title: '结果' });
-  table.result = { value: from(['result', 'decimal'], (c) => (c.state.result ? (W ? c.state.result : `${c.state.result} = ${c.state.decimal}`) : '')) };
+  parts.push({ id: 'result', kind: 'register', position: [W ? 0 : trackX - 0.4, resultZ], props: { name: W ? '十进制' : '结果', value: '', width: W ? 6.3 : 7.4 }, title: W ? '结果的十进制值' : '结果' });
+  // 窄屏：结果的写法单独一块牌，十进制值在它下面一块。
+  if (W) {
+    parts.push({ id: 'res', kind: 'register', position: [0, 0], props: { name: '结果', value: '', width: 6.3 }, title: '结果' });
+    table.res = { value: 'result' };
+  }
+  table.result = { value: from(['result', 'decimal'], (c) => (c.state.result ? (W ? `= ${c.state.decimal}` : `${c.state.result} = ${c.state.decimal}`) : '')) };
 
   // 窄屏：全部部件排成一列、一样宽，镜头怎么取景左右都不会切到谁。
   // 顺序跟着做题的顺序走；「都不移」紧挨两条尾数，三个规格化方向紧挨和的滑轨。
   if (W) {
     const width = Math.max(6.3, (int + frac - 1) * 0.56 + 1.2);
     // 两个阶码、阶差在上；两条尾数和「都不移」挨着；和的滑轨下面一排三个规格化方向；再下面是和的阶码、溢出、结果。
-    const order = ['check', 'ex', 'ey', 'diff', 'stay', 'mx', 'my', 'msum', 'norms', 'esum', 'ovf', 'result'];
+    const order = ['check', 'ex', 'ey', 'diff', 'stay', 'mx', 'my', 'msum', 'norms', 'esum', 'ovf', 'res', 'result'];
     const third = (width - 0.3) / 3;
     let z = 0;
     for (const id of order) {
@@ -157,7 +162,7 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
       out.push({ value: withOut(s.y.mant, s.y.out), from: 'my', to: 'msum', arc: true, phase: 1 });
     }
     if (has(step, 'overflow')) out.push({ value: twos ? s.sum.expCode : plainText(s.sum.exp), from: 'esum', to: 'ovf', arc: true });
-    if (has(step, 'result')) out.push({ value: s.result, from: 'msum', to: 'result', arc: true });
+    if (has(step, 'result')) out.push({ value: s.result, from: W ? 'ovf' : 'msum', to: W ? 'res' : 'result', arc: true });
     return out;
   };
 
@@ -194,8 +199,8 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
     if (has(step, 'diff')) return ['ex', 'ey', 'diff'];
     if (key) return [`m${key}`];
     if (has(step, 'norm')) return ['msum', 'norm-l', 'norm-n', 'norm-r'];
+    if (has(step, 'result')) return ['res', 'result'];
     if (has(step, 'overflow')) return ['esum', 'ovf'];
-    if (has(step, 'result')) return ['result'];
     if (has(step, 'sum.mant') && step.changes.some((c) => c.at === 'sum.mant' && c.from === '')) return ['my', 'msum'];
     if (has(step, 'sum.mant') || has(step, 'sum.out')) return ['msum'];
     return ['msum'];
@@ -230,7 +235,7 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
       return {
         label: '',
         patch: { [`m${key}`]: { mant: lost.mant, out: '' } },
-        moves: [{ value: `左移 ${d} 位`, from: `e${key}`, to: `m${key}`, arc: true }],
+        moves: [{ value: `左移 ${d} 位`, from: W ? 'stay' : `e${key}`, to: `m${key}`, arc: true }],
         message: `${key} 的阶码大。让它去对小阶，尾数要左移 ${d} 位，最高的 ${lost.lost} 挤出去了，丢的是最大的那几位。所以是小阶向大阶看齐：小阶的尾数右移，丢的只是最低位。`,
       };
     }
@@ -271,7 +276,7 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
         return {
           label: '',
           patch: { [`m${bigKey}`]: { mant: lost.mant, out: '' } },
-          moves: [{ value: `左移 ${d} 位`, from: `e${bigKey}`, to: `m${bigKey}`, arc: true }],
+          moves: [{ value: `左移 ${d} 位`, from: W ? 'stay' : `e${bigKey}`, to: `m${bigKey}`, arc: true }],
           message: `大阶的 ${bigKey} 左移 ${d} 位，最高的 ${lost.lost} 被挤掉，结果错得多。小阶的尾数右移，挤掉的只是最低位，还能留在盒子里舍入。`,
         };
       },

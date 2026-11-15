@@ -3,10 +3,14 @@
 // 这一步的焦点（出题时是题目问的部件；场景写在 [data-stage] 的 data-clipped 里）必须完整留在舞台里；
 // 点选题的候选可以分在几个画面里，但每个候选要么就在这一步的画面里，要么按一次「看……」就完整看到（data-unreachable 为空）；
 // 顺带报压字（data-text-overlaps）和小于 12 像素的字（data-min-text）。约定见 specs/_scene-contract.md「DOM 约定」。
-// 用法：PORT=4631 node scripts/qa-clip.mjs <页面编号…>     还没接进 gate.sh。
+// 用法：PORT=4631 node scripts/qa-clip.mjs [--strict] <页面编号…>     还没接进 gate.sh。
 import { finish, implementedIds, launch, origin } from './qa-lib.mjs';
 
-const ids = process.argv.slice(2).length ? process.argv.slice(2) : implementedIds;
+// --strict：再加一条，停稳的画面里任何看得见的部件、标签都不许被舞台的左右边切开（data-cut-parts），不只查焦点和候选。
+const args = process.argv.slice(2);
+const strict = args.includes('--strict');
+const named = args.filter((arg) => !arg.startsWith('--'));
+const ids = named.length ? named : implementedIds;
 const STEP_TIMEOUT = 15_000;
 const PAGE_TIMEOUT = 240_000;
 const sizes = [
@@ -65,12 +69,13 @@ for (const viewport of sizes) {
           await settled(page);
           const facts = await page.evaluate(() => {
             const stage = document.querySelector('[data-stage]');
-            return { mode: document.querySelector('[data-player]').dataset.mode, clipped: stage.dataset.clipped ?? '', unreachable: stage.dataset.unreachable ?? '', overlaps: stage.dataset.textOverlaps ?? '', min: Number(stage.dataset.minText ?? 99) };
+            return { mode: document.querySelector('[data-player]').dataset.mode, clipped: stage.dataset.clipped ?? '', cut: stage.dataset.cutParts ?? '', unreachable: stage.dataset.unreachable ?? '', overlaps: stage.dataset.textOverlaps ?? '', min: Number(stage.dataset.minText ?? 99) };
           });
           if (facts.mode !== 'scene') continue;
           const at = `${where} ${name} 第 ${s} 步`;
           if (facts.clipped) failures.push(`${at}：焦点或候选没有完整留在画面里：${facts.clipped}`);
           if (facts.unreachable) failures.push(`${at}：候选按一次「看……」也看不全：${facts.unreachable}`);
+          if (strict && facts.cut) failures.push(`${at}：被左右边切开：${facts.cut}`);
           if (facts.overlaps) failures.push(`${at}：压字：${facts.overlaps}`);
           if (facts.min > 0 && facts.min < 12) failures.push(`${at}：字小于 12 像素（${facts.min}）`);
         }

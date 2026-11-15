@@ -233,8 +233,8 @@ export function expandStage(params: Params, narrow = false): ExpandStage {
         pins: (x: BindContext<PState>) => {
           const chip = x.state.chips[c];
           const probe = probeOf(x);
-          // 手机上两片并排时地址脚旁放不下读数（会压住右边一片的名牌），读数看片内地址线上的那张牌。
-          const addrValue = narrow && P > 1 ? '' : probe ? probe.inner : x.state.chipLines && !narrow ? sub(x.state.chipLines) : '';
+          // 手机上两片并排时，地址脚的读数只写在每排最右一片旁（左边的会压住右边一片的名牌）。
+          const addrValue = narrow && j < P - 1 ? '' : probe ? probe.inner : x.state.chipLines ? sub(x.state.chipLines) : '';
           const sel = selectedGroup(x);
           const csValue = probe && x.state.stage !== 'send' ? (sel === g ? '0' : '1') : chip?.select ? sub(chip.select).replace('片选（共用）', '共用') : '';
           return [

@@ -10,7 +10,7 @@ import type { Breakage } from '../../player/Player';
 import { Rich } from '../../player/Rich';
 import { Field, PageShell, Seg } from '../3-vm-replace/kit';
 import { Paper } from './Paper';
-import { PERF_CONCLUSION, PERF_NEEDS, PERF_QUESTION, perfMistakes, perfStage, perfWrong, polish } from './scene';
+import { PERF_CONCLUSION, PERF_NEEDS, perfMistakes, perfStage, perfWrong, polish } from './scene';
 import { DEFAULT_TRY, examples, kindKeys, tryParams } from './setup';
 import type { TryInput } from './setup';
 import '../3-vm-replace/kit.css';
@@ -88,7 +88,7 @@ function Learn() {
         askFrame={stage.askFrame}
         frame={stage.frame}
         onWrong={made.wrong}
-        question={PERF_QUESTION}
+        question={stage.question}
         conclusion={PERF_CONCLUSION}
         needs={PERF_NEEDS}
         mistakes={made.mistakes}

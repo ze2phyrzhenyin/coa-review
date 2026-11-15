@@ -211,7 +211,7 @@ export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskSta
     if (kind === 'run') return ['track'];
     if (narrow) {
       const rows = Array.from({ length: n }, (_, i) => `m-${i}`);
-      if (kind === 'arrive') return ['irr', 'imr', 'pass'];
+      if (kind === 'arrive') return ['irr', 'imr', 'pass', 'stack'];
       if (kind === 'enter') return ['imr', 'pass', 'queue', 'stack'];
       if (kind === 'finish') return ['imr', 'pass', 'stack'];
       if (kind === 'mask') return ['h-0', ...rows];
@@ -307,7 +307,7 @@ export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskSta
         return {
           label: '',
           patch: { imr: { bits: stale }, pass: { bits: passBits(state.irr, stale) } },
-          moves: [{ value: stale, from: `m-${finished}`, to: 'imr', arc: true }],
+          moves: [{ value: stale, from: narrow ? 'stack' : `m-${finished}`, to: 'imr', arc: true }],
           message: `返回 ${levelName(state.running)} 时屏蔽寄存器要换回 ${state.imr}（它进栈时存下的）。不恢复就还是刚做完的 ${levelName(finished)} 的 ${stale}，${levelName(state.running)} 会按别人的屏蔽字运行：该放进来的请求被挡住。屏蔽寄存器的内容是现场的一部分（教材 p270）。`,
         };
       },

@@ -135,7 +135,7 @@ export function stallStage(trace: T, narrow: boolean): StallStage {
   const chartZ = narrow ? -1.0 - chartH * 0.3 : -1.4 - chartH * 0.45;
   // 窄屏：盒子上方有两层小牌，离时空表远一点，牌不压到表里的字。
   const lineZ = chartZ + (narrow ? 2.75 : 3.3);
-  const rows = list.map((x, j) => (narrow ? `I${j + 1}` : `I${j + 1} ${x.text}`));
+  const rows = list.map((x, j) => `I${j + 1} ${x.text}`);
   const sw = narrow ? (k === 5 ? 0.9 : 1.05) : 1.8;
 
   const parts: PartSpec[] = [
@@ -152,7 +152,7 @@ export function stallStage(trace: T, narrow: boolean): StallStage {
         rows,
         cells: rows.map(() => Array.from({ length: columns }, () => '')),
         cellWidth: narrow ? (k === 5 ? 0.82 : 0.74) : 0.8,
-        window: narrow ? 5 : 15,
+        window: narrow ? 4 : 15,
         slide: narrow,
         lag: 380,
       } satisfies ChartProps,

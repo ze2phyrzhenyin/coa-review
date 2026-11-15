@@ -93,9 +93,9 @@ function layout(p: EaParams, narrow: boolean): Layout {
       adder: [1.7, 6.6],
       va: [-1.9, 6.4],
       ea: [-1.6, 9.0],
-      mem: [-1.7, 14.6],
-      opd: [2.3, 13.2],
-      count: [2.3, 15.2],
+      mem: [-1.7, 20.0],
+      opd: [2.3, 18.6],
+      count: [2.3, 20.6],
     };
   }
   const shift = -1.2;

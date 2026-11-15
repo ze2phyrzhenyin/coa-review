@@ -20,6 +20,8 @@ export interface PerfStage {
   values: (path: string, value: string) => string;
   askFrame: (ask: unknown, index: number) => string[];
   frame: (step: Step<State>) => string[] | null;
+  /** 第 0 步的问题和镜头先看的部件：手机上先看题目给的量。 */
+  question: { text: string; at: string[] };
 }
 
 const NAMES: Record<string, string> = {
@@ -92,12 +94,12 @@ export function perfStage(trace: Trace<Params, State>, narrow: boolean): PerfSta
   const cellW = at(l2 ? 3.4 : keys.length > 3 ? 2.9 : 3.3, oneRow ? 6.6 / keys.length : 3.6);
   const regW = at(l2 ? 3.0 : 2.6, oneRow ? 6.6 / keys.length - 0.15 : 3.3);
   const rowsOf = Math.ceil(keys.length / perRow);
-  const zGiven = at(-6.9, -7.3 - (rowsOf - 2) * 1.7);
-  const zCalc = at(-4.9, -5.8 - (rowsOf - 2) * 1.7);
+  const zGiven = at(-6.9, -9.6 - (rowsOf - 2) * 1.7);
+  const zCalc = at(-4.9, -6.05 - (rowsOf - 2) * 1.7);
   const zResult0 = at(-2.6, -3.9 - (rowsOf - 2) * 1.7);
   const rowGap = at(1.6, 1.7);
   // 尺板有三条道那么深，位置是它的中心：离最后一排牌要留出半块板，牌才不被板挡住。
-  const zTrack = zResult0 + rowsOf * rowGap + at(1.9, 2.0);
+  const zTrack = zResult0 + rowsOf * rowGap + at(1.9, 1.85);
   const placeAt = (i: number): [number, number] => {
     const row = Math.floor(i / perRow);
     const inRow = Math.min(perRow, keys.length - row * perRow);
@@ -106,15 +108,20 @@ export function perfStage(trace: Trace<Params, State>, narrow: boolean): PerfSta
   };
 
   const given = givens(params);
-  const gW = at(given.length > 3 ? 2.2 : 2.6, given.length > 2 ? 2.25 : 3.0);
+  // 手机上给定量放在最后面，四个时排两行两列；第 0 步镜头先看它们，之后各步看算式、结果和尺子。
+  const grid = narrow && given.length > 3;
+  const gW = at(given.length > 3 ? 2.2 : 2.6, grid ? 3.0 : given.length > 2 ? 2.05 : 3.0);
   const gGap = at(gW + 0.5, gW + 0.2);
+  const gAt = (i: number): [number, number] => (grid ? [(i % 2 === 0 ? -1 : 1) * 1.65, zGiven - 2.2 + Math.floor(i / 2) * 1.6] : [(i - (given.length - 1) / 2) * gGap, narrow ? zGiven - 0.9 : zGiven]);
   const parts: PartSpec[] = given.map((g, i) => ({
     id: `g-${g.key}`,
     kind: 'register' as const,
-    position: [(i - (given.length - 1) / 2) * gGap, zGiven] as [number, number],
+    position: gAt(i),
     props: { name: g.name, value: g.value, width: gW },
   }));
-  parts.push({ id: 'calc', kind: 'label', position: [0, zCalc], props: { text: '', plate: true, size: at(0.31, 0.36), mono: true } });
+  parts.push({ id: 'calc', kind: 'label', position: [0, zCalc], props: { text: '', plate: true, size: at(0.31, 0.34), mono: true } });
+  // 手机上一行写不下「式子 = 代入」：式子一行，代入的数另起一行。
+  if (narrow) parts.push({ id: 'plug', kind: 'label', position: [0, zCalc + 0.66], props: { text: '', plate: true, size: 0.34, mono: true } });
   keys.forEach((key, i) => parts.push({ id: id(key), kind: 'register', position: placeAt(i), props: { name: oneRow ? key : nameOf(key), value: '', width: regW }, title: nameOf(key) }));
 
   // 时间尺。
@@ -169,12 +176,23 @@ export function perfStage(trace: Trace<Params, State>, narrow: boolean): PerfSta
         const [, formula, plug] = row;
         const key = keys.find((k) => c.step?.changes.some((change) => change.at === k)) ?? '';
         const lhs = key === 'r' ? 'r' : key === 't_a' ? 't_a' : key === 'h' ? 'h' : key === 'e' ? 'e' : nameOf(key);
-        // 手机上放不下整条式子：只写代入的那一半，式子本身在「为什么」里。
-        return formula === '已知' ? `${lhs} 已知` : narrow ? `${lhs} = ${plug}` : `${lhs} = ${formula} = ${plug}`;
+                return formula === '已知' ? `${lhs} 已知` : narrow ? `${lhs} = ${formula}` : `${lhs} = ${formula} = ${plug}`;
       },
       hidden: (c: BindContext<State>) => !rowOf(c),
     },
   };
+  if (narrow) {
+    table['plug'] = {
+      text: (c: BindContext<State>) => {
+        const row = rowOf(c);
+        return row && row[1] !== '已知' ? `= ${row[2]}` : '';
+      },
+      hidden: (c: BindContext<State>) => {
+        const row = rowOf(c);
+        return !row || row[1] === '已知';
+      },
+    };
+  }
   for (const key of keys) {
     table[id(key)] = { value: from<State>([key], (c) => (known(c, key) ? (trace.result[key] ?? '') : '')) };
   }
@@ -236,14 +254,15 @@ export function perfStage(trace: Trace<Params, State>, narrow: boolean): PerfSta
   const names = (path: string): string => nameOf(path);
   /** 「变化」里的数按引擎 result 的写法（百分数、带 ns）。 */
   const values = (path: string, value: string): string => (value === '' || value === 'null' ? value : (trace.result[path] ?? value));
-  const askFrame = (): string[] => ['calc', ...keys.map(id), 'track'];
+  const askFrame = (): string[] => ['calc', ...(narrow ? ['plug'] : []), ...keys.map(id), 'track'];
   const frame = (step: Step<State>): string[] | null => {
     if (!narrow) return null;
     const key = keys.find((k) => step.changes.some((change) => change.at === k));
     // 手机上每一步看同一片：算式条、全部结果牌、时间尺。镜头不动，刚求出的牌和尺子同时看得见。
-    return key ? ['calc', ...keys.map(id), 'track'] : null;
+    return key ? ['calc', 'plug', ...keys.map(id), 'track'] : null;
   };
-  return { scene: { parts, wires }, bind, moves, names, values, askFrame, frame };
+  const question = { text: PERF_QUESTION.text, at: narrow ? given.map((g) => `g-${g.key}`) : PERF_QUESTION.at };
+  return { scene: { parts, wires }, bind, moves, names, values, askFrame, frame, question };
 }
 
 /** 答错时按学生的答案演后果。 */

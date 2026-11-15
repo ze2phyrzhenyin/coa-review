@@ -88,6 +88,7 @@ function Learn() {
         trace={made.trace}
         scene={stage.scene}
         bind={stage.bind}
+        moves={stage.moves}
         frame={stage.frame}
         askFrame={stage.askFrame}
         names={stage.names}
@@ -160,6 +161,7 @@ function Try() {
         trace={made.trace}
         scene={stage.scene}
         bind={stage.bind}
+        moves={stage.moves}
         frame={stage.frame}
         askFrame={stage.askFrame}
         names={stage.names}
@@ -233,6 +235,7 @@ function Break() {
         trace={trace}
         scene={stage.scene}
         bind={stage.bind}
+        moves={stage.moves}
         frame={stage.frame}
         names={stage.names}
         values={stage.values}

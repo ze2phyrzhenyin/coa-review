@@ -92,10 +92,10 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
   const rows = mantissaRows(mantBits, true);
   // 宽屏：左半边 S、阶码，下面隐藏位、舍去的位，再下面 e、偏移量、E；右半边尾数几行，下面十六进制。
   // 窄屏：一列往下排。
-  parts.push({ id: 'S', kind: 'bits', position: W ? [-1.6, 0] : [-6.7, 0], props: { name: teach ? '数符' : 'S', bits: ' ', group: 4 }, title: '符号位 S' });
+  parts.push({ id: 'S', kind: 'bits', position: W ? [-1.6, 0] : [-6.7, 0], props: { name: teach ? '数符' : 'S', bits: ' ', group: 4 }, title: '符号位 S', pick: true });
   table.S = { bits: from('sign', (c) => c.state.sign || ' ') };
   const eWidth = expBits * 0.56 + 0.4;
-  parts.push({ id: 'E', kind: 'bits', position: W ? [0.55 - (8 - expBits) * 0.28, 1.2] : [-0.25 - eWidth / 2, 0], props: { name: '阶码', bits: blank(expBits), group: 4 }, title: '阶码' });
+  parts.push({ id: 'E', kind: 'bits', position: W ? [0.55 - (8 - expBits) * 0.28, 1.2] : [-0.25 - eWidth / 2, 0], props: { name: '阶码', bits: blank(expBits), group: 4 }, title: '阶码', pick: true });
   table.E = { bits: from('exponent', (c) => c.state.exponent || blank(expBits)) };
   let offset = 0;
   const mX = W ? 0.55 : 5.0;
@@ -103,7 +103,7 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
   rows.forEach((count, r) => {
     const start = offset;
     const id = `M${r + 1}`;
-    parts.push({ id, kind: 'bits', position: [mX - (8 - count) * 0.28, mZ + r * 1.2], props: { ...(r === 0 ? { name: '尾数 M' } : {}), bits: blank(count), group: 4 }, title: `尾数第 ${start + 1}–${start + count} 位` });
+    parts.push({ id, kind: 'bits', position: [mX - (8 - count) * 0.28, mZ + r * 1.2], props: { ...(r === 0 ? { name: '尾数 M' } : {}), bits: blank(count), group: 4 }, title: `尾数第 ${start + 1}–${start + count} 位`, pick: true });
     table[id] = { bits: from('mantissa', (c) => (c.state.mantissa ? c.state.mantissa.slice(start, start + count) : blank(count))) };
     offset += count;
   });
@@ -256,7 +256,13 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
     const step = stepAt(index);
     if (!step) return [];
     if (ask.kind === 'choice' && kinds.length) return W ? kinds.map((_, i) => `kind-${i}`) : ['E', 'M1', ...kinds.map((_, i) => `kind-${i}`)];
-    if (W) return frame(step) ?? [];
+    // 窄屏：出题时镜头留在刚做完的那一步上（要翻的位片除外），上一步写出的值不会被跳过。
+    if (W) {
+      const flip = flipPart(ask, index);
+      if (flip) return [flip];
+      const done = index > 0 ? trace.steps[index - 1] : undefined;
+      return (done ? frame(done) : null) ?? ['x'];
+    }
     if (changed(step, 'exponent')) return W ? ['e', 'Edec'] : ['e', 'bias', 'Edec', 'E'].filter((id) => parts.some((p) => p.id === id));
     if (changed(step, 'e')) return ['bin', 'normal'];
     if (changed(step, 'sign')) return ['x', 'S'];
@@ -273,7 +279,8 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
       if (changed(step, 'sign')) return ['S'];
       if (changed(step, 'binary')) return ['x', 'bin'];
       if (changed(step, 'rounded')) return ['normal'];
-      if (changed(step, 'exponent')) return row;
+      // 写阶码这一步：值先在 e、偏移量、E 那一排走（镜头跟着去），落定后看尺子上 e、E 两行刻度。
+      if (changed(step, 'exponent')) return bias !== null ? ['ruler'] : row;
       if (changed(step, 'e')) return ['bin', 'normal'];
       if (changed(step, 'mantissa')) return teach ? mRows.slice(0, 3) : [...mRows.slice(-2), 'hid'];
       if (changed(step, 'hex')) return ['hex'];
@@ -282,7 +289,7 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
     if (changed(step, 'mantissa') && changed(step, 'exponent')) return ['S', 'E', 'M1'];
     if (changed(step, 'kind')) return kinds.length ? kinds.map((_, i) => `kind-${i}`) : ['E'];
     if (changed(step, 'E') || changed(step, 'e')) return row;
-    if (changed(step, 'hidden')) return teach ? ['normal'] : ['hid'];
+    if (changed(step, 'hidden')) return teach ? ['normal'] : ['ruler'];
     if (changed(step, 'decimal')) return ['x', 'bin'];
     return ['normal'];
   }

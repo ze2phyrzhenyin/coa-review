@@ -49,8 +49,8 @@ export function serialStage(trace: Trace<Params, State>, narrow: boolean): Seria
 function frameStage(trace: Trace<Params, State>, p: FrameParams, narrow: boolean): SerialStage {
   const final = (trace.steps.at(-1)?.state ?? trace.initial) as FrameState;
   const total = final.line.length;
-  const pitch = narrow ? 0.56 : 0.72;
-  const idle = narrow ? 0 : 1;
+  const pitch = narrow ? 0.5 : 0.72;
+  const idle = 1;
   const span: [number, number] = [-idle, total + idle];
   const L = (span[1] - span[0]) * pitch;
   const TZ = narrow ? 1.6 : 0.6;
@@ -80,9 +80,9 @@ function frameStage(trace: Trace<Params, State>, p: FrameParams, narrow: boolean
       return s.line.length > k + 1 ? ' ' : (s.codeBits[j] ?? ' ');
     }) };
   }
-  if (!narrow) parts.push({ id: 'code-name', kind: 'label', position: [codeX(0) - (narrow ? 1.0 : 1.2), codeZ], props: { text: p.char ? `「${p.char}」` : '编码', size: 0.36, weight: 600 } });
+  parts.push({ id: 'code-name', kind: 'label', position: narrow ? [codeX(0) - 0.15, codeZ - 2.0] : [codeX(0) - 1.2, codeZ], props: { text: p.char ? `「${p.char}」` : '编码', size: 0.36, weight: 600 } });
   if (p.parity !== '无') {
-    parts.push({ id: 'par', kind: 'bits', position: [codeX(p.dataBits - 1) + (narrow ? 2.05 : 2.0), codeZ], props: { name: `${p.parity}校验`, bits: ' ', group: 8 }, title: '校验位' });
+    parts.push({ id: 'par', kind: 'bits', position: [codeX(p.dataBits - 1) + (narrow ? 2.05 : 2.0), codeZ], props: { name: `${p.parity}校验`, bits: ' ', group: 8 }, pick: true, title: '校验位' });
     table.par = { bits: from('parityBit', (c) => {
       const s = c.state as FrameState;
       return s.parityBit === null ? ' ' : String(s.parityBit);
@@ -123,7 +123,7 @@ function frameStage(trace: Trace<Params, State>, p: FrameParams, narrow: boolean
     table[`n-${k}`] = { text: from(`line.${k}`, (c) => ((c.state as FrameState).line.length > k ? slotName(p, k) : '')) };
   }
   if (idle) {
-    parts.push({ id: 'idle-a', kind: 'label', position: [slotX(-1), TZ + trackDepth / 2 + 0.3], props: { text: '空闲', size: 0.31, tone: 'muted' } });
+    parts.push({ id: 'idle-a', kind: 'label', position: [slotX(-1) + (narrow ? 0.55 : 0), narrow ? TZ : TZ + trackDepth / 2 + 0.3], props: { text: '空闲', size: 0.31, tone: 'muted' } });
   }
   // 每个位时间的落点（看不见），数据位从编码那一排跳到这里。
   for (let k = 0; k < total; k++) {
@@ -133,9 +133,9 @@ function frameStage(trace: Trace<Params, State>, p: FrameParams, narrow: boolean
 
   // 读数。
   const RZ = TZ + trackDepth / 2 + (narrow ? 1.75 : 1.85);
-  const w = narrow ? 3.2 : 2.7;
+  const w = narrow ? 3.0 : 2.7;
   const slots = narrow
-    ? ([[-1.65, RZ], [1.65, RZ], [-1.65, RZ + 1.75], [1.65, RZ + 1.75]] as [number, number][])
+    ? ([[-1.2, RZ], [1.9, RZ], [-1.2, RZ + 1.75], [1.9, RZ + 1.75]] as [number, number][])
     : ([[-4.35, RZ], [-1.45, RZ], [1.45, RZ], [4.35, RZ]] as [number, number][]);
   const rateName = p.charRate !== undefined ? '波特率' : '字符速率';
   const readings: { id: string; name: string; of: (s: FrameState) => string | null }[] = [

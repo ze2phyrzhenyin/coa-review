@@ -297,7 +297,10 @@ export function opFrame(p: OpcodeParams, narrow: boolean) {
 export function opAskFrame(trace: Trace<OpcodeParams, OpcodeState>, narrow: boolean) {
   return (_ask: Ask, index: number): string[] => {
     if (!narrow) return [];
-    const i = trace.steps[index]?.state.current ?? 0;
+    const next = trace.steps[index];
+    const i = next?.state.current ?? 0;
+    // 问下一类有多少编码可用：答案要从上一类的抽屉柜里读（留了几个码），镜头停在那个柜子上，刚填的编码范围也看得到。
+    if (i > 0 && next?.changes.some((c) => c.at === `levels.${i}.available`)) return [`SHELF_${i - 1}`];
     return [`FMT_${i}`, `CAP_${i}`];
   };
 }

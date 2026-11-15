@@ -708,3 +708,16 @@ button.pl-part {
 .pl-select.is-always {
   display: flex;
 }
+
+/* 「看刻度盘」「看算式」：不在这一步画面里的部件，按一下镜头移过去。 */
+.pl-asides {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+@media (max-width: 900px) {
+  .pl-asides {
+    order: 2;
+  }
+}

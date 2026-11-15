@@ -92,7 +92,7 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
     const bitsId = `bits-${code}`;
     const ringId = `ring-${code}`;
     // 位片稍往右，左边留给名牌。
-    parts.push({ id: bitsId, kind: 'bits', position: [cx + 0.45, cz], props: { name: tag(code), bits: blank, group: notation === '小数' ? n + 1 : 4 }, title: tag(code), delay: 0 });
+    parts.push({ id: bitsId, kind: 'bits', position: [cx + 0.45, cz], props: { name: tag(code), bits: blank, group: notation === '小数' ? n + 1 : 4 }, title: tag(code), delay: 0, pick: true });
     table[bitsId] = { bits: from(`codes.${code}.bits`, (c) => c.state.codes[code].bits || blank) };
     parts.push({
       id: ringId,

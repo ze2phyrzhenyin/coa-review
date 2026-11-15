@@ -775,6 +775,9 @@ export class Stage {
     });
   }
 
+  /** 正在翻位片作答的部件：没有声明 pick 也能点（播放器按 flipPart 设置）。 */
+  flipTarget: string | null = null;
+
   /** 屏幕上这一点下面的可点选部件。 */
   pickAt(clientX: number, clientY: number): { id: string; bit?: number } | null {
     const rect = this.canvas.getBoundingClientRect();
@@ -786,7 +789,7 @@ export class Stage {
       while (object && object !== this.root) {
         if (bit === undefined && typeof object.userData.bit === 'number') bit = object.userData.bit as number;
         const id = object.userData.partId as string | undefined;
-        if (id && this.pickable.has(id)) return bit === undefined ? { id } : { id, bit };
+        if (id && (this.pickable.has(id) || id === this.flipTarget)) return bit === undefined ? { id } : { id, bit };
         object = object.parent;
       }
     }

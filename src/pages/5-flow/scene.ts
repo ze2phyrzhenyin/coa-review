@@ -260,10 +260,13 @@ export function flowValues(L: Linked) {
  * 点方框：把模型机拨回这个方框那个 CPU 周期，再走一遍。弄坏它：三个方框的指令，把执行一、执行二并成一个方框，
  * 两个数同时上 DBUS；两个方框的指令，用 5-cycle 的演法（DBUS 有数时再开一道门）。
  */
-export function flowBreak(L: Linked) {
+export function flowBreak(L: Linked, narrow = false) {
   const machine = machineBind(L.cpu);
-  return (s: FlowState, part: string | null): Breakage | null => {
+  return (s: FlowState, part0: string | null): Breakage | null => {
     const mine = forIns(s);
+    // 手机上方框和模型机不同屏：没画完时给一个按钮，镜头到模型机上把刚画的这个周期再走一遍。
+    const replay = narrow && part0 === null && mine.length > 0 && !(s.current !== null && s.ended.includes(s.current));
+    const part = replay ? `BOX_${mine.length - 1}` : part0;
     if (part?.startsWith('BOX_')) {
       const m = Number(part.slice(4));
       const box = mine[m];
@@ -273,7 +276,7 @@ export function flowBreak(L: Linked) {
       if (!step) return null;
       const props = machine.props({ state: step.state, flat: flatten(step.state), index: 0, step, changed: new Set(step.changes.map((x) => x.at)) });
       return {
-        label: '',
+        label: '看模型机走这个周期',
         patch: { ...props, [part]: { focus: true, active: 0 } },
         moves: L.cycleMoves(step),
         message: `${box.cycle}周期（M${box.m}）：${box.ops.join('；')}。电位信号 ${box.level.join('、') || '无'} 整个周期有效；${box.pulse.length ? `${box.pulse.join('、')} 在注明的那一拍打入` : '这个周期没有打入'}。`,

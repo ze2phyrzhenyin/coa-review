@@ -30,6 +30,7 @@ export interface HazardStage {
   values: (path: string, value: string) => string;
   /** 答题牌：选项文字 → 部件 id。 */
   stamps: Map<string, string>;
+  moves: (step: Step<State>) => Move[];
 }
 
 /** 全部可能的连线：每一对、每一种、每个寄存器一根。 */
@@ -93,11 +94,13 @@ export function hazardStage(trace: T, narrow: boolean, options: { regs?: string[
       title: '五段流水线',
       props: {
         name: '五段流水线',
-        corner: '指令＼周期',
+        corner: narrow ? '周期' : '指令＼周期',
         columns: Array.from({ length: columns }, (_, c) => String(c + 1)),
         rows: list.map((_, r) => `I${r + 1}`),
         cells: list.map((_, r) => Array.from({ length: columns }, (_, c) => stageOf(r + 1, c + 1))),
-        cellWidth: narrow ? 0.78 : 0.8,
+        cellWidth: narrow ? 0.84 : 0.8,
+        // 窄屏一屏放不下全部周期：开 6 列的窗，跟着这一对读、写的格子挪，行名钉在左边。
+        ...(narrow ? { window: 6, slide: true } : {}),
       } satisfies ChartProps,
       describe: () => '五段流水线的时空表',
     },
@@ -157,6 +160,12 @@ export function hazardStage(trace: T, narrow: boolean, options: { regs?: string[
       }),
     },
     chart: {
+      at: (c: BindContext<State>) => {
+        const cur = pairOf(c);
+        if (cur) return cur.j + 3;
+        const wrong = c.state.pairs.filter((p) => p.wrong);
+        return final(c) && wrong.length ? Math.max(...wrong.map((p) => p.j)) + 2 : 0;
+      },
       links: from<State>(['current'], (c) => {
         const cur = pairOf(c);
         if (cur) return pairArrows(cur);
@@ -177,7 +186,7 @@ export function hazardStage(trace: T, narrow: boolean, options: { regs?: string[
   const frame = (step: Step<State>): string[] | null => {
     if (step.level === 'instruction') return ['deps'];
     if (step.state.current === null) return narrow ? ['chart'] : ['deps', 'chart'];
-    return narrow ? ['chart', 'deps'] : ['deps', 'chart'];
+    return narrow ? ['deps'] : ['deps', 'chart'];
   };
   const askFrame = (): string[] => ['deps', ...stamps.values()];
   const names = (path: string): string => {
@@ -200,7 +209,18 @@ export function hazardStage(trace: T, narrow: boolean, options: { regs?: string[
     if (/\.wrong$/.test(path)) return value === 'true' ? '会' : '不会';
     return value;
   };
-  return { scene: { parts, wires: [], kinds }, bind, frame, askFrame, names, values, stamps };
+  // 手机上两块板装不进一屏：判出 RAW 的那一步，寄存器从指令板飞到时空表上读它的 ID 格，镜头跟过去看箭头，再回来。
+  const moves = (step: Step<State>): Move[] => {
+    if (!narrow || step.state.current === null) return [];
+    const pair = step.state.pairs[step.state.current];
+    if (!pair) return [];
+    const reg = pair.raw.find((x) => x.startsWith('R'));
+    if (reg) return [{ value: reg, from: `deps.${pair.i - 1}.1`, to: `chart.${pair.j - 1}.${pair.j}`, arc: true }];
+    if (pair.war.length) return [{ value: pair.war[0]!, from: `deps.${pair.i - 1}.0`, to: `chart.${pair.j - 1}.${pair.j + 3}`, arc: true }];
+    if (pair.waw.length) return [{ value: pair.waw[0]!, from: `deps.${pair.i - 1}.1`, to: `chart.${pair.j - 1}.${pair.j + 3}`, arc: true }];
+    return [];
+  };
+  return { scene: { parts, wires: [], kinds }, bind, frame, askFrame, names, values, stamps, moves };
 }
 
 /** 答错时按学生选的类型演一遍：那一种线要哪两个集合相交，交集是什么。 */
