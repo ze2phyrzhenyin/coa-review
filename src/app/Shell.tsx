@@ -32,7 +32,9 @@ export function Shell({ render }: { render: (pageId: string | null) => Component
     if (!active || !nav.current) return;
     const box = nav.current.getBoundingClientRect();
     const rect = active.getBoundingClientRect();
-    if (rect.top < box.top || rect.bottom > box.bottom) active.scrollIntoView({ block: 'center' });
+    // 完全不在视野里（直接打开深层页面）才居中；只露出一部分（刚点的就是它）时只挪到刚好露全，侧栏不跳。
+    if (rect.bottom <= box.top || rect.top >= box.bottom) active.scrollIntoView({ block: 'center' });
+    else if (rect.top < box.top || rect.bottom > box.bottom) active.scrollIntoView({ block: 'nearest' });
   }, [pageId, open]);
 
   useEffect(() => {

@@ -45,5 +45,12 @@ if [ "$MODE" = "--build" ]; then
   export PORT
   step "导航" "侧栏不许随换页重建；页内状态写进网址。见 AGENTS.md › Navigation" node scripts/qa-navigation.mjs
   step "逐页" "见 docs/INTERACTION.md 和 specs/_player-contract.md" node scripts/qa-pages.mjs
+  # 线上只列已上线的页面，侧栏比上面的构建短：按线上的样子再查一遍导航（0.3 版曾在这里漏过）。
+  kill "$SERVER" 2>/dev/null; SERVER=""
+  step "构建（线上样式）" "看上面的报错" pnpm -s exec vite build --outDir "$OUT-live" --emptyOutDir
+  pnpm -s exec vite preview --outDir "$OUT-live" --host 127.0.0.1 --port "$PORT" --strictPort > "$T/server" 2>&1 &
+  SERVER=$!
+  for _ in $(seq 1 50); do curl -sf "http://127.0.0.1:$PORT/" > /dev/null && break; sleep 0.2; done
+  step "导航（线上样式）" "侧栏不许跳；见 AGENTS.md › Navigation" node scripts/qa-navigation.mjs
 fi
 echo "GATE OK${MODE:+ $MODE}"
