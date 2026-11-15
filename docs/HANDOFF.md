@@ -17,7 +17,7 @@
 ## 现状（2026-11-15 18:35）
 
 - 线上 https://coa.zhaoyang.fr ：版本 `20261115T173129Z-9f951e8`，24 页（三个样板页加一批 21 页），都过了独立验收。回滚 `bash scripts/release.sh rollback`。公开仓库 https://github.com/ze2phyrzhenyin/coa-review 。
-- 一批还差两页没上线：`6-serial`、`5-flow`。作者已按 `evals/look/final-recheck.md` 修好，等独立复核；通过后把 `plan/features.json` 的 `passes` 和 `src/content/pages.ts` 的 `live` 置 true 再发布。
+- 一批还差两页没上线。`6-serial` 复核已通过（`passes: true`），还没把 `src/content/pages.ts` 的 `live` 置 true，也没发布：下次直接置 true、跑 `bash scripts/release.sh`。`5-flow` 没过：手机上第 0、2 步点「看模型机」没反应（其余步骤正常），见 `evals/look/final-recheck.md` 末尾。
 - 二批 30 页还没开始（`docs/PLAN.md`）。做法照一批：引擎和规格 → 独立测试 → 页面 → 验收 → 发布。
 - 负责人后加的要求都在 `docs/INTERACTION.md`：形象直观有趣、易懂、专业、美观、去 AI 味；场景和控制条在所有步骤里位置固定（qa-pages 会查）。
 - 新增检查：`scripts/qa-clip.mjs`（手机 360–390 px 每步主体完整入画；`--strict` 只作参考）、qa-pages 的位置固定检查、门禁按线上构建再查一遍导航。

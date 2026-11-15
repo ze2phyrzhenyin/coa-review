@@ -347,8 +347,8 @@
       "id": "6-serial",
       "title": "一帧到底几位，带宽怎么算",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "8-poll",
