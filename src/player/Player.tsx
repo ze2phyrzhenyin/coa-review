@@ -457,9 +457,9 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
 
       <div class="pl-body">
         <div class="pl-left">
-          {status ? (
+          {caption ? (
             <p class="pl-status" aria-hidden="true">
-              <Rich text={status} />
+              <Rich text={status || '\u00a0'} />
             </p>
           ) : null}
           <div class="pl-stage" data-stage ref={stage} {...(flat ? { 'data-settled': 'true', 'data-scene-hash': hashPose(pose) } : {})}>
@@ -487,6 +487,19 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
             )}
           </div>
 
+          {/* 控制条紧跟舞台，位置每一步都一样；题目、提示、「看……」、弄坏它都排在它下面。 */}
+          <div class="pl-bar">
+            <button type="button" class="pl-btn" onClick={() => go(0)} disabled={index === 0}>
+              重置
+            </button>
+            <button type="button" class="pl-btn" onClick={() => go((i) => Math.max(0, i - 1))} disabled={index === 0}>
+              上一步
+            </button>
+            <button type="button" class="pl-btn is-primary" onClick={() => go((i) => Math.min(total, i + 1))} disabled={index === total}>
+              下一步
+            </button>
+          </div>
+          <div class="pl-slot" data-has-asks={trace.steps.some((item) => item.ask) ? '' : undefined}>
           {!flat && view.current && (asides ?? []).some((aside) => view.current!.offStage(aside.ids).length > 0) ? (
             <div class="pl-asides">
               {(asides ?? [])
@@ -548,16 +561,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
             </div>
           ) : null}
 
-          <div class="pl-bar">
-            <button type="button" class="pl-btn" onClick={() => go(0)} disabled={index === 0}>
-              重置
-            </button>
-            <button type="button" class="pl-btn" onClick={() => go((i) => Math.max(0, i - 1))} disabled={index === 0}>
-              上一步
-            </button>
-            <button type="button" class="pl-btn is-primary" onClick={() => go((i) => Math.min(total, i + 1))} disabled={index === total}>
-              下一步
-            </button>
+
           </div>
 
           <div class="pl-foot">

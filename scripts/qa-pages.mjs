@@ -175,5 +175,54 @@ for (const size of sizes) {
   }
   await context.close();
 }
+// 换步不挪位置：一步一步按「下一步」走完第一道例题，舞台和「下一步」按钮在视口里的位置不能变（差 1 像素以内）。
+// 题目、答错提示、「看……」、弄坏它的说明都只能排在控制条下面；页面也不能因为换步滚动。
+for (const size of [
+  { name: '桌面', viewport: { width: 1280, height: 800 } },
+  { name: '手机', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+]) {
+  const context = await browser.newContext(size);
+  for (const id of ids) {
+    const page = await context.newPage();
+    page.setDefaultTimeout(10_000);
+    try {
+      await open(page, id);
+      // 页面是按需加载的：等播放器出来；没有播放器的页面（首页、占位页）跳过。
+      await page.locator('[data-player]').first().waitFor({ timeout: 4_000 }).catch(() => {});
+      if (!(await page.locator('[data-player]').count())) continue;
+      const next = page.locator('[data-player] .pl-bar .pl-btn.is-primary').first();
+      const read = () =>
+        page.evaluate(() => {
+          const rect = (el) => {
+            const r = el?.getBoundingClientRect();
+            return r ? [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] : null;
+          };
+          const player = document.querySelector('[data-player]');
+          return { step: Number(player.dataset.stepIndex), stage: rect(player.querySelector('[data-stage]')), next: rect(player.querySelector('.pl-bar .pl-btn.is-primary')) };
+        });
+      // 先把按钮滚进视口再记位置：之后的点击不会再触发滚动，位置变了就是页面自己挪的。
+      await next.scrollIntoViewIfNeeded();
+      const first = await read();
+      const moved = (a, b) => !a || !b || a.some((v, i) => Math.abs(v - b[i]) > 1);
+      for (let k = 0; k < 80; k++) {
+        if (await next.isDisabled()) break;
+        await next.click();
+        // 等这一步渲染出来（题目框是换步后才出现的）。
+        await page.waitForFunction((k) => Number(document.querySelector('[data-player]').dataset.stepIndex) >= k, first.step + k + 1);
+        await page.waitForTimeout(200);
+        const now = await read();
+        if (moved(first.stage, now.stage) || moved(first.next, now.next)) {
+          failures.push(`/${id} ${size.name}：换到第 ${now.step} 步时界面挪了位置（舞台 ${first.stage} → ${now.stage}，下一步 ${first.next} → ${now.next}）；题目和提示排到控制条下面，舞台上方的内容高度要固定`);
+          break;
+        }
+      }
+    } catch (error) {
+      failures.push(`/${id} ${size.name}：换步位置检查没跑完：${error instanceof Error ? error.message.split('\n')[0] : error}`);
+    } finally {
+      await page.close();
+    }
+  }
+  await context.close();
+}
 await browser.close();
 finish('qa-pages', failures);

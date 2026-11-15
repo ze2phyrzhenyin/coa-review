@@ -504,14 +504,11 @@ button.pl-part {
     border-radius: 0;
     border-inline: 0;
   }
-  .pl-ask.is-dock {
-    order: 2;
-  }
-  .pl-break {
+  .pl-slot {
     order: 3;
   }
   .pl-bar {
-    order: 4;
+    order: 2;
     display: grid;
     grid-template-columns: 1fr 1fr 2fr;
     margin: 0.5rem 0 0;
@@ -716,8 +713,26 @@ button.pl-part {
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
+
+/* 控制条下面的一格：题目、答错提示、「看……」、弄坏它。有题目的页面先留出一道题的高度，出题时下面的文字少挪动。 */
+.pl-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.pl-slot[data-has-asks] {
+  min-height: 7.5rem;
+}
+.pl-slot:empty:not([data-has-asks]) {
+  display: none;
+}
+/* 舞台上方的读数留出固定的高度（宽屏一行，窄屏两行）：信号多一个少一个，舞台不上下挪。 */
+.pl-status {
+  min-height: 1.6em;
+  line-height: 1.6;
+}
 @media (max-width: 900px) {
-  .pl-asides {
-    order: 2;
+  .pl-status {
+    min-height: 3.2em;
   }
 }
