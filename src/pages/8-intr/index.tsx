@@ -37,7 +37,9 @@ function useIntr(params: Params, quiet = false) {
   const narrow = useNarrow();
   const key = JSON.stringify(params);
   return useMemo(() => {
-    const full = plainAsks(run(params));
+    const raw = plainAsks(run(params));
+    // 「由谁完成」的题出在这一步发生之前：题面写出问的是哪一步。
+    const full = { ...raw, steps: raw.steps.map((step) => (step.ask?.options?.includes('硬件') ? { ...step, ask: { ...step.ask, prompt: `下一步是「${step.state.box}」，它由谁完成` } } : step)) };
     // 弄坏它不出题：舞台下方留给「跳过」按钮。
     const trace = quiet ? { ...full, steps: full.steps.map(({ ask: _ask, ...step }) => step) } : full;
     return { trace, stage: intrStage(trace, narrow) };
@@ -224,7 +226,7 @@ function Practice() {
   const rows = trace.table.rows;
   const [, setTab] = useParam('t', 'learn');
   const [, setStep] = useIntParam('s', 0, 0, 10_000);
-  const columns = useMemo(() => [{ title: '操作', width: 3.6 }, { title: '谁做', width: 1.1 }, { title: 'IM', width: 0.7 }], []);
+  const columns = useMemo(() => [{ title: '操作', width: 4.9 }, { title: '谁做', width: 1.1 }, { title: 'IM', width: 0.7 }], []);
   const labels = useMemo(() => rows.map((row) => row.cells[0] ?? ''), [rows]);
   const answer: Entry[] = rows.map((row) => ({ who: whoOf(row.cells[2] ?? ''), im: row.cells[3] ?? '' }));
   const grade = (entries: Entry[]): PaperMiss[] => {

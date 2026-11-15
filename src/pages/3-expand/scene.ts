@@ -18,7 +18,6 @@ export type PState = State & { stage?: 'send' | 'select' };
 export const sub = (text: string): string => text.replace(/\b([ADY])(\d{1,2})(?![0-9A-FHK])/g, '$1_$2').replace(/\bG(1|2A|2B)\b/g, 'G_$1');
 
 const D = 1.4;
-const PITCH_Z = 3.4;
 const LANE_C = 1.55;
 const LANE_A = 1.25;
 const OUT_ROW = 0.62;
@@ -51,6 +50,8 @@ export function expandStage(params: Params, narrow = false): ExpandStage {
   // 手机上芯片窄一点、排得紧一点：选中的一组两片能一起装进画面。
   const W = narrow ? 2.4 : 2.8;
   const PITCH_X = narrow ? 3.7 : 4.3;
+  // 手机上组名和地址范围写在这一排的后面（右边放不下），排距加大。
+  const PITCH_Z = narrow ? 4.5 : 3.4;
   const G = p.groups;
   const P = p.perGroup;
   const h = p.n - p.k;
@@ -82,8 +83,8 @@ export function expandStage(params: Params, narrow = false): ExpandStage {
   const xChip = (j: number) => xChip0 + j * PITCH_X;
   const xLast = xChip(P - 1);
   const xLabel = xLast + W / 2 + 2.0;
-  const xTrunk = xLast + W / 2 + (many ? 4.1 : 1.0);
-  const zBus = zRow(0) - D / 2 - 2.0;
+  const xTrunk = xLast + W / 2 + (many && !narrow ? 4.1 : 1.0);
+  const zBus = zRow(0) - D / 2 - (narrow ? 2.7 : 2.1);
   const zData = zRow(G - 1) + D / 2 + 2.3;
   const xAddr = xD - 1.0;
   // 译码器左边的输入脚：和 decoder 部件里的排法相同（均匀分布在一段长度里）。
@@ -141,8 +142,10 @@ export function expandStage(params: Params, narrow = false): ExpandStage {
         delay: c * 30,
       });
     }
-    if (many) parts.push({ id: `gl${g}`, kind: 'label', position: [xLabel, zRow(g)], props: { text: '', plate: true, size: 0.31, mono: true }, title: `第 ${g} 组` });
+    if (many) parts.push({ id: `gl${g}`, kind: 'label', position: narrow ? [xChip0 + ((P - 1) * PITCH_X) / 2, zRow(g) - D / 2 - 1.55] : [xLabel, zRow(g)], props: { text: '', plate: true, size: 0.31, mono: true }, title: `第 ${g} 组` });
   }
+  // 接好以后，译码器后面一张牌写着进来的是哪几根。
+  if (many) parts.push({ id: 'inl', kind: 'label', position: [xD - 0.2, zMid - Math.max(1.8, G * OUT_ROW + 0.3) / 2 - 0.75], props: { text: `${sub(p.decoderLines)} 进译码器`, plate: true, size: 0.31, mono: true }, title: '进译码器的地址线' });
   // 预测「进译码器的是哪几位」时，三根线头摆在译码器前面，点哪根就把哪根插进译码器。
   const options = many ? optionTexts(p) : [];
   options.forEach((option, i) => {
@@ -243,6 +246,7 @@ export function expandStage(params: Params, narrow = false): ExpandStage {
       };
     }
   }
+  if (many) table['inl'] = { hidden: (c: BindContext<PState>) => c.state.decoderLines === '' };
   options.forEach((_, i) => {
     table[optionId(i)] = { hidden: (c: BindContext<PState>) => !(c.state.groups !== null && c.state.decoderLines === '' && c.index > 0) };
   });
@@ -344,7 +348,7 @@ export function expandStage(params: Params, narrow = false): ExpandStage {
 
   const question = { text: `${p.d} 片芯片，片选要几位地址`, at: many ? ['DEC', ...chipsOf(0)] : [chipId(0)] };
   const conclusion = many
-    ? `片选按组算，不按片算：一组里的${P > 1 ? '几片共用一个片选，同时工作才凑出一个完整的字' : '一片就是一组'}。${G} 组 = 2^${h}，所以 ${p.d} 片只要 ${h} 位高位地址进译码器，低 ${p.k} 位接每一片。`
+    ? `片选按组算，不按片算：一组里的${P > 1 ? '几片共用一个片选，同时工作才凑出一个完整的字' : '只有一片，它自己一个片选'}。${G} 组 = 2^${h}，所以 ${p.d} 片只要 ${h} 位高位地址进译码器，低 ${p.k} 位接每一片。`
     : `只有一组，${p.d} 片同时工作，片选共用，不要译码器。`;
 
   return { scene: { parts, wires }, bind, moves, names, values, frame, askFrame, wrong, question, conclusion, plan: p, chipId, selectMoves };
@@ -422,12 +426,13 @@ export function expandMistakes(trace: Trace<Params, PState>, stage: ExpandStage)
       at: lines + 1,
       act: () => ({
         label: '',
-        patch: { [stage.chipId(0)]: { selected: true }, dbus: { value: `只有 ${slice}`, drivers: '第 0 片' } },
+        // 只有第 0 片抬起、送数；数据线上只到了它那几位，不是冲突。
+        patch: { [stage.chipId(0)]: { selected: true }, dbus: { value: `只到 ${slice}`, drivers: ['第 0 片'] } },
         moves: [
           { ...stage.selectMoves(0)[0]!, phase: 0 },
           { value: slice, from: stage.chipId(0), to: 'dbus', arc: true, ink: 'data', phase: 1 },
         ],
-        message: `单独选一片，这一组只有第 0 片工作：它只送 ${slice}，其余数据线上没有芯片送数，读出来缺了几位。组内 ${p.perGroup} 片必须一起选中，所以片选按组数 ${p.groups} 算，${h} 位就够。`,
+        message: `单独选一片，这一组只有第 0 片工作：它只送 ${slice}，数据线上只到了这几位，其余的位没有芯片送数，读出来缺了几位。组内 ${p.perGroup} 片必须一起选中，所以片选按组数 ${p.groups} 算，${h} 位就够。`,
       }),
     });
   }

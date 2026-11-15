@@ -315,8 +315,8 @@ export class SceneView {
         // 页面指定的部件放在画面正中，不为了台面边上的留白或切边再挪。
         // 字号不变时一起装不下，就只看最后一个（页面把收值的部件放在最后），不让两头都被切掉一半。
         if (!stage.sees(pose, main, 0.03)) {
-          const both = stage.fit(main, stage.legibleScale / stage.minScale, 0, true);
-          pose = main.length > 1 && !stage.sees(both, main, 0) ? stage.fit(main.slice(-1), stage.legibleScale / stage.minScale, 0, true) : both;
+          const both = stage.fit(main, (stage.legibleScale / stage.minScale) * 1.04, 0, true);
+          pose = main.length > 1 && !stage.sees(both, main, 0) ? stage.fit(main.slice(-1), (stage.legibleScale / stage.minScale) * 1.04, 0, true) : both;
         }
         this.cams.push(pose);
         continue;
@@ -348,7 +348,7 @@ export class SceneView {
   private follow(boxes: Box3[]): { pose: CamPose; fits: boolean } {
     const { stage } = this;
     let pose = stage.fit(boxes, 1, 0, true);
-    if (!stage.sees(pose, boxes, 0)) pose = stage.fit(boxes, stage.legibleScale / stage.minScale, 0, true);
+    if (!stage.sees(pose, boxes, 0)) pose = stage.fit(boxes, (stage.legibleScale / stage.minScale) * 1.04, 0, true);
     pose = this.wholeEdges(stage.keepInScene(pose), boxes);
     return { pose, fits: stage.sees(pose, boxes, 0) };
   }

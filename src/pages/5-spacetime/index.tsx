@@ -75,6 +75,7 @@ function Learn() {
         <Rich text={example.lead} />
       </p>
       <Player
+        levelNames={{ beat: '一个时钟周期' }}
         key={example.key}
         trace={made.trace}
         scene={stage.scene}
@@ -216,6 +217,7 @@ function Try() {
         </p>
       )}
       <Player
+        levelNames={{ beat: '一个时钟周期' }}
         key={JSON.stringify(params)}
         trace={made.trace}
         scene={stage.scene}
@@ -252,7 +254,7 @@ function Break() {
   const chosen = clock === 'avg' ? times.reduce((a, b) => a + b, 0) / times.length : clock === 'max' ? times[slow]! : times[slow]! + latch;
   const shown = Number(chosen.toFixed(2));
   // 最慢的段里第一次有指令的那个周期之后。
-  const firstBusy = trace.steps.findIndex((step) => step.level === 'cycle' && step.state.grid[slow]?.[step.state.cycle - 1]);
+  const firstBusy = trace.steps.findIndex((step) => step.level === 'beat' && step.state.grid[slow]?.[step.state.cycle - 1]);
   const breakIt = (state: SpacetimeState): Breakage | null => {
     if (clock === 'book' || state.cycle === 0 || !state.grid[slow]?.[state.cycle - 1] || slow === names.length - 1) return null;
     const items = lineItems(params, state.grid, state.cycle);
@@ -291,6 +293,7 @@ function Break() {
         {clock === 'book' ? '按教材取最慢的段加 τₗ，每一段都做得完，没有可弄坏的地方。' : ''}
       </p>
       <Player
+        levelNames={{ beat: '一个时钟周期' }}
         key="break"
         trace={trace}
         scene={stage.scene}

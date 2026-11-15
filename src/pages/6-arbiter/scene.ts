@@ -14,6 +14,11 @@ import type { Breakage, Mistake } from '../../player/Player';
 export const ARB_QUESTION = { text: '几台设备同时请求，链式查询时谁先拿到总线，凭什么', at: ['ARB', 'D0'] };
 export const ARB_CONCLUSION =
   'BG 从仲裁器出来，按接口在链上的位置一个一个往下传，第一个有请求的接口把它截住，后面的接口收不到。离仲裁器近的先碰到 BG，所以优先；优先次序是接线定死的，链上一处断了，后面的设备都得不到总线。';
+export const COUNT_QUESTION = { text: '同样几台设备请求，换成计数器定时查询，从中止点计数时谁先拿到总线', at: ['ARB', 'D0'] };
+export const COUNT_CONCLUSION =
+  '计数器定时查询不传 BG，仲裁器把计数值发到设备地址线上，数到谁、谁又有请求，谁就得到总线。每轮从 0 计，编号小的总是先被数到，和链式查询一样是固定优先级；从中止点接着计，刚用过总线的设备排到最后，各设备机会相等。';
+export const OWN_QUESTION = { text: '每台设备有自己的 BR_i、BG_i 时，谁先拿到总线由什么定', at: ['ARB', 'D0'] };
+export const OWN_CONCLUSION = '独立请求时每台设备各有一对请求线和授权线，仲裁器里的排队电路按设定的优先次序一步选出，不用逐个查询；优先次序可以改，也可以屏蔽某台设备的请求。';
 export const ARB_NEEDS = [{ href: '/5-cycle', text: '总线和三态门（模型机）' }];
 
 export interface ArbStage {
@@ -27,6 +32,8 @@ export interface ArbStage {
   frame: (step: Step<State>) => string[] | null;
   wrong: (ask: Ask, value: string, state: State, next: Step<State> | null) => Breakage | null;
   mistakes: Mistake<State>[];
+  question: { text: string; at: string[] };
+  conclusion: string;
   convention: (step: Step<State>) => string | null;
 }
 
@@ -59,17 +66,21 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
   const lastX = devPos(n - 1)[0];
   const lastZ = devPos(n - 1)[1];
   const anyBr = (s: State) => s.devices.some((d) => d.br === 1);
+  /** 第 index 屏之前那一屏的状态：读数的字变了才标「变化」，空格子不标。 */
+  const before = (index: number): State => (index >= 2 ? trace.steps[index - 2]!.state : trace.initial);
   const parts: PartSpec[] = [];
   const table: Parameters<typeof bindTable<State>>[0] = {};
 
   parts.push({ id: 'ARB', kind: 'register', position: ARB, props: { name: '总线仲裁器', value: '', width: 2.4, ink: 'ctrl' } });
+  const arbText = (st: State): string => {
+    if (counter) return st.counter === null || st.bs === 1 || !anyBr(st) ? '' : `计数 ${st.counter}`;
+    if (st.bs === 1) return '';
+    if (st.devices.some((d) => d.bg === 1)) return own ? '回 BG' : '发 BG';
+    return st.devices.some((d) => d.br === 1) ? '收到 BR' : '';
+  };
   table.ARB = {
-    value: from(counter ? 'counter' : 'bs', (c) => {
-      if (counter) return c.state.counter === null || c.state.bs === 1 || !anyBr(c.state) ? '' : `计数 ${c.state.counter}`;
-      if (c.state.bs === 1) return '';
-      if (c.state.devices.some((d) => d.bg === 1)) return own ? '回 BG' : '发 BG';
-      return c.state.devices.some((d) => d.br === 1) ? '收到 BR' : '';
-    }),
+    value: (c) => arbText(c.state),
+    changed: (c) => c.index > 0 && arbText(c.state) !== '' && arbText(c.state) !== arbText(before(c.index)),
   };
 
   const deviceText = (state: State, i: number): string => {
@@ -83,9 +94,13 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
   };
   for (let i = 0; i < n; i++) {
     parts.push({ id: `D${i}`, kind: 'register', position: devPos(i), props: { name: `接口 ${i}`, value: '', width: W }, pick: true, title: `设备 ${i}` });
-    table[`D${i}`] = { value: from(`devices.${i}`, (c) => deviceText(c.state, i)) };
+    table[`D${i}`] = {
+      value: (c) => deviceText(c.state, i),
+      changed: (c) => c.index > 0 && deviceText(c.state, i) !== '' && deviceText(c.state, i) !== deviceText(before(c.index), i),
+    };
   }
 
+  if (narrow) parts.push({ id: 'cap', kind: 'label', position: [ARB[0], ARB[1] - 2.0], props: { text: '接口 0 离仲裁器最近', size: 0.31, tone: 'muted' } });
   const wires: SceneSpec['wires'] = [];
   if (chain) {
     // BG 链：仲裁器 → 接口 0 → 接口 1 → …
@@ -159,7 +174,7 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
   });
   table.track = {
     segments: from('grants', (c) =>
-      plan.grants.slice(0, c.state.grants.length).map((g) => ({ lane: g.device, from: g.at, to: g.until, ink: 'data' as const, text: `${g.at}–${g.until}` })),
+      plan.grants.slice(0, c.state.grants.length).map((g) => ({ lane: g.device, from: g.at, to: g.until, ink: 'data' as const })),
     ),
     markers: from(['t', 'devices'], (c) =>
       c.index === 0 ? [] : p.requests.filter((r) => r.at <= c.state.t).map((r) => ({ at: r.at, text: '请求', lane: r.device, ink: 'accent' as const })),
@@ -202,11 +217,18 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
   const caption = (s: State): string => `t = ${s.t}　BS = ${s.bs}${s.owner === null ? '' : `　设备 ${s.owner} 占用总线`}`;
 
   const devices = Array.from({ length: n }, (_, i) => `D${i}`);
-  const askFrame = (): string[] => ['ARB', ...devices];
+  const askFrame = (): string[] => [...(narrow ? ['cap'] : []), 'ARB', ...devices];
   const frame = (step: Step<State>): string[] | null => {
     const kind = kindOf(step);
-    if (kind === 'release') return ['ARB', ...devices, 'track'];
-    return null;
+    const st = step.state;
+    const top = narrow ? ['cap'] : [];
+    if (kind === 'release' || kind === 'grant') return [...top, 'ARB', ...devices, 'track'];
+    if (kind === 'bg') {
+      const i = st.devices.findLastIndex((d) => d.bg === 1);
+      return i > 0 ? [`D${i - 1}`, `D${i}`] : [...top, 'ARB', 'D0'];
+    }
+    if (kind === 'count' && st.counter !== null) return [...top, 'ARB', `D${st.counter}`];
+    return [...top, 'ARB', ...devices];
   };
 
   /** 答错：学生选的设备举着手，却看着 BG 被别人截走。 */
@@ -230,7 +252,7 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
         : chain
           ? `BG 从接口 0 往下传，先到接口 ${winner}，它有请求，当场截住，设备 ${picked} 收不到。`
           : counter
-            ? `这一轮计数从 ${state.counter === null ? 0 : '上一次停下的下一个值'} 开始，先数到 ${winner}，地址相同又有请求，计数就停了。`
+            ? `这一轮计数从 ${next.state.counter ?? 0} 开始，先数到 ${winner}，地址相同又有请求，计数就停了。`
             : `排队电路按优先次序一步选出设备 ${winner}。`;
     return {
       label: '',
@@ -243,14 +265,14 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
   // 常见错误：在这份 Trace 的步骤上演。
   const indexOf = (test: (step: Step<State>, i: number) => boolean): number => trace.steps.findIndex(test) + 1;
   const mistakes: Mistake<State>[] = [];
-  const captureFar = indexOf((step) => kindOf(step) === 'bg' && step.state.devices.some((d, i) => d.bg === 1 && d.br === 1 && i < n - 1) && step.state.devices.slice(0, -1).some((d, i, all) => d.br === 1 && all.findIndex((x) => x.bg === 1 && x.br === 1) < i));
+  const captured = indexOf((step) => kindOf(step) === 'bg' && step.state.devices.some((d) => d.bg === 1 && d.br === 1));
   if (chain) {
-    const at = captureFar > 0 ? captureFar : indexOf((step) => kindOf(step) === 'bg');
-    mistakes.push({
+    const at = captured;
+    if (at > 0) mistakes.push({
       text: '容易以为后面的接口也收到了 BG，只是慢一点，因为 BR 是公共线',
       at,
       act: (state) => {
-        const w = state.devices.findIndex((d) => d.bg === 1 && d.br === 1);
+        const w = Math.max(0, state.devices.findIndex((d) => d.bg === 1 && d.br === 1));
         const behind = state.devices.map((d, i) => i).filter((i) => i > w && state.devices[i]!.br === 1);
         const patch: Record<string, Record<string, unknown>> = {};
         for (const i of behind) patch[`D${i}`] = { value: '等不到 BG' };
@@ -309,5 +331,7 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
     return null;
   };
 
-  return { scene, bind, moves, names, values, caption, askFrame, frame, wrong, mistakes, convention };
+  const question = chain ? ARB_QUESTION : counter ? COUNT_QUESTION : OWN_QUESTION;
+  const conclusion = chain ? ARB_CONCLUSION : counter ? COUNT_CONCLUSION : OWN_CONCLUSION;
+  return { scene, bind, moves, names, values, caption, askFrame, frame, wrong, mistakes, question, conclusion, convention };
 }

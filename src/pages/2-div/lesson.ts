@@ -4,6 +4,7 @@ import type { DivParams, DivState } from '../../engines/div/model';
 import type { Trace } from '../../engines/trace';
 import { BitsError } from '../../lib/bits';
 import type { Notation } from '../../lib/bits';
+import { subScene, subTrace } from '../2-mul/code';
 import { divScene } from './scene';
 import type { DivScene } from './scene';
 
@@ -19,8 +20,8 @@ export function adaptTrace<P, S>(trace: Trace<P, S>): Trace<P, S> {
 
 export function lesson(params: DivParams, compact = false): Lesson {
   try {
-    const trace = adaptTrace(run(params));
-    return { ok: true, trace, ...divScene(trace, compact) };
+    const trace = subTrace(adaptTrace(run(params)));
+    return { ok: true, trace, ...subScene<DivState, DivScene<DivState>>(divScene(trace, compact)) };
   } catch (error) {
     if (error instanceof BitsError) return { ok: false, error: error.message };
     throw error;

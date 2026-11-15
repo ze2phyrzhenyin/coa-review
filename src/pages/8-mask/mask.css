@@ -52,3 +52,17 @@
 .mk-compare dd {
   margin: 0;
 }
+
+.mk-path summary {
+  min-height: var(--target);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: var(--fw-strong);
+}
+.mk-path .sheet {
+  margin-top: var(--sp-3);
+}
+.pg-panel > .seg {
+  align-self: flex-start;
+}

@@ -9,7 +9,7 @@ import type { Params } from '../../engines/cacheperf/model';
 import type { Pose, SceneSpec } from '../../scene';
 import { Rich } from '../../player/Rich';
 import { PaperStage, useDraft, useSeed, useWidePaper } from '../3-vm-replace/kit';
-import { nameOf } from './scene';
+import { nameOf, polish } from './scene';
 import { answerOf, grade, inputOf, quizParams } from './setup';
 
 export function Paper() {
@@ -35,7 +35,7 @@ const HINTS: Record<string, string> = {
 
 function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
   const params = useMemo<Params>(() => quizParams(seed), [seed]);
-  const trace = useMemo(() => run(params), [params]);
+  const trace = useMemo(() => polish(run(params)), [params]);
   const keys = Object.keys(trace.result);
   const wide = useWidePaper();
   const ok = (value: unknown): value is Record<string, string> => !!value && typeof value === 'object' && keys.every((key) => typeof (value as Record<string, unknown>)[key] === 'string');
@@ -170,7 +170,7 @@ function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
 
   return (
     <div class="t4-quiz">
-      <p class="t4-task">按下面的条件依次求出各量。e 和缺失率写百分数，h、r、CPI 写小数（最多 4 位），时间带 ns。</p>
+      <p class="t4-task">按下面的条件依次求出各量。e 写百分数，h、r 写小数（最多 4 位），时间带 ns。</p>
       <dl class="pl-given">
         {trace.conditions.map((condition) => (
           <div key={condition.label}>

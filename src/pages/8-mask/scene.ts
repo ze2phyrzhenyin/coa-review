@@ -20,7 +20,6 @@ export const MASK_CONCLUSION =
 export const MASK_NEEDS = [{ href: '/8-intr', text: '单级中断的一次过程' }];
 
 const PITCH = 0.56;
-const ROW = 1.15;
 
 export const levelName = (who: number): string => (who === MAIN ? '主程序' : `L${who}`);
 const programName = (who: number): string => (who === MAIN ? '主程序' : `L${who} 程序`);
@@ -58,6 +57,7 @@ export function kindOf(step: Step<State>): 'mask' | 'order' | 'arrive' | 'enter'
 }
 
 export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskStage {
+  const ROW = 1.15;
   const n = trace.params.levels;
   const final = trace.steps.at(-1)?.state ?? trace.initial;
   const end = Math.max(1, final.t);
@@ -103,7 +103,7 @@ export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskSta
 
   parts.push({ id: 'queue', kind: 'register', position: [right + (narrow ? 1.25 : 1.9), ZB + 2 * ROW], props: { name: '排队器', value: '', width: 2.0 } });
   table.queue = {
-    value: from('running', (c) => (c.step?.level === 'cycle' ? `选 ${levelName(c.state.running)}` : '')),
+    value: from('running', (c) => (c.step?.level === 'cycle' ? `${levelName(c.state.running)} 已响应` : '')),
   };
 
   parts.push({ id: 'stack', kind: 'stack', position: [SX, SZ], props: { name: '程序卡', cards: [{ title: '主程序' }], width: 3.0 } });
@@ -127,7 +127,7 @@ export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskSta
     id: 'track',
     kind: 'track',
     position: [TRX, TRZ],
-    props: { name: 'CPU 运行轨迹', length: trackLength, span: [0, end], lanes, segments: [], ticks },
+    props: { name: 'CPU 运行轨迹', length: trackLength, span: [0, end], lanes, segments: [], ticks, connect: true },
     title: 'CPU 运行轨迹',
   });
   const lane = (who: number) => (who === MAIN ? n : who);
@@ -196,13 +196,19 @@ export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskSta
   };
   const askFrame = (ask: Ask, index: number): string[] => {
     const level = askedLevel(index);
-    if (ask.kind === 'bits' && level !== null) return [`h-0`, `h-${n - 1}`, ...Array.from({ length: n }, (_, i) => `m-${i}`)];
-    return ['irr', 'imr', 'pass', ...Array.from({ length: n }, (_, i) => `m-${i}`)];
+    // 带上列头上面那块牌的位置，列头离画面上沿留出一行。
+    if (ask.kind === 'bits' && level !== null) return ['order', `h-0`, `h-${n - 1}`, ...Array.from({ length: n }, (_, i) => `m-${i}`)];
+    // 屏蔽字表的列头也要在画面里：不看列头分不清哪一位是哪一级。
+    return ['h-0', `h-${n - 1}`, 'irr', 'imr', 'pass', ...Array.from({ length: n }, (_, i) => `m-${i}`)];
   };
   const frame = (step: Step<State>): string[] | null => {
     const kind = kindOf(step);
     if (kind === 'run') return ['track'];
     if (kind === 'arrive') return ['irr', 'imr', 'pass', 'track'];
+    if (narrow && kind === 'enter') return ['irr', 'imr', 'pass', 'queue', 'stack'];
+    if (narrow && kind === 'finish') return ['imr', 'pass', 'stack', 'done'];
+    if (narrow && kind === 'mask') return ['h-0', ...Array.from({ length: n }, (_, i) => `m-${i}`)];
+    if (narrow && kind === 'order') return ['order', 'h-0', ...Array.from({ length: n }, (_, i) => `m-${i}`)];
     return null;
   };
 

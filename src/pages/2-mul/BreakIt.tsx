@@ -32,7 +32,7 @@ export function BreakIt() {
           </button>
         ))}
       </div>
-      <Player key={`break-${which}-${narrow}`} trace={trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} />
+      <Player key={`break-${which}-${narrow}`} trace={trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} onWrong={made.wrong} />
     </>
   );
 }

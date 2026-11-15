@@ -109,12 +109,11 @@ export function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
       })}
       <fieldset class="ovf-line ovf-verdict">
         <legend class="ovf-line-label">判定</legend>
-        <div class="ovf-seg">
+        <div class="seg ovf-seg">
           {KINDS.map((kind) => (
             <button
               key={kind}
               type="button"
-              class={`ovf-choice${verdict === kind ? ' is-on' : ''}`}
               aria-pressed={verdict === kind}
               onClick={() => {
                 setVerdict(kind);
@@ -145,13 +144,13 @@ export function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
         {revealed && <p class="ovf-key">答案 {solution.verdict === '无溢出' ? formatValue(solution.exactUnits, n, notation) : '溢出，不填'}</p>}
       </div>
       <div class="ovf-actions">
-        <button type="submit" class="ovf-btn is-primary">
+        <button type="submit" class="btn is-primary">
           交卷
         </button>
-        <button type="button" class="ovf-btn" onClick={() => setRevealed(true)} disabled={revealed}>
+        <button type="button" class="btn" onClick={() => setRevealed(true)} disabled={revealed}>
           看答案
         </button>
-        <button type="button" class="ovf-btn" onClick={onNext}>
+        <button type="button" class="btn" onClick={onNext}>
           换一题
         </button>
       </div>

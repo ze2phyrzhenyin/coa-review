@@ -19,15 +19,14 @@ export function BreakIt() {
   return (
     <>
       <div class="cr-controls">
-        <div class="cr-choice" role="group" aria-label={`把块 ${setup.block} 硬放进哪一行`}>
-          <span class="cr-lead">
-            块 {setup.block} 该进行 {setup.home}，硬放进
-          </span>
+        <span class="cr-lead">
+          块 {setup.block} 该进行 {setup.home}，硬放进
+        </span>
+        <div class="seg" role="group" aria-label={`把块 ${setup.block} 硬放进哪一行`}>
           {setup.wrongRows.map((row) => (
             <button
               key={row}
               type="button"
-              class={`pl-btn${row === into ? ' is-on' : ''}`}
               aria-pressed={row === into}
               onClick={() => {
                 setStep('0');

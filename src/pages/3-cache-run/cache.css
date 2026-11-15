@@ -259,3 +259,12 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* 例题下面的一句引子，术语可点开。 */
+.cr-lead-text {
+  margin: 0;
+  max-width: var(--measure);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  color: var(--c-muted);
+}

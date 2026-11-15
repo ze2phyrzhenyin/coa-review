@@ -7,14 +7,23 @@ import type { CodesParams, CodesState } from '../../engines/codes/model';
 import type { Ask, Step, Trace } from '../../engines/trace';
 import { BitsError } from '../../lib/bits';
 import { codeOf, codesScene, tag } from './scene';
+import { subTrace } from './sub';
 import type { CodesScene } from './scene';
 
 export type Lesson = ({ ok: true; trace: Trace<CodesParams, CodesState> } & CodesScene) | { ok: false; error: string };
 
 /** 「变化」只留学生关心的：每种码的位串（写不下时留「写不下」）和 0 的另一种写法。 */
-export function tidy(trace: Trace<CodesParams, CodesState>): Trace<CodesParams, CodesState> {
+export function tidy(raw: Trace<CodesParams, CodesState>): Trace<CodesParams, CodesState> {
+  const trace = subTrace(raw);
+  // 0 有两种写法时，「怎么得到」把 +0 和 −0 分开说。
+  const rows = trace.table.rows.map((row) => {
+    if (!row.cells[1]?.includes(' 或 ')) return row;
+    const how = row.cells[0]?.includes('反') ? '+0 与原码相同；−0 的数值位全取反' : '符号位写 0 或 1，数值位全 0';
+    return { ...row, cells: [row.cells[0]!, row.cells[1]!, how] };
+  });
   return {
     ...trace,
+    table: { ...trace.table, rows },
     steps: trace.steps.map((step) => ({
       ...step,
       changes: step.changes.filter((change) => {

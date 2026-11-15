@@ -3,6 +3,7 @@ import type { TargetedEvent } from 'preact';
 import { useParam } from '../../app/url-state';
 import { run, validateParams } from '../../engines/cache/model';
 import type { Params } from '../../engines/cache/model';
+import { Term } from '../../app/TermCard';
 import { Player } from '../../player/Player';
 import { useNarrow } from '../../app/media';
 import { BreakIt } from './BreakIt';
@@ -59,12 +60,11 @@ function Walkthrough() {
   return (
     <>
       <div class="cr-controls">
-      <div class="cr-choice" role="group" aria-label="例题">
+      <div class="seg" role="group" aria-label="例题">
         {examples.map((item) => (
           <button
             key={item.key}
             type="button"
-            class={`pl-btn${item.key === example.key ? ' is-on' : ''}`}
             aria-pressed={item.key === example.key}
             onClick={() => {
               if (item.key === example.key) return;
@@ -77,6 +77,9 @@ function Walkthrough() {
         ))}
       </div>
       </div>
+      <p class="cr-lead-text">
+        <Term k="cache" />分成几<Term k="行" />，每行放一个<Term k="块" />，<Term k="标记" />记着放的是哪一块。地址的标记和行里的一致是<Term k="命中" />，不一致是<Term k="缺失" />，要把块调进来；放满了按 <Term k="LRU" />看<Term k="行计数器" />换出一行。写用<Term k="写回法" />，改过的行<Term k="修改位" />是 1。
+      </p>
       <Player
         key={example.key}
         trace={trace}
@@ -147,13 +150,12 @@ function Try() {
   return (
     <>
       <div class="cr-controls">
-        <div class="cr-choice" role="group" aria-label="映射方式">
+        <div class="seg" role="group" aria-label="映射方式">
           {mappingKeys.map((item) => (
             <button
               key={item.key}
               type="button"
-              class={`pl-btn${item.mapping === mapping ? ' is-on' : ''}`}
-              aria-pressed={item.mapping === mapping}
+                aria-pressed={item.mapping === mapping}
               onClick={() => {
                 setStep('0');
                 setMapKey(item.key);
@@ -163,13 +165,12 @@ function Try() {
             </button>
           ))}
         </div>
-        <div class="cr-choice" role="group" aria-label="替换算法">
+        <div class="seg" role="group" aria-label="替换算法">
           {policyKeys.map((item) => (
             <button
               key={item.key}
               type="button"
-              class={`pl-btn${mapping !== '直接' && item.policy === policy ? ' is-on' : ''}`}
-              aria-pressed={mapping !== '直接' && item.policy === policy}
+                aria-pressed={mapping !== '直接' && item.policy === policy}
               disabled={mapping === '直接'}
               onClick={() => {
                 setStep('0');
@@ -249,7 +250,7 @@ export default function Page() {
   const current = tab;
   return (
     <div class="cr">
-      <div class="cr-tabs" role="tablist" aria-label="这一页的部分">
+      <div class="tabs" role="tablist" aria-label="这一页的部分">
         {tabs.map((item) => (
           <button
             key={item.key}
@@ -258,7 +259,6 @@ export default function Page() {
             id={`cr-tab-${item.key || 'learn'}`}
             aria-selected={item.key === current}
             aria-controls="cr-panel"
-            class="cr-tab"
             onClick={() => {
               if (item.key === current) return;
               memo.set(current, step);

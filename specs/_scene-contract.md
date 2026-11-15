@@ -50,7 +50,7 @@ const bind = bindTable<State>({ R1: { value: 'reg.R1' }, C2: { open: 'ctl.C2' } 
 | `chip` | `name` `label?` `pins[{id,name,side,value?,lines?,at?,ink?}]` `selected?` `width?` `depth?` | 存储芯片，四边伸出几束引脚（地址、数据、CS、WE），每束旁一张名牌和读数；`selected` 时从板上抬起。连线接引脚 `'U1.cs'` |
 | `decoder` | `inputs` `input?` `enableName?` `enable?` `outputs?` `outputNames?` `active?` `low?` `name?` | n–2^n 译码器，左输入、右一列输出 `Y_0…`、前面使能端；`active` 由引擎给，那根输出的名牌翻成强调色。引脚 `'D.y3'`、`'D.in0'`、`'D.en'` |
 | `grid` | `columns` `rows` `cells[行][列]` `current?` `changedCells?` `bubbles?` `cellWidth?` `tones?` `name?` | 时空格：空格是槽，填上翻成白牌，同列从上往下错开；`bubbles` 的格子放空泡（停顿）；`current` 框一列。`'P.行.列'` 可作移动的起落点 |
-| `track` | `length` `span[起,止]` `lanes` `segments[{lane,from,to,text?,ink?,high?}]` `markers?[{at,text,lane?}]` `ticks?` `now?` `name?` | 时间轴：新的一段从左往右长出来；标记是细杆加小牌；`now` 是一根竖线 |
+| `track` | `length` `span[起,止]` `lanes` `segments[{lane,from,to,text?,ink?,high?}]` `markers?[{at,text,lane?}]` `ticks?` `now?` `connect?` `name?` | 时间轴：一块正对屏幕立着的板（横平竖直），一条道一行，第 0 条在最上；新的一段从左往右长出来；标记是短线加小牌；`now` 是一根竖线；`connect` 在一段结束、另一条道同一时刻开始处画进入、返回的竖线。占地按 `道数 × 1.25 + 0.5` 深，板立在前沿 |
 | `signal` | `from` `to` `text` `on?` `ink?` `via?` `offset?` `labelAt?` `heads?` | 两个部件之间带箭头、带名字的线（BR、BG、BS）。端点同连线写法，可接引脚；`on` 时实色从起点走到终点；`offset` 错开几根平行线；`text` 为空不立牌。`position` 不用，写 `[0, 0]` |
 | `dial` | `size` `pointer` `from?` `dir?` `marks?[[格,字]]` `seam?` `crossed?` `sectors?` `radius?` `ink?` `name?` | 刻度盘（模 2^n 一圈，0 在正上方顺时针）：从 `from` 转到 `pointer`，转过的画成弧；越过 `seam` 且 `crossed` 时接缝亮起、崩一下。`sectors` 是节拍盘，`pointer` 那格亮，`-1` 都不亮 |
 | `balance` | `left` `right` `leftName?` `rightName?` `tilt(-1/0/1)` `name?` | 天平：哪边沉哪边落下，摆一下停住 |
@@ -86,7 +86,7 @@ definePart('6-arbiter:baton', (kit, id, position, props) => new Baton(kit, id, p
 
 ## 画面和镜头
 
-- 文字用系统字体画到 canvas 再贴图，始终正对屏幕。贴图按设备像素的 1.5 倍出，镜头缩放停下后重画。不下载字体。`S_f1`、`2^6`、`2^(n+2)`、`x_{i}` 画成降低、升高的小字。
+- 文字用系统字体画到 canvas 再贴图，始终正对屏幕。贴图按设备像素的 1.5 倍出，镜头缩放停下后重画。不下载字体。`S_f1`、`2^6`、`2^(n+2)`、`x_{i}`、`τ_l` 画成降低、升高的小字。材质和文字色另有 `ok`、`bad`（正确、错误）。码名自动排成下标：`[x]补`、`[x]原`、`[x]反`、`[x]移`、`[x]变补`、`[−y]补` 照常写就行（也可写 `[x]_补`、`[x]_{变补}`），画布和 `Rich` 都认；后面接「码、位、数、动、来、过」时当普通的词。页面上的这类文字要经过 `Rich` 才有下标。
 - 三种墨色同时用线型区分：数据实线，地址双线，控制虚线。没有值走过的线是淡色，这一步有值走过的是实色。
 - 渲染按需进行：没有动画和操作时不重绘。像素比最高 2。一盏带阴影的平行光加半球光，台面只接收阴影。
 - 镜头：俯角 52°，视角 20°，不旋转世界。`SceneView.plan(frames, extras, poses, targets, picks)` 由播放器调用，每一步的镜头位置从第 0 步推出，回到第 n 步与第一次到时相同。场景里的字最小 0.31（`MIN_TEXT`）。缩小的下限 `legibleScale` 让这样的字是 12 像素（手机上再留 20%，抵后排的透视）。整张台面在下限以上（宽屏放宽到 0.9 倍）装得下就一直看全景；否则：点选题先把全部候选（`picks`，能带上焦点就带上）放进画面；页面用 `frame` 指定的部件放在正中，字号不变装不下时只看最后一个（收值的部件）；其余步焦点移出画面才移动，依次试 焦点加 `extras` → 焦点 → `targets`（值落下的部件）→ 其中第一个。横向装得下整张台面时不放大到左右被裁；`bits` 的左右范围按名牌只在左边算。画面不滑出台面。部件范围按那一步的属性算（`focusBox(props)`，空总线不算）。移动 760 毫秒。

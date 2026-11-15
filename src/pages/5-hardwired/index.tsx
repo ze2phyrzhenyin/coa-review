@@ -38,7 +38,7 @@ function Learn() {
         />
       </div>
       <p class="ix-lead">
-        同步控制下每条指令都走 M1、M2、M3 三个节拍电位，每个里面有 T1–T4 四个<Term k="节拍">节拍脉冲</Term>（教材 p178 图 5.30）。台面上的格子表一行是一拍、一列是一条指令，格子里是那一拍做的事。
+        <Term k="硬布线控制器" />的每个控制信号是一个逻辑式。同步控制下每条指令都走 M1、M2、M3 三个<Term k="节拍电位" />，每个里面有 T1–T4 四个<Term k="节拍">节拍脉冲</Term>（教材 p178 图 5.30）。台面上的格子表一行是一拍、一列是一条指令，格子里是那一拍做的事。
         {example.lead}
         <Term k="脉冲信号" />与上 M 和 T，<Term k="电位信号" />只与 M。
       </p>
@@ -78,10 +78,10 @@ function Try() {
   const submit = (event: TargetedEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
-      runReverse({ expression: draft, signal, instructions: ops, names: nm as SignalNames });
+      runReverse({ expression: draft.toUpperCase(), signal, instructions: ops, names: nm as SignalNames });
       setProblem('');
       setStep('0');
-      setExpr(draft.trim());
+      setExpr(draft.trim().toUpperCase());
     } catch (error) {
       setProblem(error instanceof Error ? error.message : String(error));
     }

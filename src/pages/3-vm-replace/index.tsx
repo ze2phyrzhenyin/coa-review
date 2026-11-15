@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { TargetedEvent } from 'preact';
-import { useIntParam, useParam } from '../../app/url-state';
+import { useParam } from '../../app/url-state';
 import { useNarrow } from '../../app/media';
 import { Term } from '../../app/TermCard';
 import { pageList, run } from '../../engines/vmreplace/model';
@@ -8,7 +8,7 @@ import type { Params, State } from '../../engines/vmreplace/model';
 import type { Trace } from '../../engines/trace';
 import { Player } from '../../player/Player';
 import type { Breakage } from '../../player/Player';
-import { Field, PageShell, Seg } from './kit';
+import { Field, PageShell, Seg, useStep } from './kit';
 import { Paper } from './Paper';
 import {
   REPLACE_CONCLUSION,
@@ -40,10 +40,10 @@ function useRun(params: Params) {
 
 /** 考试版式的表：一列一次访问，填到当前步为止。点列头跳到那一次访问。 */
 function ExamTable({ raw, trace }: { raw: Trace<Params, State>; trace: Trace<Params, State> }) {
-  const [index, setIndex] = useIntParam('s', 0, 0, trace.steps.length);
+  const [index, setIndex] = useStep(trace.steps.length);
   const filled = filledColumns(trace, index);
   const access = index > 0 ? (trace.steps[index - 1]?.state.current.n ?? 0) : 0;
-  const done = filled === pageList(raw.params).length && index > raw.steps.length - 1;
+  const done = filled === pageList(raw.params).length;
   const columns = raw.table.columns;
   const body = raw.table.rows;
   return (

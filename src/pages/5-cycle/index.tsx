@@ -46,13 +46,15 @@ function paramsFor(choice: string, names: SignalNames): Params {
 function Choice<T extends string>({ label, value, options, names, onChange }: { label: string; value: T; options: readonly T[]; names: (option: T) => string; onChange: (value: T) => void }) {
   return (
     <>
-      <div class="pl-choice" role="radiogroup" aria-label={label}>
+      <div class="pl-choice">
         <span class="pl-choice-label">{label}</span>
-        {options.map((option) => (
-          <button key={option} type="button" role="radio" aria-checked={option === value} class={`pl-chip${option === value ? ' is-on' : ''}`} onClick={() => onChange(option)}>
-            {names(option)}
-          </button>
-        ))}
+        <div class="seg" role="radiogroup" aria-label={label}>
+          {options.map((option) => (
+            <button key={option} type="button" role="radio" aria-checked={option === value} onClick={() => onChange(option)}>
+              {names(option)}
+            </button>
+          ))}
+        </div>
       </div>
       <label class="pl-select">
         <span class="pl-choice-label">{label}</span>
@@ -354,9 +356,9 @@ function Machinery() {
   };
   return (
     <div class="cy">
-      <div class="cy-tabs" role="tablist" aria-label="本页">
+      <div class="tabs" role="tablist" aria-label="本页">
         {TABS.map((item) => (
-          <button key={item.id} type="button" role="tab" aria-selected={item.id === tab} class={`cy-tab${item.id === tab ? ' is-on' : ''}`} onClick={() => choose(item.id)}>
+          <button key={item.id} type="button" role="tab" aria-selected={item.id === tab} onClick={() => choose(item.id)}>
             {item.name}
           </button>
         ))}

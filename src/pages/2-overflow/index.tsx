@@ -5,6 +5,7 @@ import { useNarrow } from '../../app/media';
 import type { Operation, OverflowParams } from '../../engines/overflow/model';
 import { formatValue, parseValue } from '../../lib/bits';
 import type { Notation } from '../../lib/bits';
+import { Term } from '../../app/TermCard';
 import { Player } from '../../player/Player';
 import { breakScene, breakTrace } from './break';
 import { EXAMPLES, exampleParams, lesson } from './lesson';
@@ -32,7 +33,7 @@ export default function Page() {
   };
   return (
     <div class="ovf">
-      <div class="ovf-tabs" role="tablist" aria-label="本页">
+      <div class="tabs" role="tablist" aria-label="本页">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -41,7 +42,6 @@ export default function Page() {
             id={`ovf-tab-${item.id}`}
             aria-selected={item.id === current}
             aria-controls="ovf-panel"
-            class={`ovf-tab${item.id === current ? ' is-on' : ''}`}
             onClick={() => choose(item.id)}
           >
             {item.name}
@@ -66,12 +66,11 @@ function Learn() {
   const made = useMemo(() => lesson(exampleParams(index), narrow), [index, narrow]);
   return (
     <>
-      <div class="ovf-choices" role="group" aria-label="例题">
+      <div class="seg is-mono" role="group" aria-label="例题">
         {EXAMPLES.map((item, i) => (
           <button
             key={i}
             type="button"
-            class={`ovf-choice${i === index ? ' is-on' : ''}`}
             aria-pressed={i === index}
             onClick={() => {
               if (i === index) return;
@@ -83,6 +82,9 @@ function Learn() {
           </button>
         ))}
       </div>
+      <p class="ovf-lead">
+        两个数都写成<Term k="变形补码" />再相加，<Term k="符号位" />也参加运算。看和的<Term k="S_f1、S_f2">两个符号位</Term>判有没有<Term k="溢出" />：是<Term k="正溢" />还是<Term k="负溢" />。最高位向外的进位按<Term k="模" />丢掉。
+      </p>
       {made.ok ? (
         <Player
           key={`learn-${index}`}
@@ -174,9 +176,9 @@ function Try() {
         </label>
         <div class="ovf-field">
           <span id="ovf-op">运算</span>
-          <div class="ovf-seg" role="group" aria-labelledby="ovf-op">
+          <div class="seg" role="group" aria-labelledby="ovf-op">
             {(['加', '减'] as const).map((item) => (
-              <button key={item} type="button" class={`ovf-choice${item === op ? ' is-on' : ''}`} aria-pressed={item === op} onClick={() => setOp(item)}>
+              <button key={item} type="button" aria-pressed={item === op} onClick={() => setOp(item)}>
                 {item === '加' ? 'x + y' : 'x − y'}
               </button>
             ))}
@@ -194,9 +196,9 @@ function Try() {
         </label>
         <div class="ovf-field">
           <span id="ovf-nt">写法</span>
-          <div class="ovf-seg" role="group" aria-labelledby="ovf-nt">
+          <div class="seg" role="group" aria-labelledby="ovf-nt">
             {(['整数', '小数'] as const).map((item) => (
-              <button key={item} type="button" class={`ovf-choice${item === notation ? ' is-on' : ''}`} aria-pressed={item === notation} onClick={() => changeNotation(item)}>
+              <button key={item} type="button" aria-pressed={item === notation} onClick={() => changeNotation(item)}>
                 定点{item}
               </button>
             ))}

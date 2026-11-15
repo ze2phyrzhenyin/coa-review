@@ -50,7 +50,7 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
   const W = compact;
   const parts: PartSpec[] = [];
   const table: Parameters<typeof bindTable<FpAddState>>[0] = {};
-  const rowZ = { x: 0, y: W ? 2.9 : 1.7, sum: W ? 5.8 : 3.9 };
+  const rowZ = { x: 0, y: W ? 3.2 : 1.7, sum: W ? 6.4 : 3.9 };
   const expX = W ? -1.4 : -6.4;
   const trackX = W ? 0.55 : 0.9;
   const trackDz = W ? 1.25 : 0;
@@ -58,7 +58,7 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
   const title: Record<string, string> = { x: 'x', y: subtract ? 'y（变符号后）' : 'y', sum: '和' };
   for (const key of ['x', 'y', 'sum'] as const) {
     const z = rowZ[key];
-    parts.push({ id: `e${key}`, kind: 'register', position: [expX, z], props: { name: `${key === 'sum' ? '和' : key} 的${expName}`, value: '', width: W ? 3.4 : 2.6 }, title: `${title[key]}的${expName}` });
+    parts.push({ id: `e${key}`, kind: 'register', position: [expX, z], props: { name: key === 'sum' ? `和的${expName}` : `${key} 的${expName}`, value: '', width: W ? 3.4 : 2.6 }, title: `${title[key]}的${expName}` });
     table[`e${key}`] = {
       value: from([`${key}.exp`, `${key}.expCode`], (c) => {
         const part = c.state[key];
@@ -145,8 +145,8 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
   const names = (path: string): string => {
     const match = /^(x|y|sum)\.(\w+)$/.exec(path);
     if (match) {
-      const who = match[1] === 'sum' ? '和' : match[1];
-      return `${who} 的${{ exp: expName, expCode: '阶码', mant: '尾数', out: '移出的位' }[match[2] ?? ''] ?? match[2]}`;
+      const who = match[1] === 'sum' ? '和' : `${match[1]} `;
+      return `${who}的${{ exp: expName, expCode: '阶码', mant: '尾数', out: '移出的位' }[match[2] ?? ''] ?? match[2]}`;
     }
     return NAMES[path] ?? path;
   };
@@ -191,7 +191,9 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
       const id = value === '向左规格化' ? 'norm-l' : value === '向右规格化' ? 'norm-r' : 'norm-n';
       const why =
         s.norm === '向右规格化'
-          ? '两个符号位不同，说明尾数加出了 1 以上，要向右规格化一位、阶码加 1。'
+          ? twos
+            ? '两个符号位不同，说明尾数加出了 1 以上，要向右规格化一位、阶码加 1。'
+            : '小数点前有两位，数不小于 2，要向右规格化一位、指数加 1。'
           : s.norm === '向左规格化'
             ? twos
               ? '两个符号位相同，可符号位和最高数值位也相同，最高数值位无效，要向左规格化。'

@@ -216,7 +216,7 @@ export function Paper(props: PaperProps) {
           <dd class="tnum">{props.seed}</dd>
         </div>
       </dl>
-      <div class="pl-stage pp-stage" data-stage ref={stage} {...(flat ? { 'data-settled': 'true', 'data-scene-hash': hashPose(pose) } : {})}>
+      <div class="pl-stage pp-stage" style={{ height: `${Math.max(300, Math.min(820, 150 + count * 38))}px` }} data-stage ref={stage} {...(flat ? { 'data-settled': 'true', 'data-scene-hash': hashPose(pose) } : {})}>
         {flat ? <FlatStage scene={scene} pose={pose} onPick={() => {}} picking={false} wrong={undefined} /> : <div class="pl-canvas" ref={canvasHost} />}
       </div>
       <form class="pp-fill" onSubmit={submit}>

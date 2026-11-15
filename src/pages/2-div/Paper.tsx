@@ -5,6 +5,7 @@ import { useParam } from '../../app/url-state';
 import { Rich } from '../../player/Rich';
 import type { Patch, PartSpec, Pose, SceneSpec } from '../../scene';
 import { SheetStage } from '../2-mul/SheetStage';
+import { sub } from '../2-mul/code';
 import { textWidth } from './scene';
 import { blankEntry, grade, makeProblem } from './practice';
 import type { Entry, Problem } from './practice';
@@ -39,7 +40,7 @@ function sheetScene(problem: Problem, wide: boolean): { scene: SceneSpec; frame:
   const cell = (id: string, x: number, z: number, title: string, pick = false) =>
     parts.push({ id, kind: '2-mul:cell', position: [x, z], props: { bits: ' ', variant: 'bit' }, title, pick, describe: (p: Patch) => `${title}：${String(p.bits ?? '').trim() || '空'}` } as PartSpec);
   const label = (id: string, text: string, z: number, pick = false) =>
-    parts.push({ id, kind: 'label', position: [labelRight - textWidth(text, 0.34) / 2, z], props: { text, size: 0.34, weight: 600 }, pick, title: text });
+    parts.push({ id, kind: 'label', position: [labelRight - textWidth(text, 0.34) / 2, z], props: { text: sub(text), size: 0.34, weight: 600 }, pick, title: text });
   parts.push({ id: 'h-s', kind: 'label', position: [cx(0), -0.85], props: { text: '符号', size: 0.31, tone: 'muted' } });
   for (let c = 1; c <= n; c++) parts.push({ id: `h-${c}`, kind: 'label', position: [cx(c), -0.85], props: { text: `2^-${c}`, size: 0.31, tone: 'muted' } });
   parts.push({ id: 'h-q', kind: 'label', position: [qX, -0.85], props: { text: '上商', size: 0.31, tone: 'muted' } });
@@ -177,7 +178,7 @@ function Sheet({ problem, onNext }: { problem: Problem; onNext: () => void }) {
         panel={(style, ref) => (
           <form ref={ref} class={`md-fill${style ? ' is-anchored' : ''}`} style={style} onSubmit={submit} data-no-orbit>
             <span class="md-fill-head">
-              第 {row + 1} 行 <Rich text={line.label} />
+              第 {row + 1} 行 <Rich text={sub(line.label)} />
             </span>
             {line.kind === 'sum' ? (
               <div class="seg" role="group" aria-label="这一轮做">
@@ -262,7 +263,7 @@ function Sheet({ problem, onNext }: { problem: Problem; onNext: () => void }) {
         </p>
       ) : misses && first ? (
         <p class="md-verdict is-bad-text" role="status">
-          不对。第 {first.line + 1} 行（<Rich text={lines[first.line]!.label} />）起有错，台面上标出了这一处。{misses.length > 1 ? `共 ${misses.length} 行有错。` : ''}
+          不对。第 {first.line + 1} 行（<Rich text={sub(lines[first.line]!.label)} />）起有错，台面上标出了这一处。{misses.length > 1 ? `共 ${misses.length} 行有错。` : ''}
         </p>
       ) : (
         <p class="md-hint">点台面上的格子翻成 0 或 1，点「？」牌选做什么、要不要纠余；也可以在填写栏里填。</p>

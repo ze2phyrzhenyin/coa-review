@@ -120,14 +120,15 @@ export function microScene(trace: Trace<MicroParams, MicroState>, narrow: boolea
       title: '控制存储器',
       props: {
         name: '控制存储器',
+        // 微地址写在抽屉自己的第一格上：抽屉拉出来时地址跟着走，不会被压住。
         columns: [
+          { title: '微地址', width: 1.25, ink: 'addr' },
           { title: '1–17 位', width: 4.3 },
           { title: 'P_{1}P_{2}', width: 1.05, ink: 'ctrl' },
           { title: '下地址', width: 1.25, ink: 'addr' },
           ...(notes ? [{ title: '做什么', width: 1.9 }] : []),
         ],
-        rows: cm.map((row) => [...cmRow(row.word), ...(notes ? [row.note] : [])]),
-        labels: cm.map((row) => row.addr),
+        rows: cm.map((row) => [row.addr, ...cmRow(row.word), ...(notes ? [row.note] : [])]),
         changedCells: marked,
       },
       pick: true,
@@ -272,10 +273,10 @@ export function microMoves(step: Step<MicroState>): Move[] {
     const word = s.cm[row]?.word.split(' ') ?? [];
     out.push({ value: s.uAR, from: 'uAR', to: `CM.${row}.0`, via: ['uar-cm'], ink: 'addr' });
     // 抽屉拉出，微指令条滑进 μIR：四段一起落下。
-    out.push({ value: word.slice(0, 4).join(' '), from: `CM.${row}.0`, to: 'uC1', arc: true, phase: 1 });
-    out.push({ value: word[4] ?? '', from: `CM.${row}.0`, to: 'uC2', arc: true, phase: 1 });
-    out.push({ value: word[5] ?? '', from: `CM.${row}.1`, to: 'uP', arc: true, phase: 1, ink: 'ctrl' });
-    out.push({ value: word[6] ?? '', from: `CM.${row}.2`, to: 'uN', arc: true, phase: 1, ink: 'addr' });
+    out.push({ value: word.slice(0, 4).join(' '), from: `CM.${row}.1`, to: 'uC1', arc: true, phase: 1 });
+    out.push({ value: word[4] ?? '', from: `CM.${row}.1`, to: 'uC2', arc: true, phase: 1 });
+    out.push({ value: word[5] ?? '', from: `CM.${row}.2`, to: 'uP', arc: true, phase: 1, ink: 'ctrl' });
+    out.push({ value: word[6] ?? '', from: `CM.${row}.3`, to: 'uN', arc: true, phase: 1, ink: 'addr' });
     // 1–17 位里为 1 的位发出微命令：电位沿控制线跑到门和 ALU。
     for (const name of s.commands) {
       const target = commandTarget(name);
@@ -310,9 +311,44 @@ export function microMoves(step: Step<MicroState>): Move[] {
   return out;
 }
 
-/** 状态里整块从 null 变成对象（或反过来）的那一条变化不列：它的各个字段另有一条。 */
+/** 引擎的文字里 P1、P2 是平排的，换成下标的写法（P_{1}），和页面其余地方一致。 */
+export const sub = (text: string): string => text.replace(/P([12])(?![0-9}])/g, 'P_{$1}');
+
+/** 任何 Trace 的文字都过一遍 sub：标题、为什么、条件、题面、解题表。 */
+export function typeset<P, S>(trace: Trace<P, S>): Trace<P, S> {
+  return {
+    ...trace,
+    conditions: trace.conditions.map((c) => ({ label: sub(c.label), value: sub(c.value) })),
+    steps: trace.steps.map((step) => ({
+      ...step,
+      title: sub(step.title),
+      why: sub(step.why),
+      ...(step.ask ? { ask: { ...step.ask, prompt: sub(step.ask.prompt), ...(step.ask.hint ? { hint: sub(step.ask.hint) } : {}) } } : {}),
+    })),
+    table: { columns: trace.table.columns.map(sub), rows: trace.table.rows.map((row) => ({ ...row, cells: row.cells.map(sub) })) },
+  };
+}
+
+/**
+ * 「变化」整理：微命令按名字比（这一步发出了谁、撤回了谁），不按列表里的位置比；
+ * 状态里整块从 null 变成对象的那一条不列；地址转移逻辑上一条留下的读数清空不列。文字顺便排好下标。
+ */
 export function tidy(trace: Trace<MicroParams, MicroState>): Trace<MicroParams, MicroState> {
-  return { ...trace, steps: trace.steps.map((step) => ({ ...step, changes: step.changes.filter((change) => change.at !== 'uIR' && change.at !== 'branch') })) };
+  let previous = trace.initial;
+  const steps = trace.steps.map((step) => {
+    const before = previous.commands;
+    const after = step.state.commands;
+    previous = step.state;
+    const kept = step.changes.filter(
+      (change) => change.at !== 'uIR' && change.at !== 'branch' && !/^commands(\.|$)/.test(change.at) && !(change.at.startsWith('branch.') && change.to === ''),
+    );
+    const commands = [
+      ...after.filter((name) => !before.includes(name)).map((name) => ({ at: `commands.${name}`, from: '', to: '发出' })),
+      ...before.filter((name) => !after.includes(name)).map((name) => ({ at: `commands.${name}`, from: '发出', to: '撤回' })),
+    ];
+    return { ...step, changes: [...kept, ...commands] };
+  });
+  return typeset({ ...trace, steps });
 }
 
 /**
@@ -369,7 +405,7 @@ const pathNames: Record<string, string> = {
   'alu.out': 'ALU 输出',
   Cy: 'Cy',
   cycle: '第几条微指令',
-  'branch.field': '下地址字段',
+  'branch.field': '地址转移逻辑收到的下地址',
   'branch.test': 'P 测试',
   'branch.modified': '修改后的微地址',
   branch: '地址转移逻辑',
@@ -381,8 +417,9 @@ export function microNames(path: string): string {
   if (pathNames[path]) return pathNames[path];
   let m = /^reg\.(\w+)$/.exec(path);
   if (m) return m[1]!;
-  m = /^commands(\.\d+)?$/.exec(path);
-  if (m) return '微命令';
+  m = /^commands\.(.+)$/.exec(path);
+  if (m) return `微命令 ${m[1]}`;
+  if (path === 'commands') return '微命令';
   m = /^loaded(\.\d+)?$/.exec(path);
   if (m) return 'T4 打入';
   return path;

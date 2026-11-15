@@ -29,49 +29,33 @@ interface Layout {
 
 function layout(narrow: boolean, codeW: number): Layout {
   if (narrow) {
-    const dz = 9.0;
+    const dz = 10.4;
     return {
       fmt: (i) => [-1.3, -6 + i * dz],
       cap: (i) => [2.4, -6 + i * dz],
-      shelf: (i) => [0, -1.6 + i * dz],
+      shelf: (i) => [0, -0.9 + i * dz],
       verdict: (n) => [0, -6 + n * dz],
     };
   }
   // 宽屏一类一行：格式牌、可用牌、抽屉柜从左往右。
-  const dz = 3.4;
-  const shelfX = 1.0 + codeW + 1.6;
+  const dz = 4.9;
+  const shelfX = 0.6 + codeW + 1.2;
   return {
-    fmt: (i) => [-7.4, -4.6 + i * dz],
-    cap: (i) => [-2.4, -4.6 + i * dz],
-    shelf: (i) => [shelfX, -4.6 + i * dz],
-    verdict: (n) => [-2.4, -4.6 + n * dz],
+    fmt: (i) => [-7.6, -5.4 + i * dz],
+    cap: (i) => [-2.8, -5.4 + i * dz],
+    shelf: (i) => [shelfX, -5.6 + i * dz],
+    verdict: (n) => [-2.8, -5.4 + n * dz],
   };
 }
 
-/** 抽屉柜的行：宽屏两行（用掉、扩展）三列（从、到、个数）；手机上拆成四行两列。 */
-function shelfRows(s: OpcodeState['levels'][number], narrow: boolean, last: boolean, failed: boolean, want: number | undefined): { rows: string[][]; labels: string[] } {
+/** 抽屉柜两格的内容：[起, 止, 个数]。 */
+function cabinet(s: OpcodeState['levels'][number], last: boolean, failed: boolean, want: number | undefined): { used: [string, string, string]; kept: [string, string, string] } {
+  const count = (n: number | null) => (n === null ? '' : `${n} 个`);
   const used = s.range;
   const kept = s.reservedRange;
-  const count = (n: number | null) => (n === null ? '' : `${n} 个`);
-  const usedCount = failed ? `要 ${want ?? ''}` : count(s.used);
-  const keptCount = last ? '' : failed ? '' : count(s.reserved);
-  if (narrow) {
-    return {
-      labels: ['用掉', '', last ? '' : '扩展', ''],
-      rows: [
-        [used ? used[0] : failed ? '不够' : '', usedCount],
-        [used && used[1] !== used[0] ? `～${used[1]}` : '', ''],
-        [kept ? kept[0] : '', keptCount],
-        [kept && kept[1] !== kept[0] ? `～${kept[1]}` : '', ''],
-      ],
-    };
-  }
   return {
-    labels: ['用掉', last ? '' : '扩展'],
-    rows: [
-      [used ? used[0] : failed ? '不够' : '', used && used[1] !== used[0] ? used[1] : '', usedCount],
-      [kept ? kept[0] : '', kept && kept[1] !== kept[0] ? kept[1] : '', keptCount],
-    ],
+    used: [used ? used[0] : failed ? '不够' : '', used && used[1] !== used[0] ? used[1] : '', failed ? `要 ${want ?? ''}` : used ? count(s.used) : s.used === 0 ? '0 个' : ''],
+    kept: [kept ? kept[0] : '', kept && kept[1] !== kept[0] ? kept[1] : '', failed ? '' : kept ? count(s.reserved) : !last && s.reserved === 0 ? '0 个' : ''],
   };
 }
 
@@ -85,22 +69,17 @@ export function opScene(trace: Trace<OpcodeParams, OpcodeState>, narrow: boolean
   p.levels.forEach((l, i) => {
     parts.push({ id: `FMT_${i}`, kind: 'register', position: L.fmt(i), props: { name: levelName(l.addresses), value: formatText(p, i), width: narrow ? 3.6 : 4.2, ink: 'ctrl' } });
     parts.push({ id: `CAP_${i}`, kind: 'register', position: L.cap(i), props: { name: '可用', value: '', width: narrow ? 2.6 : 2.8 } });
-    const empty = shelfRows(trace.initial.levels[i]!, narrow, i === n - 1, false, l.count);
     parts.push({
       id: `SHELF_${i}`,
-      kind: 'memory',
+      kind: '4-opcode:cabinet',
       position: L.shelf(i),
-      title: `${levelName(l.addresses)}的编码`,
-      props: {
-        name: '编码',
-        columns: narrow ? [{ title: '编码', width: codeW + 0.3 }, { title: '个数', width: 1.3 }] : [{ title: '从', width: codeW }, { title: '到', width: codeW }, { title: '个数', width: 1.3 }],
-        rows: empty.rows,
-        labels: empty.labels,
-      },
+      title: `${levelName(l.addresses)}的抽屉柜`,
+      props: { used: ['', '', ''], kept: ['', '', ''], open: false, last: i === n - 1, codeWidth: codeW, narrow, fresh: [] },
+      describe: (props) => `${levelName(l.addresses)}：用掉 ${(props.used as string[]).filter(Boolean).join(' ') || '未排'}；留作扩展 ${(props.kept as string[]).filter(Boolean).join(' ') || '无'}${props.open ? '，抽屉已拉开' : ''}`,
     });
   });
   parts.push({ id: 'VERDICT', kind: 'register', position: L.verdict(n), props: { name: '方案', value: '', width: narrow ? 6.0 : 5.0 } });
-  return { parts, wires: [] };
+  return { parts, wires: [], kinds: () => import('./parts') };
 }
 
 export function opBind(trace: Trace<OpcodeParams, OpcodeState>, narrow: boolean) {
@@ -111,19 +90,13 @@ export function opBind(trace: Trace<OpcodeParams, OpcodeState>, narrow: boolean)
   const failedAt = (s: OpcodeState) => (s.feasible === false ? s.levels.map((l) => l.used !== null).lastIndexOf(true) : -1);
   p.levels.forEach((l, i) => {
     table[`CAP_${i}`] = { value: { at: `levels.${i}.available`, as: (c: Ctx) => (c.state.levels[i]!.available === null ? '' : `${c.state.levels[i]!.available} 个`) } };
+    const paths = [`levels.${i}.used`, `levels.${i}.range`, `levels.${i}.reservedRange`, `levels.${i}.reserved`];
     table[`SHELF_${i}`] = {
-      rows: {
-        at: [`levels.${i}.used`, `levels.${i}.range`, `levels.${i}.reservedRange`, `levels.${i}.reserved`],
-        as: (c: Ctx) => shelfRows(c.state.levels[i]!, narrow, i === n - 1, failedAt(c.state) === i, l.count).rows,
-      },
+      used: { at: paths, as: (c: Ctx) => cabinet(c.state.levels[i]!, i === n - 1, failedAt(c.state) === i, l.count).used },
+      kept: (c: Ctx) => cabinet(c.state.levels[i]!, i === n - 1, failedAt(c.state) === i, l.count).kept,
       // 留作扩展的抽屉：下一层算可用编码时拉开，之后一直开着，看得出下一层从哪来。
-      open: (c: Ctx) => (i < n - 1 && c.state.levels[i + 1]!.available !== null && (c.state.levels[i]!.reserved ?? 0) > 0 ? (narrow ? [2, 3] : 1) : -1),
-      changedCells: (c: Ctx) => {
-        const out: string[] = [];
-        if ([...c.changed].some((x) => x.startsWith(`levels.${i}.range`) || x === `levels.${i}.used`)) out.push(narrow ? '0.0' : '0.0', narrow ? '0.1' : '0.2');
-        if ([...c.changed].some((x) => x.startsWith(`levels.${i}.reservedRange`))) out.push(narrow ? '2.0' : '1.0', narrow ? '2.1' : '1.2');
-        return out;
-      },
+      open: (c: Ctx) => i < n - 1 && c.state.levels[i + 1]!.available !== null && (c.state.levels[i]!.reserved ?? 0) > 0,
+      fresh: (c: Ctx) => ([...c.changed].some((x) => x === `levels.${i}.used`) ? ['used', 'kept'] : []),
     };
     table[`FMT_${i}`] = { focus: (c: Ctx) => c.state.current === i };
   });
@@ -154,11 +127,16 @@ export function opMoves(p: OpcodeParams, narrow: boolean) {
       if (i === 0) return [{ value: `2^${l.opBits}`, from: `FMT_0`, to: 'CAP_0', arc: true }];
       const prev = s.levels[i - 1]!;
       const grow = l.opBits - prev.opBits;
-      return [{ value: `${prev.reserved} × 2^${grow}`, from: `SHELF_${i - 1}.${narrow ? 2 : 1}.0`, to: `CAP_${i}`, arc: true }];
+      // 抽屉里的码先落到这一层的格式牌上（它们是操作码的开头），再算出能接出多少个编码。
+      const codes = prev.reservedRange ? (prev.reservedRange[0] === prev.reservedRange[1] ? prev.reservedRange[0] : `${prev.reservedRange[0]}～`) : '';
+      return [
+        { value: codes, from: `SHELF_${i - 1}.1.0`, to: `FMT_${i}`, arc: true, ink: 'ctrl', phase: 0 },
+        { value: `${prev.reserved} × 2^${grow}`, from: `FMT_${i}`, to: `CAP_${i}`, arc: true, phase: 1 },
+      ];
     }
     const out: Move[] = [];
     if (l.range) out.push({ value: `${l.used} 个`, from: `CAP_${i}`, to: `SHELF_${i}.0.0`, arc: true });
-    if (l.reservedRange) out.push({ value: `${l.reserved} 个`, from: `CAP_${i}`, to: `SHELF_${i}.${narrow ? 2 : 1}.0`, arc: true, phase: 1 });
+    if (l.reservedRange) out.push({ value: `${l.reserved} 个`, from: `CAP_${i}`, to: `SHELF_${i}.1.0`, arc: true, phase: 1 });
     if (s.feasible === false) out.push({ value: `要 ${p.levels[i]!.count}`, from: `CAP_${i}`, to: 'VERDICT', arc: true });
     return out;
   };
@@ -265,7 +243,7 @@ export function opMistakes(trace: Trace<OpcodeParams, OpcodeState>): Mistake<Opc
       at: steps.findIndex((s) => s.changes.some((c) => c.at === 'levels.0.used')) + 1,
       act: () => ({
         label: '',
-        patch: { SHELF_0: { open: -1 }, CAP_1: { value: '0 个' }, VERDICT: { value: `不可行，${final.levels[1]!.name}没有前缀` } },
+        patch: { SHELF_0: { open: false, kept: ['', '', '0 个'] }, CAP_1: { value: '0 个' }, VERDICT: { value: `不可行，${final.levels[1]!.name}没有前缀` } },
         moves: [{ value: `${first.available} 个`, from: 'CAP_0', to: 'SHELF_0', arc: true }],
         message: `${first.name}要是把 ${first.available} 个码全用掉，就没有码留下来当前缀，${final.levels[1]!.name}一个编码也没有。留作扩展的码只能当更长操作码的开头，不能再当本级指令。`,
       }),

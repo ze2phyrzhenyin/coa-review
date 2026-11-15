@@ -77,7 +77,7 @@ function Sheet({ seed, params, onNext, onDemo }: { seed: number; params: DeriveP
     let changed: string[] = [];
     if (verdict && 'ok' in verdict && draft.trim()) {
       try {
-        const rev = runReverse({ expression: draft, signal: params.signal, instructions: ops });
+        const rev = runReverse({ expression: draft.toUpperCase(), signal: params.signal, instructions: ops });
         const got = rev.steps.flatMap((s) => s.state.matches.flat());
         const last = rev.steps[rev.steps.length - 1]!.state;
         tones = Object.fromEntries([...new Set(got)].map((x) => [cellOf(x, ops), 'accent' as const]));
@@ -105,7 +105,14 @@ function Sheet({ seed, params, onNext, onDemo }: { seed: number; params: DeriveP
     return { parts, wires: {} };
   }, [scene, base, verdict, draft, params.signal, ops, view]);
 
-  const check = (text: string) => {
+  const check = (raw: string) => {
+    const text = raw.toUpperCase();
+    // 式子里出现了这台机器没有的指令：卷面上就是错的，不拿去和流程图比。
+    const foreign = [...new Set(text.match(/[A-Z]{3}/g) ?? [])].filter((name) => !(ops as string[]).includes(name));
+    if (foreign.length) {
+      setVerdict({ error: `这台机器只有 ${ops.join('、')}，式子里不能出现 ${foreign.join('、')}。` });
+      return;
+    }
     try {
       const rev = runReverse({ expression: text, signal: params.signal, instructions: ops });
       if (rev.result['一致'] === '是') {
@@ -143,7 +150,7 @@ function Sheet({ seed, params, onNext, onDemo }: { seed: number; params: DeriveP
             autoComplete="off"
             autoCapitalize="off"
             spellcheck={false}
-            placeholder="如 M1·T3+M2·T4·JMP"
+            placeholder={`如 M1·T3+M2·T4·${ops[0]}`}
             value={draft}
             onInput={(e) => {
               setDraft(e.currentTarget.value);

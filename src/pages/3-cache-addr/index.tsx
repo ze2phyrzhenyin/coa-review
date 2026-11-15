@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { TargetedEvent } from 'preact';
-import { useIntParam, useParam } from '../../app/url-state';
+import { useParam } from '../../app/url-state';
 import { useNarrow } from '../../app/media';
 import { Term } from '../../app/TermCard';
 import { run, widths } from '../../engines/cacheaddr/model';
 import type { Params, State } from '../../engines/cacheaddr/model';
 import { Player } from '../../player/Player';
 import type { Breakage } from '../../player/Player';
-import { Field, PageShell, Seg } from '../3-vm-replace/kit';
+import { Field, PageShell, Seg, useStep } from '../3-vm-replace/kit';
 import { Paper } from './Paper';
 import { ADDR_CONCLUSION, ADDR_NEEDS, ADDR_QUESTION, addrConvention, addrMistakes, addrStage, addrWrong, polish } from './scene';
 import { DEFAULT_TRY, examples, indexName, mappingKeys, tryParams } from './setup';
@@ -86,7 +86,7 @@ function Learn() {
   const example = examples.find((item) => item.key === ex) ?? examples[0]!;
   const made = useRun(example.params);
   const { trace, stage } = made;
-  const [index] = useIntParam('s', 0, 0, trace.steps.length);
+  const [index] = useStep(trace.steps.length);
   const mappingTerm = example.key === 'direct' ? <Term k="直接映射" /> : example.key === 'set' ? <Term k="组相联映射">每组 4 行的组相联映射</Term> : <Term k="全相联映射" />;
   return (
     <>

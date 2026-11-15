@@ -47,6 +47,8 @@ interface Layout {
   word: [number, number];
   iw: [number, number];
   key: [number, number];
+  /** 手机上形式地址的读数挪到加法器旁边（字段那一排离得太远）。 */
+  va?: [number, number];
   plate: (i: number, n: number) => [number, number];
   reg: (i: number) => [number, number];
   adder: [number, number];
@@ -83,11 +85,12 @@ function layout(p: EaParams, narrow: boolean): Layout {
       key: [keyX, -5.9],
       plate: (i) => [-1.6 + (i % 2) * 3.2, -3.9 + Math.floor(i / 2) * 1.8],
       reg: (i) => [-2.3 + (i % 3) * 2.3, 3.2 + Math.floor(i / 3) * 1.8],
-      adder: [1.6, 5.6],
-      ea: [-1.6, 8.0],
-      mem: [0.4, 13.4],
-      opd: [1.4, 18.2],
-      count: [-2.2, 18.2],
+      adder: [1.7, 6.6],
+      va: [-1.9, 6.4],
+      ea: [-1.6, 9.0],
+      mem: [0.4, 14.4],
+      opd: [1.4, 19.2],
+      count: [-2.2, 19.2],
     };
   }
   const shift = -1.2;
@@ -125,7 +128,7 @@ export function eaScene(trace: Trace<EaParams, EaState>, narrow: boolean): Scene
       (f): PartSpec => ({ id: `F_${f.name}`, kind: 'bits', position: L.field[f.name]!, title: `${f.name} 字段`, props: { bits: ' '.repeat(f.bits), pitch: PITCH, group: f.bits > 4 ? 4 : f.bits } }),
     ),
     { id: 'V_KEY', kind: 'label', position: L.key, props: { text: '', size: 0.34, mono: true, plate: true, hidden: true } },
-    { id: 'V_A', kind: 'label', position: [L.field[addressField]![0], L.key[1]], props: { text: '', size: 0.34, mono: true, plate: true, hidden: true } },
+    { id: 'V_A', kind: 'label', position: L.va ?? [L.field[addressField]![0], L.key[1]], props: { text: '', size: 0.34, mono: true, plate: true, hidden: true } },
     ...keys.map(
       (key, i): PartSpec => ({
         id: `M_${key}`,
@@ -358,7 +361,7 @@ export function eaValues(path: string, value: string): string {
 }
 
 /** 镜头：EA 算出来那一步看加法器和 EA；取操作数那一步看 EA、主存、操作数。 */
-export function eaFrame(p: EaParams) {
+export function eaFrame(p: EaParams, narrow: boolean) {
   return (step: Step<EaState>): string[] | null => {
     const i = step.state.current;
     if (i === null) return null;
@@ -367,6 +370,11 @@ export function eaFrame(p: EaParams) {
       const key = keyOf(p, w)!;
       return [`F_${p.modeFields[0]!}`, `M_${key}`];
     }
+    if (!narrow) return null;
+    // 手机：访存的步停在主存上（被读的那一格拉出来）；算地址的步看加法器和旁边的 A。
+    const read = step.changes.some((c) => c.at.startsWith(`words.${i}.reads.`));
+    if (read) return w.reads[w.reads.length - 1]!.why === '取操作数' ? ['OPD', 'MEM'] : ['MEM'];
+    if (step.changes.some((c) => c.at === `words.${i}.ea`) && w.mode && ADD_KINDS.includes(w.mode)) return ['V_A', 'ADDER'];
     return null;
   };
 }

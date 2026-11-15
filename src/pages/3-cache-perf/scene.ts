@@ -90,11 +90,11 @@ export function perfStage(trace: Trace<Params, State>, narrow: boolean): PerfSta
   const cellW = at(l2 ? 3.4 : keys.length > 3 ? 2.9 : 3.3, 3.6);
   const regW = at(l2 ? 3.0 : 2.6, 3.3);
   const rowsOf = Math.ceil(keys.length / perRow);
-  const zGiven = at(-5.0, -7.8 - (rowsOf - 2) * 1.9);
-  const zCalc = at(-3.5, -6.2 - (rowsOf - 2) * 1.9);
-  const zResult0 = at(-1.9, -3.9 - (rowsOf - 2) * 1.9);
+  const zGiven = at(-6.9, -7.8 - (rowsOf - 2) * 1.9);
+  const zCalc = at(-4.9, -6.2 - (rowsOf - 2) * 1.9);
+  const zResult0 = at(-2.6, -3.9 - (rowsOf - 2) * 1.9);
   const rowGap = at(1.6, 1.9);
-  const zTrack = zResult0 + rowsOf * rowGap + at(0.9, 0.9);
+  const zTrack = zResult0 + rowsOf * rowGap + at(1.9, 0.9);
   const placeAt = (i: number): [number, number] => {
     const row = Math.floor(i / perRow);
     const inRow = Math.min(perRow, keys.length - row * perRow);
@@ -363,6 +363,18 @@ export function perfMistakes(trace: Trace<Params, State>): Mistake<State>[] {
     });
   }
   return out;
+}
+
+/** 引擎文字里的 Nc、Nm 写成带下标的 N_c、N_m，和教材、舞台上的名牌一致。 */
+export const subscript = (text: string): string => text.replace(/\bN([cm])\b/g, 'N_$1');
+
+export function polish(trace: Trace<Params, State>): Trace<Params, State> {
+  return {
+    ...trace,
+    conditions: trace.conditions.map((c) => ({ label: subscript(c.label), value: subscript(c.value) })),
+    steps: trace.steps.map((step) => ({ ...step, title: subscript(step.title), why: subscript(step.why) })),
+    table: { columns: trace.table.columns, rows: trace.table.rows.map((row) => ({ ...row, cells: row.cells.map(subscript) })) },
+  };
 }
 
 export const PERF_QUESTION = { text: 'h、r、e、t_a 四个量，知道哪两个就能求出其余的', at: ['calc', 'track'] };

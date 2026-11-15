@@ -49,7 +49,7 @@ function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
   const Tk = figures.Tk;
   const columns = Tk + 2;
   const rows = [...names].reverse();
-  const last = trace.steps.filter((step) => step.level === 'cycle').pop()!.state;
+  const last = trace.steps.filter((step) => step.level === 'beat').pop()!.state;
   const answer = useMemo(() => chartCells(params, last.grid, Tk, columns), [params, last, Tk, columns]);
   const narrow = useNarrow();
 

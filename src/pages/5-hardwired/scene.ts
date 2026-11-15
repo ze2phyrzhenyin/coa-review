@@ -56,7 +56,7 @@ export interface GridView {
 
 export const gridView = (ops: readonly Op[], narrow: boolean): GridView => ({ narrow, ops, ids: narrow ? ops.map((_, c) => `G${c}`) : ['G'] });
 const NARROW_DX = 4.7;
-const NARROW_DZ = 11.2;
+const NARROW_DZ = 12.6;
 /** 手机上几排格子表一共多深（台面单位），后面的部件接着往下摆。 */
 export const gridDepth = (view: GridView): number => (view.narrow ? Math.ceil(view.ops.length / 2) * NARROW_DZ : 0);
 
@@ -261,6 +261,19 @@ export function hardMoves(trace: Trace<DeriveParams, DeriveState>, narrow: boole
     }
     if (step.changes.some((c) => c.at === 'kind')) return [{ value: s.kind ?? '', from: 'SIG', to: 'KIND', arc: true, ink: 'ctrl' }];
     return [];
+  };
+}
+
+/** 手机上一条指令一张表：逐条找格子的步看那条指令的表，合并的步看项牌，最后看表达式。 */
+export function hardFrame(trace: Trace<DeriveParams, DeriveState>, narrow: boolean) {
+  const ops = opsOf(trace.params);
+  const view = gridView(ops, narrow);
+  return (step: Step<DeriveState>): string[] | null => {
+    if (!narrow) return null;
+    if (step.state.scanning) return [gridOf(view, ops.indexOf(step.state.scanning))];
+    if (step.changes.some((c) => c.at.startsWith('terms.'))) return step.state.terms.map((_, i) => `TERM_${i}`);
+    if (step.changes.some((c) => c.at === 'expression')) return ['EXPR'];
+    return ['SIG', 'KIND'];
   };
 }
 

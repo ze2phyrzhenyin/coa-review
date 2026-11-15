@@ -39,7 +39,7 @@ function useRun(params: Params) {
 function Lead() {
   return (
     <p class="xp-lead">
-      ROM、RAM 各占一段地址。<Term k="译码器">译码器</Term>的每个输出管一样长的一段，低电平有效；把每一段接到放在那里的芯片的片选 CS 上。存储器<Term k="按字编址" />。
+      ROM、RAM 各占一段地址。<Term k="译码器" />的每个输出管一样长的一段，低电平有效，接到放在那一段的芯片的<Term k="片选" />上，这就是<Term k="字扩展" />的接法；一组里位数不够，再照<Term k="位扩展" />并排几片。<Term k="MREQ" /> 接译码器的使能端。存储器<Term k="按字编址" />。
     </p>
   );
 }

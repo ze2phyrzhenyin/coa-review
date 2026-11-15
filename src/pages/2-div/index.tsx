@@ -9,7 +9,8 @@ import { formatValue, parseValue } from '../../lib/bits';
 import type { Notation } from '../../lib/bits';
 import { Player } from '../../player/Player';
 import { Rich } from '../../player/Rich';
-import { CASES, breakMoves, breakTrace } from './break';
+import { CASES, breakMoves, breakTrace, breakWrong } from './break';
+import { subScene } from '../2-mul/code';
 import type { BreakState } from './break';
 import { DIV_CONCLUSION, DIV_NEEDS, DIV_QUESTION, EXAMPLES, exampleParams, lesson } from './lesson';
 import { Paper } from './Paper';
@@ -207,7 +208,9 @@ function Try() {
         <>
           <dl class="mul-result">
             <div>
-              <dt>[q]原</dt>
+              <dt>
+                [q]<sub>原</sub>
+              </dt>
               <dd>{result['[q]原']}</dd>
             </div>
             <div>
@@ -226,7 +229,7 @@ function Try() {
         </>
       ) : (
         <p class="field-error" role="alert">
-          {made.ok ? '' : made.error}
+          {made.ok ? '' : <Rich text={made.error} />}
         </p>
       )}
     </>
@@ -253,7 +256,7 @@ function BreakIt() {
       partsFor: (path) => (path === 'overflow' ? ['q-0', 'rq'] : base.bind.partsFor(path)),
     };
     const names = (path: string) => (path === 'overflow' ? '商溢出' : base.names(path));
-    return { ...base, bind, names };
+    return subScene<BreakState, { scene: typeof base.scene; bind: typeof bind; names: typeof names; values: typeof base.values; frame: typeof base.frame }>({ scene: base.scene, bind, names, values: base.values, frame: base.frame });
   }, [trace, narrow]);
   return (
     <>
@@ -273,7 +276,7 @@ function BreakIt() {
           </button>
         ))}
       </div>
-      <Player key={`break-${which}-${narrow}`} trace={trace} scene={made.scene} bind={made.bind} moves={breakMoves} names={made.names} values={made.values} frame={made.frame} />
+      <Player key={`break-${which}-${narrow}`} trace={trace} scene={made.scene} bind={made.bind} moves={breakMoves} names={made.names} values={made.values} frame={made.frame} onWrong={breakWrong} />
     </>
   );
 }

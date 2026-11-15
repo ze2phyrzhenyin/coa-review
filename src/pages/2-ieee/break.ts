@@ -6,6 +6,7 @@ import { run } from '../../engines/ieee/model';
 import type { IeeeParams, IeeeState } from '../../engines/ieee/model';
 import { TraceBuilder } from '../../engines/trace';
 import type { Ask, Trace } from '../../engines/trace';
+import type { Breakage } from '../../player/Player';
 import { onRuler } from './scene';
 
 const X = '6.625';
@@ -70,4 +71,15 @@ export function breakTrace(): Trace<IeeeParams, IeeeState> {
       ],
     },
   );
+}
+
+/** 选错时按学生说的方向挪指针给他看。 */
+export function breakWrong(_ask: Ask, value: string): Breakage | null {
+  const d = value === '往左一段' ? -1 : value === '往右一段' ? 1 : 0;
+  return {
+    label: '',
+    patch: { ruler: { shift: d, pin: d === 0 ? '不动？' : d < 0 ? '÷ 2？' : '× 2？' } },
+    moves: [{ value: 'E', from: 'Edec', to: 'ruler', arc: true }],
+    message: d < 0 ? '往左一段是数变成一半，那要 e 少 1。这里存进去的 E 多了 1。' : 'E 变了，按 E − 127 读出的 e 就跟着变，指针不会留在原来那一段。',
+  };
 }

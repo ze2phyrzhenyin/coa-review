@@ -24,11 +24,21 @@ const EXAMPLES: { id: string; label: string; params: Params }[] = [
   { id: 'bus', label: '总线带宽', params: BUS },
 ];
 
+/** 引擎把带宽写成 Dr；页面上排成 D 带下标 r，和教材一致。 */
+const sub = (text: string): string => text.replace(/\bDr\b/g, 'D_r');
+function typeset<T extends Trace<Params, State>>(trace: T): T {
+  return {
+    ...trace,
+    steps: trace.steps.map((step) => ({ ...step, title: sub(step.title), why: sub(step.why) })),
+    table: { ...trace.table, rows: trace.table.rows.map((row) => ({ ...row, cells: row.cells.map(sub) })) },
+  };
+}
+
 function useSerial(params: Params, quiet = false) {
   const narrow = useNarrow();
   const key = JSON.stringify(params);
   return useMemo(() => {
-    const full = plainAsks(run(params));
+    const full = typeset(plainAsks(run(params)));
     const trace = quiet ? { ...full, steps: full.steps.map(({ ask: _ask, ...step }) => step) } : full;
     return { trace, stage: serialStage(trace, narrow) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,6 +63,7 @@ function SerialPlayer({ params, lesson, breakIt }: { params: Params; lesson?: bo
       askFrame={stage.askFrame}
       frame={stage.frame}
       onWrong={stage.wrong}
+      convention={stage.convention}
       breakIt={broken}
       {...(lesson ? { question: stage.question, conclusion: SERIAL_CONCLUSION, needs: SERIAL_NEEDS, mistakes: stage.mistakes } : {})}
     />
@@ -63,7 +74,7 @@ function Legend() {
   return (
     <p class="mk-terms">
       台面上：波形的上一道是 1，下一道是 0，每一段占一个<Term k="位时间" />。<Term k="起始位" />是 0，<Term k="停止位" />是 1，中间是从最低位开始的数据位和<Term k="校验位" />。
-      <Term k="波特率" />是每秒传的位数；<Term k="总线带宽" /> D<sub>r</sub> = D ÷ T。
+      <Term k="波特率" />是每秒传的位数；<Term k="总线带宽" /> <Rich text="D_r = D ÷ T" />。
     </p>
   );
 }
@@ -285,8 +296,9 @@ const same = (written: string, want: string): boolean => {
 
 function Practice() {
   const [seed, setSeed] = useSeed();
-  const params = useMemo(() => generate(seed), [seed]);
-  const trace = useMemo(() => run(params), [params]);
+  // 三题里两题串行帧、一题总线带宽。
+  const params = useMemo(() => generate(seed, seed % 3 === 0 ? '总线带宽' : '串行帧'), [seed]);
+  const trace = useMemo(() => typeset(run(params)), [params]);
   const rows = trace.table.rows;
   const [, setTab] = useParam('t', 'learn');
   const [, setStep] = useIntParam('s', 0, 0, 10_000);
@@ -320,8 +332,8 @@ function Practice() {
         D: '位数除以 8，单位字节。',
         T: '一个总线周期占几个时钟，乘时钟周期 1 ÷ f。',
       };
-      const key = Object.keys(hint).find((k) => item.startsWith(k)) ?? '';
-      return [{ row: r, field: 'value', message: `「${item}」不对。${hint[key] ?? '带宽 = D ÷ T，M 取 10^6。'}` }];
+      const key = Object.keys(hint).find((k) => (k.length === 1 ? item === k : item.startsWith(k))) ?? '';
+      return [{ row: r, field: 'value', message: `「${item}」不对。${hint[key] ?? 'D_r = D ÷ T，M 取 10^6。'}` }];
     });
   const demo = (row: number) => {
     const target = rows[row]?.step;
@@ -345,14 +357,18 @@ function Practice() {
   };
   const task =
     params.task === '总线带宽'
-      ? '按条件逐行写出 D、总线周期 T 和带宽。数带单位，非整数写 4 位有效数字。'
+      ? '按条件逐行写出 D、总线周期 T 和带宽 D_r。数带单位，非整数写 4 位有效数字。'
       : `把字符${params.char ? `「${params.char}」` : ''}按下面的格式串行发送，逐行写出结果。位串高位在左（发送次序一行按发出的先后写）；数带单位，非整数写 4 位有效数字。`;
   return (
     <Paper
       key={seed}
       draftKey={`coa:6-serial:quiz:${seed}`}
       seed={seed}
-      task={<p>{task}</p>}
+      task={
+        <p>
+          <Rich text={task} />
+        </p>
+      }
       conditions={trace.conditions}
       title={params.task === '总线带宽' ? '带宽' : '串行帧'}
       columns={columns}

@@ -16,6 +16,7 @@ export interface IeeeScene {
   bind: Binding<IeeeState>;
   moves: (step: Step<IeeeState>) => Move[];
   names: (path: string) => string;
+  values: (path: string, value: string) => string;
   flipPart: (ask: Ask, index: number) => string | null;
   wrong: (ask: Ask, value: string, state: IeeeState, next: Step<IeeeState> | null) => Breakage | null;
   askFrame: (ask: Ask, index: number) => string[];
@@ -77,7 +78,7 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
   const top: [string, string, number, [number, number], [number, number]][] = [
     ['x', 'x（十进制）', W ? 4.6 : 3.6, [-5.0, -2.5], [0, -5.4]],
     ['bin', mode === 'encode' ? '|x| 的二进制' : '真值（二进制）', W ? 6.2 : 4.6, [-0.6, -2.5], [0, -3.95]],
-    ['normal', teach ? '尾数 × 2^e' : '1.M × 2^e', W ? 6.2 : 4.8, [4.6, -2.5], [0, -2.5]],
+    ['normal', teach ? '尾数 × 2^e' : '规格化写法', W ? 6.2 : 4.8, [4.6, -2.5], [0, -2.5]],
   ];
   for (const [id, name, width, wide, narrow] of top) parts.push({ id, kind: 'register', position: W ? narrow : wide, props: { name, value: '', width }, title: name });
   const fit = W ? 22 : 18;
@@ -149,11 +150,11 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
   if (kinds.length) zNext += Math.ceil(kinds.length / (W ? 2 : 3)) * 1.6 + 0.3;
 
   // 尺子。
-  const rulerZ = zNext + 1.9;
+  const rulerZ = zNext + 2.1;
   parts.push({
     id: 'ruler',
     kind: '2-ieee:ruler',
-    position: [0, rulerZ],
+    position: [W ? 0.15 : 0, rulerZ],
     props: { binade: null, frac: 1, shift: 0, pin: '', bias: null, lens: '', empty: '', compact: W },
     title: '数轴',
     describe: (p) => (p.binade === null ? '数轴，没有指针' : `数轴，指针在 2^${String(p.binade)} 到 2^${Number(p.binade) + 1} 之间`),
@@ -238,6 +239,7 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
     decimal: '十进制',
   };
   const names = (path: string) => NAMES[path] ?? path;
+  const values = (path: string, value: string) => (path === 'e' ? value.replace('-', MINUS) : path === 'decimal' || path === 'value' || path === 'binary' || path === 'rounded' ? clip(value, 24) : value);
 
   const stepAt = (index: number) => trace.steps[index];
   const flipPart = (ask: Ask, index: number): string | null => {
@@ -291,7 +293,7 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
         message:
           used === 128 && bias === 127
             ? `这是按 128 加的。机器按 E − 127 读回来，e 多了 1，数变成 2 倍：指针跳到右边一段。`
-            : `按 E = ${v} 存，读的时候 e = ${v} − ${bias}，${d === 0 ? '' : `指针挪 ${d > 0 ? '右' : '左'}边，数乘 2^${d}`}。`,
+            : `按 E = ${v} 存，读的时候 e = ${v} − ${bias}，${d === 0 ? '' : `指针往${d > 0 ? '右' : '左'}挪，数乘 2^${d}`}。`,
       };
     }
     if (ask.kind === 'choice' && kinds.includes(value)) {
@@ -378,5 +380,5 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
   };
 
   const question = { text: mode === 'encode' ? '规格化以后最前面那个 1 存在哪；阶码 E 是 e 加 127 还是加 128' : '机器码里看不见的那个 1 从哪来；阶码 E 减去多少才是指数 e', at: W ? ['normal', 'E'] : ['normal', ...(bias !== null ? ['bias'] : []), 'Edec', 'ruler'] };
-  return { scene, bind, moves, names, flipPart, wrong, askFrame, mistakes, convention, question };
+  return { scene, bind, moves, names, values, flipPart, wrong, askFrame, mistakes, convention, question };
 }

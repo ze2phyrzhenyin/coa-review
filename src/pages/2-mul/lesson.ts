@@ -3,6 +3,7 @@ import { run } from '../../engines/mul/model';
 import type { MulMode, MulParams, MulState } from '../../engines/mul/model';
 import type { Trace } from '../../engines/trace';
 import { BitsError } from '../../lib/bits';
+import { sub, subScene, subTrace } from './code';
 import { mulScene } from './scene';
 import type { MulScene } from './scene';
 
@@ -23,8 +24,8 @@ export function adaptTrace<P, S>(trace: Trace<P, S>): Trace<P, S> {
 
 export function lesson(params: MulParams, compact = false): Lesson {
   try {
-    const trace = adaptTrace(run(params));
-    return { ok: true, trace, ...mulScene(trace, compact) };
+    const trace = subTrace(adaptTrace(run(params)));
+    return { ok: true, trace, ...subScene<MulState, MulScene<MulState>>(mulScene(trace, compact)) };
   } catch (error) {
     if (error instanceof BitsError) return { ok: false, error: error.message };
     throw error;
@@ -48,6 +49,8 @@ export const exampleParams = (i: number): MulParams => {
 };
 
 export const MUL_QUESTION = '负数的补码能不能直接送进阵列，积的负号在哪一步加回去';
+export const MUL_QUESTION_SIGN = '原码的数值位就是绝对值：三个求补器这时做什么，符号位从哪来';
+export { sub };
 export const MUL_CONCLUSION =
   '阵列只会做无符号乘法，所以补码先经算前求补器取绝对值，乘完两数异号时再由算后求补器变回补码，符号位 p_2n = x_f ⊕ y_f 单独得出。';
 export const MUL_NEEDS = [

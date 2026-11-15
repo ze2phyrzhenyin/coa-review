@@ -11,6 +11,7 @@ import { breakScene, breakTrace } from './break';
 import { EXAMPLES, lesson, practiceParams } from './lesson';
 import type { Lesson } from './lesson';
 import { CODES, CODES_CONCLUSION, tag } from './scene';
+import { sub } from './sub';
 import { Choice, NeedsText, PageTabs, useExample, usePageTab, useSeed } from './shared';
 import './codes.css';
 
@@ -132,7 +133,9 @@ function Try() {
           </div>
         ) : null}
         <div class="field">
-          <label for="cd-x">{as === '机器数' ? tag(code) : as === '真值' ? '二进制真值 x' : '十进制 x'}</label>
+          <label for="cd-x">
+            <Rich text={as === '机器数' ? tag(code) : as === '真值' ? '二进制真值 x' : '十进制 x'} />
+          </label>
           <input id="cd-x" class="input is-mono" value={shown} placeholder={placeholder} inputMode="text" autoComplete="off" spellcheck={false} onInput={(e) => setDraft(e.currentTarget.value)} onChange={commit} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), commit())} />
         </div>
         <div class="field">
@@ -155,7 +158,9 @@ function Try() {
           <dl class="cd-result">
             {['[x]原', '[x]反', '[x]补', '[x]移'].map((key) => (
               <div key={key}>
-                <dt>{key}</dt>
+                <dt>
+                  <Rich text={sub(key)} />
+                </dt>
                 <dd>{made.trace.result[key]}</dd>
               </div>
             ))}
@@ -200,7 +205,7 @@ function Practice() {
   return (
     <>
       <p class="cd-task">
-        第 {seed} 题。{made.trace.conditions.find((item) => item.label === '字长')?.value}，{made.trace.conditions.find((item) => item.label === '写法')?.value}，{input.replace('-', '−')}。按顺序写出四种机器数，写不出的选「写不出」。位片点一下翻一面。
+        第 {seed} 题。{made.trace.conditions.find((item) => item.label === '字长')?.value}，{made.trace.conditions.find((item) => item.label === '写法')?.value}，<Rich text={input.replace('-', '−')} />。按顺序写出四种机器数，写不出的选「写不出」。位片点一下翻一面。
       </p>
       <Player
         key={`practice-${seed}-${narrow}`}

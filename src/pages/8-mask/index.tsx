@@ -47,7 +47,9 @@ function Legend() {
 
 function MaskPlayer({ params, lesson }: { params: Params; lesson?: boolean }) {
   const { trace, stage } = useMask(params);
+  const path = useMemo(() => simulate(params), [params]);
   return (
+    <>
     <Player
       wide
       key={JSON.stringify(params)}
@@ -65,6 +67,33 @@ function MaskPlayer({ params, lesson }: { params: Params; lesson?: boolean }) {
       convention={stage.convention}
       {...(lesson ? { question: MASK_QUESTION, conclusion: MASK_CONCLUSION, needs: MASK_NEEDS, mistakes: stage.mistakes } : {})}
     />
+    <details class="mk-path">
+      <summary>纸面上的运行轨迹</summary>
+      <p class="mk-note">
+        卷子上画：横轴是时间，主程序和每一级各占一行；CPU 在谁那里就在谁那一行画一段横线，进入更里一层时在那个时刻画一条竖线接过去，返回时再画一条竖线接回来。各段的起止如下，嵌套层数是这时压在栈里的程序数。
+      </p>
+      <table class="sheet">
+        <thead>
+          <tr>
+            <th scope="col">谁在运行</th>
+            <th scope="col" class="num">起</th>
+            <th scope="col" class="num">止</th>
+            <th scope="col" class="num">嵌套层数</th>
+          </tr>
+        </thead>
+        <tbody>
+          {path.segments.map((g, i) => (
+            <tr key={i}>
+              <td>{levelName(g.who)}</td>
+              <td class="num">{g.from}</td>
+              <td class="num">{g.to}</td>
+              <td class="num">{g.depth}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </details>
+    </>
   );
 }
 
@@ -291,8 +320,7 @@ function Try() {
 }
 
 /** 练习：按种子出题，在答题纸上填各级处理程序的屏蔽字。判分逐位对引擎的解题表。 */
-function Practice() {
-  const [seed, setSeed] = useSeed();
+function MaskSheet({ seed, setSeed }: { seed: number; setSeed: (next: number) => void }) {
   const params = useMemo(() => generate(seed), [seed]);
   const trace = useMemo(() => run(params), [params]);
   const n = params.levels;
@@ -372,6 +400,71 @@ function Practice() {
   );
 }
 
+/** 练习的第二张纸：按请求到达的时刻，逐段写出谁在运行、运行到几时。判分对引擎的 simulate()。 */
+function PathSheet({ seed, setSeed }: { seed: number; setSeed: (next: number) => void }) {
+  const params = useMemo(() => generate(seed), [seed]);
+  const trace = useMemo(() => run(params), [params]);
+  const segments = useMemo(() => simulate(params).segments, [params]);
+  const options = useMemo(() => ['主程序', ...Array.from({ length: params.levels }, (_, i) => `L${i}`)], [params]);
+  const columns = useMemo(() => [{ title: '谁在运行', width: 1.7 }, { title: '到', width: 0.9 }], []);
+  const labels = useMemo(() => segments.map((g) => `从 ${g.from}`), [segments]);
+  const answer: Entry[] = segments.map((g) => ({ who: levelName(g.who), to: String(g.to) }));
+  const grade = (entries: Entry[]): PaperMiss[] => {
+    const misses: PaperMiss[] = [];
+    segments.forEach((g, r) => {
+      const e = entries[r] ?? {};
+      if (e.who !== levelName(g.who)) {
+        misses.push({ row: r, field: 'who', message: `从 ${g.from} 起谁在运行不对。看这一刻挂着的请求里，哪些没被正在运行的程序的屏蔽字挡住，再按响应次序挑；都被挡住就接着运行原来的。` });
+      }
+      if ((e.to ?? '').trim() === '' || Number(e.to) !== g.to) {
+        misses.push({ row: r, field: 'to', message: `从 ${g.from} 起这一段运行到几时不对。它停在两种时刻里早的那个：自己的运行时间用完，或者来了一个它没挡住的请求。` });
+      }
+    });
+    return misses;
+  };
+  return (
+    <Paper
+      key={`path-${seed}`}
+      draftKey={`coa:8-mask:path:${seed}`}
+      seed={seed}
+      task={<p>屏蔽字按要求的处理次序设好。按请求到达的时刻，逐段写出 CPU 在运行谁、运行到几时（响应和返回不占时间）。这就是卷子上运行轨迹图里的各段横线。</p>}
+      conditions={trace.conditions.filter((c) => c.label !== '约定')}
+      title="运行轨迹"
+      columns={columns}
+      labels={labels}
+      heads={labels.map((label) => `${label}起的一段`)}
+      fields={() => [
+        { key: 'who', label: '谁在运行', kind: 'choice', options },
+        { key: 'to', label: '运行到', mono: true, inputMode: 'numeric', placeholder: '3' },
+      ]}
+      cells={(entry) => [entry.who ?? '', entry.to ?? '']}
+      columnOf={(field) => (field === 'who' ? 0 : 1)}
+      answer={answer}
+      grade={grade}
+      done={`完成次序 ${trace.result['完成次序']}，结束于 ${trace.result['结束时刻']}。`}
+      onNext={() => setSeed(seed + 1)}
+    />
+  );
+}
+
+function Practice() {
+  const [seed, setSeed] = useSeed();
+  const [part, setPart] = useParam('p', 'mask', (raw) => (raw === 'path' ? 'path' : 'mask'));
+  return (
+    <>
+      <div class="seg" role="group" aria-label="练哪一张">
+        <button type="button" aria-pressed={part === 'mask'} onClick={() => setPart('mask')}>
+          屏蔽字表
+        </button>
+        <button type="button" aria-pressed={part === 'path'} onClick={() => setPart('path')}>
+          运行轨迹
+        </button>
+      </div>
+      {part === 'mask' ? <MaskSheet seed={seed} setSeed={setSeed} /> : <PathSheet seed={seed} setSeed={setSeed} />}
+    </>
+  );
+}
+
 /** 弄坏它：把一级的屏蔽字里自己那一位写成 0，它在处理中又来请求就打断自己。 */
 const BREAK_ORDER = [2, 0, 3, 1];
 function breakParams(level: number): Params {
@@ -419,7 +512,10 @@ function Break() {
         </div>
         <p class="mk-note">
           处理次序 {BREAK_ORDER.map(levelName).join('→')}。L{level} 从 0 起每隔 2 请求一次，每次要运行 3；{levelName(facts.starved)} 在 1 请求。屏蔽字正确时程序卡最多叠 {facts.healthyDepth + 1} 张，
-          {levelName(facts.starved)} 在 {facts.healthyStart} 开始运行；L{level} 自己那一位写成 0 以后，它每来一次请求就打断自己，程序卡叠到 {facts.depth + 1} 张，{levelName(facts.starved)} 要等到 {facts.brokenStart}。
+          {levelName(facts.starved)} 在 {facts.healthyStart} 开始运行；L{level} 自己那一位写成 0 以后，它每来一次请求就打断自己，程序卡叠到 {facts.depth + 1} 张，
+          {facts.brokenStart > facts.healthyStart
+            ? `${levelName(facts.starved)} 要等到 ${facts.brokenStart}。`
+            : `L${level} 最早那一次处理被自己后来的请求一层层压在下面，最后才做完；${levelName(facts.starved)} 排在 L${level} 前面，本来就能打断它，开始时刻没变。`}
         </p>
         <p class="mk-note">
           真实机器里每叠一层就多存一份现场，同一个服务程序被重入，它用的缓冲区和计数会被后一次改掉。请求来得够快时栈一直长到溢出，排在后面的级一直轮不到。

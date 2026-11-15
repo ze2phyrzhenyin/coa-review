@@ -5,8 +5,8 @@ import { Term } from '../../app/TermCard';
 import type { Direction, IeeeFormat, IeeeParams } from '../../engines/ieee/model';
 import { Player } from '../../player/Player';
 import { Rich } from '../../player/Rich';
-import { breakTrace } from './break';
-import { EXAMPLES, lesson, practiceParams } from './lesson';
+import { breakTrace, breakWrong } from './break';
+import { EXAMPLES, lesson, practiceParams, tidy } from './lesson';
 import type { Lesson } from './lesson';
 import { IEEE_CONCLUSION, ieeeScene } from './scene';
 import { Choice, PageTabs, useExample, usePageTab, useSeed } from '../2-codes/shared';
@@ -52,6 +52,7 @@ function Learn() {
           bind={made.bind}
           moves={made.moves}
           names={made.names}
+          values={made.values}
           flipPart={made.flipPart}
           onWrong={made.wrong}
           askFrame={made.askFrame}
@@ -181,6 +182,7 @@ function Try() {
             bind={made.bind}
             moves={made.moves}
             names={made.names}
+          values={made.values}
             flipPart={made.flipPart}
             onWrong={made.wrong}
             askFrame={made.askFrame}
@@ -215,6 +217,7 @@ function Practice() {
         bind={made.bind}
         moves={made.moves}
         names={made.names}
+          values={made.values}
         flipPart={made.flipPart}
         onWrong={made.wrong}
         askFrame={made.askFrame}
@@ -230,14 +233,14 @@ function Practice() {
 
 function Break() {
   const narrow = useNarrow();
-  const trace = useMemo(() => breakTrace(), []);
+  const trace = useMemo(() => tidy(breakTrace()), []);
   const made = useMemo(() => ieeeScene(trace, narrow, 'decode'), [trace, narrow]);
   return (
     <>
       <p class="cd-task">
         <Rich text="同一个 6.625 存三次，每次都让机器按 IEEE 754 单精度读回来，看指针停在哪一段。" />
       </p>
-      <Player key={`break-${narrow}`} trace={trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} />
+      <Player key={`break-${narrow}`} trace={trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} onWrong={breakWrong} />
     </>
   );
 }

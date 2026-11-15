@@ -6,7 +6,7 @@ import { BOOK_STORE, COMMANDS, FETCH_ADDRESS, WORD_BITS, fields, generate, gener
 import type { FieldParams, MicroParams, MicroState, StoreWord } from '../../engines/micro/model';
 import type { Ask, Step, Trace } from '../../engines/trace';
 import type { Breakage } from '../../player/Player';
-import { MUX, inputWire, microWrong, positionOf } from './scene';
+import { MUX, inputWire, microWrong, positionOf, typeset } from './scene';
 
 /** 种子随机数（mulberry32），只用来挑参数。 */
 function random(seed: number): () => number {
@@ -124,7 +124,7 @@ export function practiceWrong(ask: Ask, value: string, state: MicroState, next: 
 /** 答题纸：字段位数和控存。题目参数由引擎出（generateFields），答案取自引擎的表和 fields()。 */
 export function fieldsExercise(seed: number) {
   const params: FieldParams = generateFields(seed);
-  const trace = runFields(params);
+  const trace = typeset(runFields(params));
   const f = fields(params);
   return { params, trace, words: f.words };
 }

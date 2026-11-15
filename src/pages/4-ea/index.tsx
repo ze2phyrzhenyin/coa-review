@@ -25,8 +25,7 @@ function Learn() {
         />
       </div>
       <p class="ix-lead">
-        指令字里的<Term k="操作码、地址码">地址码</Term>叫形式地址 A，按寻址方式算出的主存地址叫有效地址 EA。台面上：指令字切成几段翻片，
-        寻址特征那几位决定落到哪块方式牌上；地址卡每跳进主存一次，就是访存一次。{example.lead}
+        指令字里的地址码叫<Term k="形式地址" /> A，按<Term k="寻址方式" />算出的主存地址叫<Term k="有效地址" /> EA。台面上：指令字切成几段翻片，寻址特征那几位决定落到哪块方式牌上；地址卡每跳进主存一次，就是访存一次。{example.lead}
       </p>
       <EaPlayer key={example.key} params={example.params} lesson />
     </>

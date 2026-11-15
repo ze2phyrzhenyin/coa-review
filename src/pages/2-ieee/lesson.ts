@@ -5,6 +5,7 @@ import { generate, layoutOf, run } from '../../engines/ieee/model';
 import type { IeeeParams, IeeeState } from '../../engines/ieee/model';
 import type { Ask, Step, Trace } from '../../engines/trace';
 import { BitsError } from '../../lib/bits';
+import { subTrace } from '../2-codes/sub';
 import { ieeeScene } from './scene';
 import type { IeeeScene } from './scene';
 
@@ -12,13 +13,28 @@ export type Lesson = ({ ok: true; trace: Trace<IeeeParams, IeeeState> } & IeeeSc
 
 export function lesson(params: IeeeParams, compact = false, practice = false): Lesson {
   try {
-    const raw = run(params);
+    const raw = tidy(run(params));
     const trace = practice ? withAsks(raw) : raw;
     return { ok: true, trace, ...ieeeScene(trace, compact) };
   } catch (error) {
     if (error instanceof BitsError) return { ok: false, error: error.message };
     throw error;
   }
+}
+
+/** 很长的十进制小数只留前 12 位；0.M、1.M 后面的二进制小数标上进制；负指数用 −。 */
+export const neat = (text: string): string =>
+  text
+    .replace(/(\d\.\d{12})\d{9,}/g, '$1…')
+    .replace(/(\.M = )([01]\.[01]+…?)/g, '$1($2)₂')
+    .replace(/(?<![\d.(])([01]\.[01]+)( × 2\^[−-]?\d+)(?![\d.])/g, '($1)₂$2');
+
+export function tidy(raw: Trace<IeeeParams, IeeeState>): Trace<IeeeParams, IeeeState> {
+  const trace = subTrace(raw, neat);
+  return {
+    ...trace,
+    table: { ...trace.table, rows: trace.table.rows.map((row) => ({ ...row, cells: row.cells.map((cell, i) => (i > 0 ? cell.replace(/^-/, '−') : cell)) })) },
+  };
 }
 
 /** 先讲一道完整的，再只改一个条件（偏移量），再反过来读，最后是舍入和非规格化数。 */

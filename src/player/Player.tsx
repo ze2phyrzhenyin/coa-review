@@ -54,6 +54,8 @@ export interface PlayerProps<P, S> {
   wide?: boolean | undefined;
   /** 舞台上方的控件（选例题、选粒度）。 */
   children?: ComponentChildren;
+  /** 粒度标签的页面叫法，只写要改的几项，例如 { beat: '一个时钟周期' }。 */
+  levelNames?: Partial<Record<StepLevel, string>> | undefined;
   /** 第 0 步：这一页要回答的问题，和它落在哪些部件上（这些部件垫上焦点纸，手机上镜头先看它们）。 */
   question?: { text: string; at: string[] } | undefined;
   /** 讲解的最后一步之后：一句话结论，回答页面标题。 */
@@ -73,7 +75,7 @@ export interface Mistake<S> {
   act: (state: S) => Breakage | null;
 }
 
-const levelNames: Record<StepLevel, string> = {
+const defaultLevelNames: Record<StepLevel, string> = {
   explain: '讲解步',
   beat: '一个节拍',
   cycle: '一个 CPU 周期',
@@ -97,7 +99,7 @@ function pickTargets(scene: SceneSpec, ask: Ask | undefined): Map<string, string
 const onStage = (rect: Rect | undefined, size: { width: number; height: number }): boolean =>
   !!rect && rect.x + rect.w / 2 > 0 && rect.x + rect.w / 2 < size.width && rect.y + rect.h / 2 > 0 && rect.y + rect.h / 2 < size.height;
 
-export function Player<P, S>({ trace, scene, bind, moves, names, values, caption, breakIt, onWrong, flipPart, askFrame, frame, wide, children, question, conclusion, needs, mistakes, convention }: PlayerProps<P, S>) {
+export function Player<P, S>({ trace, scene, bind, moves, names, values, caption, breakIt, onWrong, flipPart, askFrame, frame, wide, children, levelNames, question, conclusion, needs, mistakes, convention }: PlayerProps<P, S>) {
   const show = (path: string, value: string) => (value === '' || value === 'null' ? '空' : values ? values(path, value) : value);
   const total = trace.steps.length;
   const [index, setIndex] = useIntParam('s', 0, 0, total);
@@ -553,7 +555,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
         <section class="pl-step" aria-label="这一步">
           <p class="pl-count">
             {index === 0 ? `共 ${total} 步` : `第 ${index} 步，共 ${total} 步`}
-            {step ? <span class="pl-level">{levelNames[step.level]}</span> : null}
+            {step ? <span class="pl-level">{levelNames?.[step.level] ?? defaultLevelNames[step.level]}</span> : null}
           </p>
           <h2 class="pl-title">{step ? <Rich text={step.title} /> : question ? <Rich text={question.text} /> : '初始状态'}</h2>
           {!step && question ? <p class="pl-why">画面上垫了深色纸的部件就是这一页要看的地方。按「下一步」开始。</p> : null}

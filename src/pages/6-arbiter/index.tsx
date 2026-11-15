@@ -9,7 +9,7 @@ import { Player } from '../../player/Player';
 import { Paper } from '../8-mask/Paper';
 import type { Entry, PaperMiss } from '../8-mask/Paper';
 import { PageTabs, plainAsks, useSeed } from '../8-mask/shared';
-import { ARB_CONCLUSION, ARB_NEEDS, ARB_QUESTION, arbStage } from './scene';
+import { ARB_NEEDS, arbStage } from './scene';
 import '../8-mask/mask.css';
 
 /** 讲解用的四个请求：设备 2、3 同时请求，设备 1 稍后，设备 0 在别人占用总线时才来。 */
@@ -67,7 +67,7 @@ function ArbPlayer({ params, lesson }: { params: Params; lesson?: boolean }) {
       onWrong={stage.wrong}
       convention={stage.convention}
       mistakes={stage.mistakes}
-      {...(lesson ? { question: ARB_QUESTION, conclusion: ARB_CONCLUSION, needs: ARB_NEEDS } : {})}
+      {...(lesson ? { question: stage.question, conclusion: stage.conclusion, needs: ARB_NEEDS } : {})}
     />
   );
 }

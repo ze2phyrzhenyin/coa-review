@@ -65,6 +65,7 @@ function Learn() {
         <Rich text={`${example.lead}只换处理方式，看停顿和总周期数怎么变。`} />
       </p>
       <Player
+        levelNames={{ beat: '一个时钟周期' }}
         key={`${example.key}-${mode}`}
         trace={made.trace}
         scene={stage.scene}
@@ -186,6 +187,7 @@ function Try() {
         </p>
       ) : null}
       <Player
+        levelNames={{ beat: '一个时钟周期' }}
         key={JSON.stringify(params)}
         trace={made.trace}
         scene={stage.scene}
@@ -209,7 +211,7 @@ function Break() {
   const { timing } = stage;
   const names = stageNames(5);
   const [, setStep] = useParam('s', '0');
-  const firstHold = trace.steps.findIndex((step) => step.level === 'cycle' && step.state.waiting.some((w) => w.includes('停在 ID')));
+  const firstHold = trace.steps.findIndex((step) => step.level === 'beat' && step.state.waiting.some((w) => w.includes('停在 ID')));
   const breakIt = (state: StallState): Breakage | null => {
     if (state.cycle === 0 || state.total !== null) return null;
     const at = lineAt(timing, names, state.cycle);
@@ -241,6 +243,7 @@ function Break() {
       </div>
       <p class="pp-note">五段流水线，后推。翻到某条指令在 ID 里等数的周期，点舞台下的按钮，让它不等了。</p>
       <Player
+        levelNames={{ beat: '一个时钟周期' }}
         key="break"
         trace={trace}
         scene={stage.scene}

@@ -31,6 +31,8 @@ export interface MulScene<S extends MulState> {
   frame: (step: Step<S>) => string[] | null;
   mistakes: Mistake<S>[];
   convention: (step: Step<S>) => string | null;
+  /** 第 0 步的问题落在哪：|x|、|y| 两行和它们的求补器。 */
+  top: string[];
 }
 
 /** 粗估一行字在台面上的宽度：中文按字高算，其余按六成。 */
@@ -274,9 +276,12 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
 
   const rowsOf = (prefix: string, count: number) => Array.from({ length: count }, (_, i) => `${prefix}-${i}`);
   const frame = (step: Step<S>): string[] | null => {
-    if (has(step, 'pre.x.e')) return [...rowsOf('a', n), 'sx', 'cx'];
-    if (has(step, 'pre.y.e')) return [...rowsOf('b', n), 'sy', 'cy'];
+    // 开头几步都看 |x|、|y| 两行连同列头；窄屏上整两行装得进画面，不会切掉低位两列。
+    const top = [...rowsOf('a', n), ...rowsOf('b', n), ...Array.from({ length: n }, (_, w) => `head-${w}`), ...(signed ? ['sx', 'sy', 'cx', 'cy', 'head-s'] : []), 'l-a', 'l-b'];
+    if (has(step, 'x') || has(step, 'pre.x.e') || has(step, 'pre.y.e')) return top;
     if (has(step, 'post.e')) return [...rowsOf('p', W), 'sp', 'cp'];
+    if (has(step, 'product')) return [...rowsOf('p', W), 'res', 'dec', ...(signed ? ['sp'] : [])];
+    if (has(step, 'delay') && compact) return ['tm', 'res', ...rowsOf(`fa-${n - 1}`, n - 1)];
     // 位积落下、前几行相加：只看送出位积的行和接收的行，p 那一位落下时镜头会跟过去。
     if (step.changes.some((c) => c.at.startsWith('products.'))) return [...rowsOf('a', n), ...Array.from({ length: n }, (_, j) => rowsOf(`pp-${j}`, n)).flat()];
     for (let r = 0; r < n - 1; r++) {
@@ -445,7 +450,7 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
     return null;
   };
 
-  return { scene, bind, moves, names, values, flipPart, wrong, askFrame, frame, mistakes, convention };
+  return { scene, bind, moves, names, values, flipPart, wrong, askFrame, frame, mistakes, convention, top: [...rowsOf('a', n), ...rowsOf('b', n), ...(signed ? ['sx', 'sy', 'cx', 'cy'] : [])] };
 }
 
 export { minus };

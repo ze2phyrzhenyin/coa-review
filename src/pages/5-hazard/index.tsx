@@ -83,6 +83,7 @@ function Learn() {
         <Rich text={example.lead} />
       </p>
       <Player
+        levelNames={{ beat: '一个时钟周期' }}
         key={example.key}
         trace={made.trace}
         scene={stage.scene}
@@ -154,6 +155,7 @@ function Try() {
         <p class="pp-note">可用 ADD SUB MUL DIV AND OR（三地址或两地址）、MOV、NOT、LAD R1,M(x)、STO M(x),R1。目标写在最前。</p>
       )}
       <Player
+        levelNames={{ beat: '一个时钟周期' }}
         key={JSON.stringify(params)}
         trace={made.trace}
         scene={stage.scene}
@@ -226,6 +228,7 @@ function Break() {
         I1 {pair.ins[0]}，I2 {pair.ins[1]}。翻到判出类型的那一步，点舞台下的按钮，让 I2 抢在 I1 前面。
       </p>
       <Player
+        levelNames={{ beat: '一个时钟周期' }}
         key={`break-${pair.key}`}
         trace={trace}
         scene={stage.scene}

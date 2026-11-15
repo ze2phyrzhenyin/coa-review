@@ -29,6 +29,8 @@ export interface RingProps extends CommonProps {
   from: number;
   /** 1 顺时针，-1 逆时针。 */
   dir: number;
+  /** 读数放在盘的下面（窄屏）。建好后不变。 */
+  below?: boolean;
 }
 
 const TOP = 0.16;
@@ -78,6 +80,7 @@ class Ring extends Part<RingProps> {
   private readonly reading: Card;
   private readonly hole: Card;
   private angle = 0;
+  private readonly below: boolean;
 
   constructor(kit: Kit, id: string, position: Vec2, props: RingProps) {
     super(kit, id, position);
@@ -135,7 +138,8 @@ class Ring extends Part<RingProps> {
     this.reading = new Card(kit, ' ', { kind: 'tile', height: sizes.tileHeight * 0.8, size: sizes.value, mono: true, weight: 600, minWidth: 1.2 });
     this.reading.group.position.set(0, (sizes.tileHeight * 0.8) / 2, 0);
     // 读数在盘的右边，左边缘对齐盘边。
-    this.holder(new Vector3(R + 0.3, 0.02, 0.1)).add(this.reading.group);
+    this.below = !!props.below;
+    this.holder(this.below ? new Vector3(0, 0.02, R + 1.0) : new Vector3(R + 0.3, 0.02, 0.1)).add(this.reading.group);
     this.hole = new Card(kit, '无', { kind: 'tile', height: 0.56, size: sizes.value, weight: 600, minWidth: 0.7 });
     this.hole.group.position.set(0, 0.28, 0);
     this.holder(new Vector3(0, TOP + 0.08, 0)).add(this.hole.group);
@@ -181,7 +185,7 @@ class Ring extends Part<RingProps> {
       if (animate && previous && previous.reading !== '') this.reading.flipTo(text);
       else this.reading.set(text);
     }
-    this.reading.group.position.x = this.reading.width / 2;
+    this.reading.group.position.x = this.below ? 0 : this.reading.width / 2;
     this.reading.setChanged(!!next.changed && text !== '');
     if (!has) {
       this.drawArc(0, 0);
@@ -229,7 +233,8 @@ class Ring extends Part<RingProps> {
   override bounds(): Box3 {
     const box3 = super.bounds();
     box3.expandByVector(new Vector3(0.7, 0, 0.35));
-    box3.max.x += this.reading.group.visible ? this.reading.width + 0.1 : 0;
+    if (this.below) box3.max.z += 1.1;
+    else box3.max.x += this.reading.group.visible ? this.reading.width + 0.1 : 0;
     box3.max.y = Math.max(box3.max.y, 0.7);
     return box3;
   }

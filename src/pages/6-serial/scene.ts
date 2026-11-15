@@ -15,7 +15,7 @@ import type { Breakage, Mistake } from '../../player/Player';
 export const SERIAL_QUESTION = { text: '一个字符在线上占几个位时间，速率和带宽各怎么算', at: ['wave', 'len'] };
 export const BUS_QUESTION = { text: '总线带宽里的 D 和 T 各是多少', at: ['D', 'T', 'Dr'] };
 export const SERIAL_CONCLUSION =
-  '一帧 = 1 位起始位 + 数据位 + 校验位（有就 1 位）+ 停止位，数据从最低位先发。波特率是每秒的位数，等于字符速率乘每帧位数，每位时间是它的倒数；有效数据率只算数据位。并行总线的带宽 Dr = D ÷ T：D 是一个总线周期送的字节数，T 是一个总线周期的时间。';
+  '一帧 = 1 位起始位 + 数据位 + 校验位（有就 1 位）+ 停止位，数据从最低位先发。波特率是每秒的位数，等于字符速率乘每帧位数，每位时间是它的倒数；有效数据率只算数据位。并行总线的带宽 D_r = D ÷ T：D 是一个总线周期送的字节数，T 是一个总线周期的时间。';
 export const SERIAL_NEEDS = [{ href: '/2-codes', text: '二进制编码' }];
 
 export interface SerialStage {
@@ -31,6 +31,7 @@ export interface SerialStage {
   wrong: (ask: Ask, value: string, state: State, next: Step<State> | null) => Breakage | null;
   mistakes: Mistake<State>[];
   question: { text: string; at: string[] };
+  convention: (step: Step<State>) => string | null;
 }
 
 /** 发送次序里第 k 位的名字：起、D0…、校、停。 */
@@ -277,7 +278,9 @@ function frameStage(trace: Trace<Params, State>, p: FrameParams, narrow: boolean
     });
   }
 
-  return { scene, bind, moves, names, values, caption, flipPart, askFrame, frame, wrong, mistakes, question: SERIAL_QUESTION };
+  const convention = (step: Step<State>): string | null =>
+    step.changes.some((c) => c.at === 'dataRate') ? '教材只讲波特率（p211），没有定义有效数据率。这里按每秒传送的数据位数算，起始位、校验位、停止位不计，单位 位/秒。' : null;
+  return { scene, bind, moves, names, values, caption, flipPart, askFrame, frame, wrong, mistakes, question: SERIAL_QUESTION, convention };
 }
 
 function busStage(trace: Trace<Params, State>, p: BusParams, narrow: boolean): SerialStage {
@@ -397,5 +400,6 @@ function busStage(trace: Trace<Params, State>, p: BusParams, narrow: boolean): S
     wrong,
     mistakes,
     question: BUS_QUESTION,
+    convention: () => null,
   };
 }

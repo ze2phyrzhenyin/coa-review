@@ -24,6 +24,7 @@ import { Player } from '../../player/Player';
 | `flipPart?` | `(ask, index) => 部件 id \| null`，`bits` 题在这个 `bits` 部件上翻位片作答 |
 | `wide?` | 宽屏上舞台占满整行、讲解排在下面（模型机这种很宽的台面） |
 | `children` | 舞台上方的控件（选例题、选粒度），宽屏一排按钮，窄屏下拉框 |
+| `levelNames?` | `{ beat: '一个时钟周期' }` 这样的映射，改步数旁粒度标签的叫法（缺省：讲解步、一个节拍、一个 CPU 周期、一条指令、一次访问） |
 | `question?` | `{ text, at: 部件 id[] }`：第 0 步的标题写这一页要回答的问题，`at` 的部件垫焦点纸，手机上镜头先看它们 |
 | `conclusion?`、`needs?` | 最后一步之后的一句话结论（回答页面标题，标「结论」）；`{ href, text }[]`，舞台上方一行「需要先会」 |
 | `mistakes?` | `{ text, at?, act(state) => Breakage }[]`：讲解栏末尾「常见错误」，每条写成「容易错成 X，因为 Y」；点开跳到第 `at` 步，把 `act` 的画面盖上、`moves` 走一遍，说明留在舞台下，「恢复」收回 |

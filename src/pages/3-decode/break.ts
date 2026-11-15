@@ -34,7 +34,7 @@ export function breakage(kind: BreakKind, state: PState, stage: DecodeStage, oth
     const a = d.groups[r]!;
     const b = d.groups[k]!;
     const high = /D(\d+)/.exec(a.data[a.data.length - 1] ?? '')?.[1] ?? '0';
-    const patch: Breakage['patch'] = { dbus: { value: '冲突', drivers: `${a.name}、${b.name}`, tileAt: -3 } };
+    const patch: Breakage['patch'] = { dbus: { value: '冲突', drivers: [a.name, b.name], tileAt: -3 } };
     for (const id of stage.chipIds(k)) patch[id] = { selected: true };
     return {
       label: `把 ${b.name} 也接到 ${probe.output}`,

@@ -226,6 +226,8 @@ export interface TrackProps extends CommonProps {
   ticks?: { at: number; text: string }[];
   /** 现在的时刻：一根竖线，随步平滑移动；不写不画。 */
   now?: number;
+  /** 画进入、返回的竖线：一段结束、另一条道上的一段在同一时刻开始的地方，把两条道连起来（中断的运行轨迹）。 */
+  connect?: boolean;
 }
 
 export interface SignalProps extends CommonProps {

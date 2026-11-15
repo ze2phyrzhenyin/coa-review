@@ -1,0 +1,6 @@
+/* 方框图一排加整台模型机比别的页深：宽屏上舞台高一些，整张台面才装得下。 */
+@media (min-width: 900px) {
+  .fl .pl-stage {
+    height: clamp(460px, 78vh, 700px);
+  }
+}

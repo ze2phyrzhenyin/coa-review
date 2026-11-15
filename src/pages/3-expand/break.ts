@@ -33,7 +33,7 @@ export function breakage(kind: BreakKind, state: PState, stage: ExpandStage, oth
   const width = `D${high}–D0`;
   if (kind === 'fight') {
     const k = other !== undefined && other !== g ? other : g === 0 ? 1 : 0;
-    const patch: Breakage['patch'] = { dbus: { value: '冲突', drivers: `第 ${g}、${k} 组`, tileAt: -3 } };
+    const patch: Breakage['patch'] = { dbus: { value: '冲突', drivers: [`第 ${g} 组`, `第 ${k} 组`], tileAt: -3 } };
     for (const id of chips(k)) patch[id] = { selected: true };
     return {
       label: `让第 ${k} 组也选中`,

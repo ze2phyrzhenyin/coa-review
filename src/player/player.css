@@ -495,7 +495,8 @@ button.pl-part {
     order: 0;
   }
   /* 手机上舞台贴满屏宽（去掉页面左右的留白），台面能多放下两三列。 */
-  .pl-stage {
+  /* 只管播放器里的舞台：页面在别处借用 .pl-stage 的样子时不受影响。 */
+  .pl-left > .pl-stage {
     order: 1;
     height: min(48dvh, 420px);
     min-height: 300px;

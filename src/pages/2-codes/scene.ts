@@ -15,7 +15,7 @@ import type { Breakage, Mistake } from '../../player/Player';
 
 export const CODES: Code[] = ['原码', '反码', '补码', '移码'];
 const SHORT: Record<Code, string> = { 原码: '原', 反码: '反', 补码: '补', 移码: '移' };
-export const tag = (code: Code) => `[x]${SHORT[code]}`;
+export const tag = (code: Code) => `[x]_{${SHORT[code]}}`;
 
 export const CODES_QUESTION_TEXT = '同一个 x 放到四个码盘上，哪种码写不下它，0 占几格，补码和移码的指针差多少';
 export const CODES_CONCLUSION =
@@ -81,7 +81,7 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
   // 宽屏：原 左上，反 右上，补 右下，移 左下。窄屏：一列。
   const COL = Math.max(3.3, (n + 1) * 0.28 + 1.6);
   const cells: Record<Code, [number, number]> = compact
-    ? { 原码: [0, 0], 反码: [0, 5.1], 补码: [0, 10.2], 移码: [0, 15.3] }
+    ? { 原码: [0, 0], 反码: [0, 6.0], 补码: [0, 12.0], 移码: [0, 18.0] }
     : { 原码: [-COL, 0], 反码: [COL, 0], 补码: [COL, 5.1], 移码: [-COL, 5.1] };
 
   parts.push({ id: 'x', kind: 'register', position: [0, -1.9], props: { name: '真值 x', value: '', width: 4.8 }, title: '真值 x' });
@@ -97,8 +97,8 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
     parts.push({
       id: ringId,
       kind: '2-codes:ring',
-      position: [cx - 0.9, cz + 2.7],
-      props: { name: '', size, marks: ringMarks(code, n, notation), neg: code === '移码' ? [0, half] : [half, half], pointer: -1, ghost: -1, reading: '', empty: '', from: -1, dir: 1 },
+      position: [compact ? cx : cx - 0.9, cz + 2.7],
+      props: { name: '', size, marks: ringMarks(code, n, notation), neg: code === '移码' ? [0, half] : [half, half], pointer: -1, ghost: -1, reading: '', empty: '', from: -1, dir: 1, below: compact },
       title: `${code}的码盘`,
       describe: (p) => `${code}的码盘，${String(p.reading || '指针还没放')}`,
     });
@@ -109,7 +109,7 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
         const cell = c.state.codes[code];
         if (cell.status === '无') return '写不下';
         if (cell.status !== '有') return '';
-        return cell.zero ? `−0 写成 ${cell.zero}` : `指 ${c.state.value.decimal}`;
+        return cell.zero ? `−0 是 ${cell.zero}` : `指 ${c.state.value.decimal}`;
       }),
       empty: from(`codes.${code}.status`, (c) => (c.state.codes[code].status === '无' ? '无' : '')),
     };
@@ -165,7 +165,7 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
   /** 学生写的位串放到这种码的盘上：指针指过去，读数写出它其实是多少。 */
   const onRing = (code: Code, bits: string, note: string): Breakage['patch'] => ({
     [`bits-${code}`]: { bits },
-    [`ring-${code}`]: { pointer: parseInt(bits, 2), ghost: -1, empty: '', reading: `${note}${readOn(code, bits, n, notation)}` },
+    [`ring-${code}`]: { pointer: parseInt(bits, 2), ghost: -1, empty: '', reading: `${compact ? (note.includes('是') ? '是 ' : '指 ') : note}${readOn(code, bits, n, notation)}` },
   });
 
   const wrong = (ask: Ask, value: string, state: CodesState, next: Step<CodesState> | null): Breakage | null => {
@@ -197,7 +197,7 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
     if (ask.answer === '一种' && value === '两种') {
       return {
         label: '',
-        patch: { [`ring-${code}`]: { ghost: half, reading: `1 后面全 0 是 ${readOn(code, fromUnsigned(half, n + 1), n, notation)}` } },
+        patch: { [`ring-${code}`]: { ghost: half, reading: `${compact ? '' : '1 后面全 0 '}是 ${readOn(code, fromUnsigned(half, n + 1), n, notation)}` } },
         moves: [{ value: show(code, fromUnsigned(half, n + 1)), from: `bits-${code}`, to: `ring-${code}`, arc: true }],
         message: `补码盘上 1 后面全 0 那一格读成 ${readOn(code, fromUnsigned(half, n + 1), n, notation)}，不是 −0。−0 的反码加 1，进位出了符号位按模丢掉，落回 0 那一格。`,
       };
@@ -215,7 +215,7 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
       }
       return {
         label: '',
-        patch: { [`ring-${code}`]: { empty: '无', pointer: -1, reading: '说写不下？' } },
+        patch: { [`ring-${code}`]: { empty: '无', pointer: -1, reading: '写不下？' } },
         moves: [{ value: state.value.binary, from: 'x', to: `ring-${code}`, arc: true }],
         message: `x 在${code}的范围里，盘上有它的格子。看条件里的范围。`,
       };
@@ -256,7 +256,7 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
       at: stepOf('补码'),
       act: () => ({
         label: '',
-        patch: { 'ring-补码': { ghost: half, reading: `1 后面全 0 是 ${readOn('补码', fromUnsigned(half, n + 1), n, notation)}` } },
+        patch: { 'ring-补码': { ghost: half, reading: `${compact ? '' : '1 后面全 0 '}是 ${readOn('补码', fromUnsigned(half, n + 1), n, notation)}` } },
         moves: [{ value: show('补码', fromUnsigned(half, n + 1)), from: 'bits-补码', to: 'ring-补码', arc: true }],
         message: `补码盘上 1 后面全 0 那一格已经给了 ${readOn('补码', fromUnsigned(half, n + 1), n, notation)}。补码一圈 ${size} 格，${size} 个不同的数，没有哪一格是 −0。`,
       }),

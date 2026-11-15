@@ -226,7 +226,7 @@ function Sheet({ seed, params, onNext, onDemo }: { seed: number; params: EaParam
   } else if (bad) {
     verdict = (
       <p class="ix-verdict" role="status">
-        <span class="is-bad-text">不对。</span>第 {bad.row + 1} 条的{COLS[bad.col]}错了。{HINTS[bad.col]}
+        <span class="is-bad-text">不对。</span>第 {bad.row + 1} 条「{COLS[bad.col]}」一栏错了。{HINTS[bad.col]}
         <button type="button" class="btn" onClick={() => onDemo(demoStep(bad.row))}>
           看这一条的演示
         </button>

@@ -10,6 +10,13 @@ import { Field, PageShell, Seg } from '../4-ea/shell';
 import { FlowPlayer } from './play';
 import { FlowPaper } from './Paper';
 
+/** 5-cycle 的写法再加上 AND（写法同 ADD）。 */
+function parseAny(line: string): Instruction | string {
+  const m = /^\s*AND\s+(R[0-3])\s*[,，]\s*(R[0-3])\s*$/i.exec(line);
+  if (m) return { op: 'AND', rx: m[1]!.toUpperCase() as 'R0', ry: m[2]!.toUpperCase() as 'R0' };
+  return parseLine(line);
+}
+
 const EXAMPLES: { key: string; label: string; instructions: Instruction[]; lead: string }[] = [
   { key: 'lad', label: '例题：LAD', instructions: [{ op: 'LAD', rx: 'R0', addr: 9 }], lead: 'LAD R0,9 把数存 9 号单元的数取进 R0。' },
   { key: 'sto', label: '变式：STO', instructions: [{ op: 'STO', rx: 'R1', ry: 'R3' }], lead: '把读数存换成写数存：STO R1,(R3)。' },
@@ -58,8 +65,8 @@ function Learn() {
         <SignalSeg />
       </div>
       <p class="ix-lead">
-        方框图里一个方框是一个 <Term k="CPU 周期" />，框里写这个周期的数据通路「源→目的」；菱形是译码，「～」是公操作（教材 p161–162）。框旁边的<Term k="电位信号" />直接写，
-        <Term k="脉冲信号" />注明在哪个<Term k="节拍" />。台面上面是方框图，下面是图 5.1 的模型机：每画一个方框，模型机就把这个周期走一遍；点方框可以再看一遍它的通路。{example.lead}
+        <Term k="方框图" />里一个方框是一个 <Term k="CPU 周期" />，框里写这个周期的数据通路「源→目的」；菱形是译码，「～」是<Term k="公操作" />（教材 p161–162）。框旁边的<Term k="电位信号" />直接写，
+        <Term k="脉冲信号" />注明在哪个<Term k="节拍" />。台面左边是方框图，右边是图 5.1 的模型机：每画一个方框，模型机就把这个周期走一遍；点方框可以再看一遍它的通路。手机上镜头停在模型机里收值的部件上。{example.lead}
       </p>
       <FlowPlayer key={`${example.key}|${nm}`} params={params} lesson />
     </>
@@ -79,7 +86,7 @@ function Try() {
     if (lines.length > MAX_FLOW_INSTRUCTIONS) return { instructions: [], problem: `最多 ${MAX_FLOW_INSTRUCTIONS} 条` };
     const out: Instruction[] = [];
     for (const line of lines) {
-      const parsed = parseLine(line);
+      const parsed = parseAny(line);
       if (typeof parsed === 'string') return { instructions: [], problem: parsed };
       out.push(parsed);
     }

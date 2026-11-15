@@ -211,8 +211,7 @@ export function polish(trace: Trace<Params, State>): Trace<Params, State> {
   const steps = trace.steps.map((raw) => {
     const step = { ...raw, title: tidy(raw.title), why: tidy(raw.why) };
     const out = /^按 \S+ 切开$/.test(step.title) ? { ...step, title: `按 ${step.state.format} 切开` } : step;
-    // 播放器按原样比对文字答案：题面里写明格式（大写，带 H）。
-    return out.ask?.prompt === '标记是多少' ? { ...out, ask: { ...out.ask, prompt: '标记是多少（十六进制，大写带 H，如 3FH）' } } : out;
+    return out;
   });
   return { ...trace, steps, conditions };
 }

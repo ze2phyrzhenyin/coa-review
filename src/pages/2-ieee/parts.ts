@@ -47,7 +47,7 @@ class Ruler extends Part<RulerProps> {
 
   constructor(kit: Kit, id: string, position: Vec2, props: RulerProps) {
     super(kit, id, position);
-    const LENGTH = props.compact ? 6.6 : 9.6;
+    const LENGTH = props.compact ? 5.8 : 9.6;
     const UNIT = LENGTH / 7;
     const STARTS = [0, UNIT, 3 * UNIT, 7 * UNIT].map((x) => x - LENGTH / 2);
     this.STARTS = STARTS;
@@ -74,31 +74,31 @@ class Ruler extends Part<RulerProps> {
       const x = STARTS[i]!;
       const head = new TextPlane(kit, ' ', { size: sizes.note, tone: 'text', mono: true, weight: 600 });
       head.place(0, 0);
-      this.holder(new Vector3(x, 0.05, -0.75)).add(head.mesh);
+      this.holder(new Vector3(x, 0.05, 0.8)).add(head.mesh);
       this.heads.push(head);
       const e = new TextPlane(kit, ' ', { size: sizes.note, tone: 'text', mono: true });
       e.place(0, 0);
-      this.holder(new Vector3(x, 0.05, 0.85)).add(e.mesh);
+      this.holder(new Vector3(x, 0.05, 1.3)).add(e.mesh);
       this.es.push(e);
       const E = new TextPlane(kit, ' ', { size: sizes.note, tone: 'addr', mono: true });
       E.place(0, 0);
-      this.holder(new Vector3(x, 0.05, 1.3)).add(E.mesh);
+      this.holder(new Vector3(x, 0.05, 1.8)).add(E.mesh);
       this.Es.push(E);
     }
-    for (const [text, z, tone] of [['e', 0.85, 'text'], ['E', 1.3, 'addr']] as const) {
+    for (const [text, z, tone] of [['e', 1.3, 'text'], ['E', 1.8, 'addr']] as const) {
       const head = new TextPlane(kit, text, { size: sizes.note, tone, weight: 600, align: 'right' });
       head.place(0, 0);
-      this.holder(new Vector3(STARTS[0]! - 0.45, 0.05, z)).add(head.mesh);
+      this.holder(new Vector3(STARTS[0]! - 0.32, 0.05, z)).add(head.mesh);
       this.heads.push(head);
     }
     // 指针：一根细杆加一张牌。
-    const stem = solid(new Mesh(blockGeometry(0.07, 1.0, 0.07, 0.02), kit.mats.accent));
+    const stem = solid(new Mesh(blockGeometry(0.07, 0.65, 0.07, 0.02), kit.mats.accent));
     stem.position.y = 0.14;
     this.pinGroup.add(stem);
     this.group.add(this.pinGroup);
     this.pinCard = new Card(kit, ' ', { kind: 'chip', height: sizes.chipHeight, size: sizes.name, mono: true, weight: 600, minWidth: 0.6 });
     const pinHolder = new Group();
-    pinHolder.position.set(0, 1.2, 0);
+    pinHolder.position.set(0, 0.85, 0);
     pinHolder.add(this.pinCard.group);
     this.pinGroup.add(pinHolder);
     kit.facing.add(pinHolder);
@@ -115,7 +115,7 @@ class Ruler extends Part<RulerProps> {
     this.group.add(this.lensRing);
     this.lens = new Card(kit, ' ', { kind: 'tile', height: sizes.chipHeight, size: sizes.note, weight: 500, minWidth: 0.6 });
     this.lens.group.position.set(0, sizes.chipHeight / 2, 0);
-    this.holder(new Vector3((STARTS[1]! + STARTS[2]!) / 2, 0.05, -1.35)).add(this.lens.group);
+    this.holder(new Vector3(0, 0.05, -1.5)).add(this.lens.group);
     this.empty = new Card(kit, ' ', { kind: 'tile', height: sizes.chipHeight, size: sizes.note, minWidth: 0.6 });
     this.empty.group.position.set(0, sizes.chipHeight / 2, 0);
     this.holder(new Vector3(0, 0.2, 0)).add(this.empty.group);
@@ -186,8 +186,8 @@ class Ruler extends Part<RulerProps> {
   override bounds(): Box3 {
     const box3 = super.bounds();
     box3.min.x -= 0.7;
-    box3.min.z -= 1.7;
-    box3.max.z += 1.5;
+    box3.min.z -= 1.9;
+    box3.max.z += 2.0;
     box3.max.y = Math.max(box3.max.y, 1.2);
     return box3;
   }

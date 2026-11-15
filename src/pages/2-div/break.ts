@@ -8,6 +8,8 @@ import type { Step, Trace } from '../../engines/trace';
 import type { DivParams, DivState } from '../../engines/div/model';
 import { fromUnsigned, rippleAdd, toUnsigned } from '../../lib/bits';
 import type { Move } from '../../scene';
+import type { Breakage } from '../../player/Player';
+import { subTrace } from '../2-mul/code';
 
 const N = 5;
 export const CASES = [
@@ -96,7 +98,7 @@ export function breakTrace(which: number): Trace<DivParams, BreakState> {
       d.overflow = '1';
     },
   });
-  return builder.finish({ 结论: '|x| ≥ |y| 时商的整数位是 1，定点小数放不下' }, { columns: [], rows: [] });
+  return subTrace(builder.finish({ 结论: '|x| ≥ |y| 时商的整数位是 1，定点小数放不下' }, { columns: [], rows: [] }));
 }
 
 export const breakMoves = (step: Step<BreakState>): Move[] => {
@@ -106,4 +108,19 @@ export const breakMoves = (step: Step<BreakState>): Move[] => {
     return Array.from({ length: N + 1 }, (_, c) => ({ value: bits.charAt(c), from: 'wsub', to: `ad-${c}` }));
   }
   return [];
+};
+
+/** 答错：学生说的商位先落进 q_0，再对着和的符号位看。 */
+export const breakWrong = (_ask: unknown, value: string, state: BreakState): Breakage | null => {
+  const round = state.rounds[0];
+  if (!round || !round.sum || !/^[01]$/.test(value)) return null;
+  return {
+    label: '',
+    patch: { 'q-0': { bits: value }, verdict: { text: `上商 ${value}？和的符号位是 ${round.sum.charAt(0)}`, hidden: false } },
+    moves: [{ value, from: 'cout', to: 'q-0', arc: true }],
+    message:
+      value === '0'
+        ? `上商 0 是说不够减。可这一轮的和 ${round.sum} 符号位是 0，符号位向外的进位是 ${round.carry}，天平往余数一边沉：够减，q_0 是 1。`
+        : `上商 1 是说够减。这一轮的和 ${round.sum} 符号位是 0，够减，q_0 确实是 1。`,
+  };
 };

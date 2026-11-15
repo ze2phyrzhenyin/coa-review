@@ -52,7 +52,7 @@ export function intrStage(trace: Trace<Params, State>, narrow: boolean): IntrSta
   // ---- 版式 ----（存储阵列是立着的板，往上长；前后排之间留够距离，不压住后排）
   const devW = narrow ? 2.25 : 2.5;
   const devX = (i: number) => (narrow ? (i - (n - 1) / 2) * 2.32 : -2.4 + i * 2.9);
-  const devZ = narrow ? -7.0 : -4.4;
+  const devZ = narrow ? -8.0 : -4.4;
   const at = (wide: [number, number], small: [number, number]): [number, number] => (narrow ? small : wide);
   const P = {
     CPU: at([-5.6, -4.4], [-1.55, -4.6]),
@@ -87,9 +87,10 @@ export function intrStage(trace: Trace<Params, State>, narrow: boolean): IntrSta
     };
   }
   const lastX = devX(n - 1);
+  if (narrow) parts.push({ id: 'cap', kind: 'label', position: [0, devZ - 2.0], props: { text: '接口 0 离 CPU 最近', size: 0.31, tone: 'muted' } });
   // 公共请求线 INTR、沿链传的 INTA。
   if (narrow) {
-    parts.push({ id: 'sINTR', kind: 'signal', position: [0, 0], props: { from: `D${n - 1}.s`, to: 'CPU.n', text: 'INTR', ink: 'ctrl', via: [[lastX, devZ + 1.0], [P.CPU[0] + 0.6, devZ + 1.0]], labelAt: 0.72 } });
+    parts.push({ id: 'sINTR', kind: 'signal', position: [0, 0], props: { from: `D${n - 1}.s`, to: 'CPU.n', text: 'INTR', ink: 'ctrl', via: [[lastX, devZ + 1.5], [P.CPU[0] + 0.6, devZ + 1.5]], labelAt: 0.5 } });
     for (let i = 0; i < n; i++) {
       parts.push({ id: `sA${i}`, kind: 'signal', position: [0, 0], props: { from: i === 0 ? 'CPU.w' : `D${i - 1}.e`, to: i === 0 ? 'D0.w' : `D${i}.w`, text: i === 0 ? 'INTA' : '', ink: 'ctrl', ...(i === 0 ? { via: [[-3.65, P.CPU[1]], [-3.65, devZ]] as [number, number][] } : {}), labelAt: 0.35 } });
     }
@@ -233,11 +234,12 @@ export function intrStage(trace: Trace<Params, State>, narrow: boolean): IntrSta
   const askFrame = (ask: Ask): string[] => {
     if (ask.options?.includes('硬件')) return ['hw', 'sw'];
     if (ask.options?.includes('响应')) return ['IR', 'IM', 'PC', 'cycle'];
-    return ['CPU', ...p.devices.map((_, i) => `D${i}`)];
+    return [...(narrow ? ['cap'] : []), 'CPU', ...p.devices.map((_, i) => `D${i}`)];
   };
   const frame = (step: Step<State>): string[] | null => {
     const box = step.state.box;
-    if (box === '设备就绪' || box === '发出请求') return ['CPU', ...p.devices.map((_, i) => `D${i}`)];
+    const top = narrow ? ['cap'] : [];
+    if (['设备就绪', '发出请求', '响应中断', '找出中断源', '设备服务'].includes(box)) return [...top, 'CPU', ...p.devices.map((_, i) => `D${i}`)];
     if (box === '转移') return ['CPU', 'PC', 'cards'];
     if (box === '中断返回') return ['PC', 'stack', 'cards'];
     return null;

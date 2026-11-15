@@ -10,7 +10,7 @@ import type { Breakage } from '../../player/Player';
 import { Rich } from '../../player/Rich';
 import { Field, PageShell, Seg } from '../3-vm-replace/kit';
 import { Paper } from './Paper';
-import { PERF_CONCLUSION, PERF_NEEDS, PERF_QUESTION, perfMistakes, perfStage, perfWrong } from './scene';
+import { PERF_CONCLUSION, PERF_NEEDS, PERF_QUESTION, perfMistakes, perfStage, perfWrong, polish } from './scene';
 import { DEFAULT_TRY, examples, kindKeys, tryParams } from './setup';
 import type { TryInput } from './setup';
 import '../3-vm-replace/kit.css';
@@ -19,7 +19,7 @@ function useRun(params: Params) {
   const key = JSON.stringify(params);
   const narrow = useNarrow();
   return useMemo(() => {
-    const trace = run(params);
+    const trace = polish(run(params));
     return { trace, stage: perfStage(trace, narrow), wrong: perfWrong(trace), mistakes: perfMistakes(trace) };
     // key 就是 params 的内容。
     // eslint-disable-next-line react-hooks/exhaustive-deps

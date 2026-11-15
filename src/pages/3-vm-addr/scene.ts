@@ -52,17 +52,17 @@ export function vmStage(trace: Trace<Params, State>, narrow: boolean): VmStage {
   const bitsWidth = (n: number, extra = 0) => Math.max(2.2, (n + Math.floor((n - 1) / 4) + extra) * 0.235 + 0.5);
   // 虚地址的两段正下方就是物理地址的两段：页内地址竖着落下来，逻辑页号那一段换成物理页号。
   // 页表是一块高板，放在左边（手机上放在最前面），不挡住后面的格子。
-  const leftX = at(-2.8, -1.9);
+  const leftX = at(-2.2, -1.9);
   const rightX = at(1.6, 1.9);
   const midX = (leftX + rightX) / 2;
   const zVa = at(-5.7, -8.1);
   const zVirt = at(-4.1, -6.4);
   const zPhys = at(-1.5, -4.5);
   const zPa = at(0.3, -2.7);
-  const ptAt: [number, number] = at([-6.7, -2.0], [-1.55, 1.7]);
-  const tlbAt: [number, number] = at([5.9, -1.4], [2.45, 1.7]);
-  const cmpAt: [number, number] = at([5.9, -4.3], [2.45, 3.7]);
-  const plateZ = at(1.6, 4.1);
+  const ptAt: [number, number] = at([-5.7, -2.0], [-1.55, 1.7]);
+  const tlbAt: [number, number] = at([2.6, 3.2], [2.45, 1.7]);
+  const cmpAt: [number, number] = at([-1.6, 3.4], [2.45, 3.7]);
+  const plateZ = at(2.4, 4.1);
 
   const parts: PartSpec[] = [
     { id: 'va', kind: 'register', position: [midX, zVa], props: { name: '虚地址', value: '', ink: 'addr', width: 2.6 } },
@@ -86,8 +86,8 @@ export function vmStage(trace: Trace<Params, State>, narrow: boolean): VmStage {
     { id: 'frame', kind: 'register', position: [leftX, zPhys], props: { name: `物理页号 ${frameW} 位`, value: '', ink: 'addr', width: bitsWidth(frameW, 4) } },
     { id: 'poff', kind: 'register', position: [rightX, zPhys], props: { name: '页内地址', value: '', ink: 'addr', width: bitsWidth(offW) } },
     { id: 'pa', kind: 'register', position: [at(midX, rightX), zPa], props: { name: '物理地址', value: '', ink: 'addr', width: 2.6 } },
-    { id: 'fault', kind: 'label', position: at([-7.6, plateZ], [-2.5, plateZ]), props: { text: '缺页 0', plate: true, size: 0.34, weight: 600, mono: true }, pick: true, title: '缺页' },
-    { id: 'inMem', kind: 'label', position: at([-5.6, plateZ], [-0.5, plateZ]), props: { text: '在主存', plate: true, size: 0.34, weight: 600 }, pick: true, title: '在主存' },
+    { id: 'fault', kind: 'label', position: at([-6.6, plateZ], [-2.5, plateZ]), props: { text: '缺页 0', plate: true, size: 0.34, weight: 600, mono: true }, pick: true, title: '缺页' },
+    { id: 'inMem', kind: 'label', position: at([-4.7, plateZ], [-0.5, plateZ]), props: { text: '在主存', plate: true, size: 0.34, weight: 600 }, pick: true, title: '在主存' },
   ];
   if (hasTlb) {
     const tlb = params.tlb ?? [];

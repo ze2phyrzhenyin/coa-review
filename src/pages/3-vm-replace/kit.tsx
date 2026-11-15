@@ -179,6 +179,21 @@ export function PaperStage({ scene, pose, frame, panel, wide, compact }: { scene
   );
 }
 
+/** 第几步在 total 步里落在哪：非数、负数、越界都落回范围内。 */
+export function clampStep(raw: string, total: number): number {
+  const n = Math.trunc(Number(raw));
+  return Number.isFinite(n) ? Math.min(total, Math.max(0, n)) : 0;
+}
+
+/**
+ * 读当前步数（网址参数 s）。不用 useIntParam：它的上限在挂载时定死，
+ * 页面换例题而组件不重挂时会按上一个例题的步数把 s 截短，播放器就走不到最后几步。
+ */
+export function useStep(total: number): [number, (next: number) => void] {
+  const [raw, setRaw] = useParam('s', '0');
+  return [clampStep(raw, total), (next) => setRaw(String(clampStep(String(next), total)))];
+}
+
 /** 宽屏（≥ 600 px）时答题纸下面留垫板放填写栏。只在建场景时取一次。 */
 export function useWidePaper(): boolean {
   const [wide] = useState(() => typeof matchMedia === 'function' && matchMedia('(min-width: 600px)').matches);

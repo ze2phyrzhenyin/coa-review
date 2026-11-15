@@ -224,9 +224,9 @@ export function stallStage(trace: T, narrow: boolean): StallStage {
   const table: Record<string, Record<string, unknown>> = {
     chart: {
       cells: from<State>(['grid', 'cycle'], (c) => c.state.grid.map((line) => [...line, ''])),
-      current: from<State>(['cycle'], (c) => (c.step?.level === 'cycle' ? cycleOf(c) - 1 : -1)),
+      current: from<State>(['cycle'], (c) => (c.step?.level === 'beat' ? cycleOf(c) - 1 : -1)),
       changedCells: from<State>(['grid'], (c) => {
-        if (c.step?.level !== 'cycle') return [];
+        if (c.step?.level !== 'beat') return [];
         const col = cycleOf(c) - 1;
         return c.state.grid.map((line, j) => (line[col] ? `${j}.${col}` : '')).filter(Boolean);
       }),
@@ -256,7 +256,7 @@ export function stallStage(trace: T, narrow: boolean): StallStage {
   };
   const bind = bindTable<State>(table as Parameters<typeof bindTable<State>>[0]);
   const frame = (step: Step<State>): string[] | null => {
-    if (step.level === 'cycle') return ['chart', 'line'];
+    if (step.level === 'beat') return ['chart', 'line'];
     if (step.state.total !== null) return ['chart', 'sum'];
     return ['line', 'sum'];
   };
@@ -344,7 +344,7 @@ export function stallMistakes(trace: T, timing: Timing): Mistake<State>[] {
   const steps = trace.steps;
   const out: Mistake<State>[] = [];
   const holder = timing.reason.findIndex((r) => r[2]?.kind === 'data');
-  const cycleStep = (t: number) => steps.findIndex((step) => step.level === 'cycle' && step.state.cycle === t);
+  const cycleStep = (t: number) => steps.findIndex((step) => step.level === 'beat' && step.state.cycle === t);
 
   // 1. 只推迟紧跟的那一条，后面的照常走：两条挤进同一段。
   if (params.mode !== '不处理' && holder >= 0 && holder + 1 < n) {
@@ -423,7 +423,7 @@ export function stallMistakes(trace: T, timing: Timing): Mistake<State>[] {
 export function stallConvention(params: StallParams, timing: Timing) {
   const list = params.instructions.map(parseInstruction);
   return (step: Step<State>): string | null => {
-    if (step.level !== 'cycle') return null;
+    if (step.level !== 'beat') return null;
     const t = step.state.cycle;
     for (const [j, reasons] of timing.reason.entries()) {
       const why = reasons[2];

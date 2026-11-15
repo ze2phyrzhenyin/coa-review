@@ -23,7 +23,7 @@ export function useEa(params: EaParams | null) {
           bind: eaBind(trace),
           moves: eaMoves(params, rows),
           names: eaNames(params),
-          frame: eaFrame(params),
+          frame: eaFrame(params, narrow),
           askFrame: eaAskFrame(params),
           wrong: eaWrong(params, rows),
           breakIt: eaBreak(params, rows),

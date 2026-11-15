@@ -4,6 +4,7 @@ import type { TargetedEvent } from 'preact';
 import { useParam } from '../../app/url-state';
 import { Rich } from '../../player/Rich';
 import type { Patch, PartSpec, Pose, SceneSpec } from '../../scene';
+import { sub } from './code';
 import { geometry, textWidth } from './scene';
 import { SheetStage } from './SheetStage';
 import { followed, grade, makeProblem } from './practice';
@@ -34,7 +35,7 @@ function sheetScene(problem: Problem, wide: boolean): { scene: SceneSpec; frame:
   const cell = (id: string, x: number, z: number, title: string, pick = false) =>
     parts.push({ id, kind: '2-mul:cell', position: [x, z], props: { bits: ' ', variant: 'bit' }, title, pick, describe: (p: Patch) => `${title}：${String(p.bits ?? '').trim() || '空'}` } as PartSpec);
   const label = (id: string, text: string, z: number, pick = false) =>
-    parts.push({ id, kind: 'label', position: [labelRight - textWidth(text, 0.34) / 2, z], props: { text, size: 0.34, weight: 600 }, pick, title: text });
+    parts.push({ id, kind: 'label', position: [labelRight - textWidth(text, 0.34) / 2, z], props: { text: sub(text), size: 0.34, weight: 600 }, pick, title: text });
   for (let w = 0; w < W; w++) parts.push({ id: `head-${w}`, kind: 'label', position: [colX(w), -0.85], props: { text: `2^${w}`, size: 0.34, tone: 'muted' } });
   if (signed) parts.push({ id: 'head-s', kind: 'label', position: [signX, -0.85], props: { text: '符号', size: 0.34, tone: 'muted' } });
   let z = 0;
@@ -131,7 +132,7 @@ function Sheet({ problem, onNext }: { problem: Problem; onNext: () => void }) {
       <p class="md-task">
         {signed ? (
           <>
-            {mode}阵列乘法，n = {n}。{given.map((g, i) => `${i ? '，' : ''}${g.label} = ${g.sign}${g.bits}`).join('')}
+            {mode}阵列乘法，n = {n}。<Rich text={sub(given.map((g, i) => `${i ? '，' : ''}${g.label} = ${g.sign}${g.bits}`).join(''))} />
             。按带求补器的阵列乘法器逐行写出：积的符号位、两个算前求补器的输出、{n} 行位积、阵列的和、算后求补器的输出。
           </>
         ) : (
@@ -150,7 +151,7 @@ function Sheet({ problem, onNext }: { problem: Problem; onNext: () => void }) {
         panel={(style, ref) => (
           <form ref={ref} class={`md-fill${style ? ' is-anchored' : ''}`} style={style} onSubmit={submit} data-no-orbit>
             <label class="md-fill-head" for="md-fill-input">
-              第 {row + 1} 行 <Rich text={line.label} />（<Rich text={weights} />）
+              第 {row + 1} 行 <Rich text={sub(line.label)} />（<Rich text={weights} />）
             </label>
             <input
               id="md-fill-input"
@@ -194,14 +195,14 @@ function Sheet({ problem, onNext }: { problem: Problem; onNext: () => void }) {
       {misses && !first ? (
         <p class="md-verdict is-ok-text" role="status">
           {revealed ? '答案已填上。' : '对。'}
-          {productLabel} = {result['乘积']}，十进制 {result['十进制']}。{note ? '有几行是按你前面写的数算对的。' : ''}
+          <Rich text={sub(productLabel)} /> = {result['乘积']}，十进制 {result['十进制']}。{note ? '有几行是按你前面写的数算对的。' : ''}
           <button type="button" class="btn" onClick={onNext}>
             换一题
           </button>
         </p>
       ) : misses && first ? (
         <p class="md-verdict is-bad-text" role="status">
-          不对。第 {first.line + 1} 行（<Rich text={lines[first.line]!.label} />）起有错，台面上标出了这一格。{misses.length > 1 ? `共 ${misses.length} 行有错。` : ''}
+          不对。第 {first.line + 1} 行（<Rich text={sub(lines[first.line]!.label)} />）起有错，台面上标出了这一格。{misses.length > 1 ? `共 ${misses.length} 行有错。` : ''}
         </p>
       ) : (
         <p class="md-hint">点台面上的格子翻成 0 或 1，或者在填写栏里打字。</p>

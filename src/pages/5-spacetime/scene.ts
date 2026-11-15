@@ -129,7 +129,7 @@ export function spaceStage(trace: T, narrow: boolean): SpaceStage {
   ];
 
   const cycleOf = (c: BindContext<State>) => c.state.cycle;
-  const isCycle = (c: BindContext<State>) => c.step?.level === 'cycle';
+  const isCycle = (c: BindContext<State>) => c.step?.level === 'beat';
   const table: Record<string, Record<string, unknown>> = {
     chart: {
       cells: from<State>(['grid', 'cycle'], (c) => chartCells(params, c.state.grid, cycleOf(c), columns)),
@@ -165,7 +165,7 @@ export function spaceStage(trace: T, narrow: boolean): SpaceStage {
   const bind = bindTable<State>(table as Parameters<typeof bindTable<State>>[0]);
 
   const frame = (step: Step<State>): string[] | null => {
-    if (step.level === 'cycle') return ['chart', 'line'];
+    if (step.level === 'beat') return ['chart', 'line'];
     if (step.state.clock !== null && step.state.cycle === 0) return ['clock', 'line'];
     if (step.state.figures.Tp !== null) return ['Tp', 'Ck', 'Tk'];
     if (step.state.figures.Ck !== null) return ['Ck', 'Tk'];
@@ -271,7 +271,7 @@ export function spaceMistakes(trace: T): Mistake<State>[] {
       }),
     });
   }
-  const lastCycle = steps.map((step) => step.level).lastIndexOf('cycle');
+  const lastCycle = steps.map((step) => step.level).lastIndexOf('beat');
   if (byStage && lastCycle >= 0) {
     out.push({
       text: '容易把纵轴画反，IF 写在最上面，因为习惯按指令的先后从上往下排',
@@ -292,7 +292,7 @@ export function spaceMistakes(trace: T): Mistake<State>[] {
     const slow = times.indexOf(Math.max(...times));
     const avg = times.reduce((a, b) => a + b, 0) / times.length;
     const clockStep = steps.findIndex((step) => step.state.clock !== null);
-    const busy = steps.findIndex((step) => step.level === 'cycle' && step.state.grid[slow]?.[step.state.cycle - 1]);
+    const busy = steps.findIndex((step) => step.level === 'beat' && step.state.grid[slow]?.[step.state.cycle - 1]);
     if (clockStep >= 0 && busy >= 0) {
       out.push({
         text: '容易把时钟周期取成各段的平均值，因为想让每段一样长',

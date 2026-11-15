@@ -28,6 +28,7 @@ import {
   microWrong,
   rerun,
   tidy,
+  typeset,
   generalize,
 } from './scene';
 import { fieldNames, fieldsBind, fieldsScene } from './fields';
@@ -114,15 +115,18 @@ interface MicroPlayerProps {
   children?: ComponentChildren;
 }
 
-function MicroPlayer({ trace: raw, lesson, notes = false, marked, onWrong, children }: MicroPlayerProps) {
-  const trace = useMemo(() => tidy(raw), [raw]);
+function MicroPlayer({ trace, lesson, notes = false, marked, onWrong, children }: MicroPlayerProps) {
   const narrow = useNarrow();
   const [lv, setLv] = useParam('lv', 'explain', oneOf(GRAINS, 'explain'));
   const [, setStep] = useIntParam('s', 0, 0, 10_000);
   const grain = lv as Grain;
   const scene = useMemo(() => microScene(trace, narrow, notes, marked), [trace, narrow, notes, marked]);
   const bind = useMemo(() => microBind(), []);
-  const coarse = useMemo(() => coarsen(trace, grain), [trace, grain]);
+  // 换粒度会重算「变化」，所以整理放在换粒度之后。
+  const coarse = useMemo(() => {
+    const made = coarsen(trace, grain);
+    return { ...made, trace: tidy(made.trace) };
+  }, [trace, grain]);
   const moves = useMemo(() => coarseMoves(coarse.members, microMoves), [coarse]);
   const mistakes = useMemo(() => (lesson && grain === 'explain' ? microMistakes(trace) : undefined), [trace, lesson, grain]);
   const breakIt = useMemo(() => (lesson ? microBreak(trace) : undefined), [trace, lesson]);
@@ -228,6 +232,8 @@ const encodeStore = (text: string): string =>
     .join(';');
 const decodeStore = (code: string): string => code.split(';').map((item) => item.replace(':', ' ')).join('\n');
 const DEFAULT_CM = encodeStore(BOOK_TEXT);
+/** 网址里表示「控存清空了」。 */
+const NO_CM = 'none';
 
 function readStore(code: string): { store: StoreWord[]; problems: string[] } {
   const problems: string[] = [];
@@ -250,12 +256,16 @@ const DIGITS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] as const;
 function TryRun() {
   const [aText, setA] = useParam('a', '4', (raw) => digit(raw, '4'));
   const [bText, setB] = useParam('b', '9', (raw) => digit(raw, '9'));
-  const [op, setOp] = useParam('op', '1010', (raw) => (/^[01]{4}$/.test(raw) ? raw : '1010'));
+  const [op, setOp] = useParam('op', '1010');
   const [cm, setCm] = useParam('cm', DEFAULT_CM);
   const [, setStep] = useIntParam('s', 0, 0, 10_000);
-  const [draft, setDraft] = useState({ op, cm: decodeStore(cm) });
-  useEffect(() => setDraft({ op, cm: decodeStore(cm) }), [op, cm]);
+  const shown = cm === NO_CM ? '' : decodeStore(cm);
+  const [draft, setDraft] = useState({ op, cm: shown });
+  useEffect(() => setDraft({ op, cm: shown }), [op, shown]);
   const made = useMemo(() => {
+    // 填错了就说哪里错，不悄悄换成缺省值。
+    if (!/^[01]{4}$/.test(op)) return { trace: null, error: op === '空' ? 'OP 还没填。要写成 4 位二进制，例如 1010。' : `OP 填的是「${op}」，要写成 4 位二进制，例如 1010。` };
+    if (cm === NO_CM) return { trace: null, error: '控存是空的。至少要有 0000 号取指微指令，一行一格：微地址、空格、23 位微指令。' };
     const { store, problems } = readStore(cm);
     if (problems.length) return { trace: null, error: problems.join('；') };
     const params: MicroParams = { a: Number(aText), b: Number(bText), op };
@@ -269,8 +279,8 @@ function TryRun() {
   }, [aText, bText, op, cm]);
   const submit = (event: TargetedEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setOp(draft.op.trim());
-    setCm(encodeStore(draft.cm) || DEFAULT_CM);
+    setOp(draft.op.trim() || '空');
+    setCm(encodeStore(draft.cm) || NO_CM);
     setStep(0);
   };
   const pickDigit = (set: (v: string) => void) => (event: TargetedEvent<HTMLSelectElement>) => {
@@ -298,7 +308,7 @@ function TryRun() {
         </label>
         <label class="field">
           <span class="field-label">指令的 OP</span>
-          <input class="input is-mono" inputMode="numeric" autoComplete="off" spellcheck={false} value={draft.op} placeholder="1010" onInput={(e) => setDraft({ ...draft, op: e.currentTarget.value })} />
+          <input class="input is-mono" inputMode="numeric" autoComplete="off" spellcheck={false} aria-invalid={/^[01]{4}$/.test(op) ? undefined : 'true'} value={draft.op === '空' ? '' : draft.op} placeholder="1010" onInput={(e) => setDraft({ ...draft, op: e.currentTarget.value })} />
         </label>
         <label class="field mc-wide">
           <span class="field-label">控存（一行一格：微地址、空格、23 位微指令）</span>
@@ -388,7 +398,7 @@ function TryFields() {
   const made = useMemo(() => {
     const read = readFields(form);
     if (!read.params) return { trace: null, error: read.problem };
-    return { trace: runFields(read.params), error: '' };
+    return { trace: typeset(runFields(read.params)), error: '' };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   const scene = useMemo(() => (made.trace ? fieldsScene(made.trace, narrow) : null), [made, narrow]);
@@ -615,7 +625,7 @@ function Break() {
   const params: MicroParams = { a: BREAK_A, b: BREAK_B };
   const healthy = useMemo(() => run(params).result, []);
   const broken = useMemo(() => rerun(params, fault.addr, fault.edit), [fault]);
-  // 改过的那一格在抽屉柜里标出来：P 字段在第 1 列，下地址在第 2 列。
+  // 改过的那一格在抽屉柜里标出来：P 字段在第 2 列，下地址在第 3 列（第 0 列是微地址）。
   const marked = useMemo(() => {
     const row = broken.trace?.initial.cm.findIndex((w) => w.addr === fault.addr) ?? -1;
     return row < 0 ? [] : [`${row}.${fault.id === 'next' ? 2 : 1}`];

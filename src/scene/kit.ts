@@ -23,7 +23,7 @@ import type { Run } from './rich';
 import { fonts, mix } from './theme';
 import type { Ink, Palette } from './theme';
 
-export type MatName = 'block' | 'plinth' | 'tile' | 'chip' | 'line' | 'accent' | 'pad' | Ink | `${Ink}Idle`;
+export type MatName = 'block' | 'plinth' | 'tile' | 'chip' | 'line' | 'accent' | 'ok' | 'bad' | 'pad' | Ink | `${Ink}Idle`;
 export type Mats = Record<MatName, MeshLambertMaterial> & { mark: MeshBasicMaterial; paper: MeshBasicMaterial };
 
 const inks: Ink[] = ['data', 'addr', 'ctrl'];
@@ -36,7 +36,7 @@ function matColor(palette: Palette, name: MatName): string {
 }
 
 export function makeMats(palette: Palette): Mats {
-  const names: MatName[] = ['block', 'plinth', 'tile', 'chip', 'line', 'accent', 'pad', ...inks, ...inks.map((ink) => `${ink}Idle` as const)];
+  const names: MatName[] = ['block', 'plinth', 'tile', 'chip', 'line', 'accent', 'ok', 'bad', 'pad', ...inks, ...inks.map((ink) => `${ink}Idle` as const)];
   const mats = {} as Mats;
   for (const name of names) mats[name] = new MeshLambertMaterial({ color: matColor(palette, name) });
   mats.mark = new MeshBasicMaterial({ color: palette.text });
@@ -151,7 +151,8 @@ const unitPlane = () => cached('plane', () => new PlaneGeometry(1, 1));
 
 // ---------- 文字 ----------
 
-export type TextTone = 'tileText' | 'chipText' | 'text' | 'muted' | 'accent' | 'accentOnTile' | Ink;
+/** ok、bad 是正确、错误（docs/DESIGN.md），旁边要配「对」「不对」或形状，不单靠颜色。 */
+export type TextTone = 'tileText' | 'chipText' | 'text' | 'muted' | 'accent' | 'accentOnTile' | 'ok' | 'bad' | Ink;
 
 export interface TextStyle {
   /** 字高，世界单位。 */

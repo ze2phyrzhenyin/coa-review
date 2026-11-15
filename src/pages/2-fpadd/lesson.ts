@@ -5,6 +5,7 @@ import { generate, run } from '../../engines/fpadd/model';
 import type { FpAddParams, FpAddState } from '../../engines/fpadd/model';
 import type { Ask, Step, Trace } from '../../engines/trace';
 import { BitsError } from '../../lib/bits';
+import { subTrace } from '../2-codes/sub';
 import { fpScene } from './scene';
 import type { FpScene } from './scene';
 
@@ -22,10 +23,22 @@ export function lesson(params: FpAddParams, compact = false, practice = false): 
 }
 
 /** 「变化」不列阶段名；补码写法的阶码只列码（真值写在牌上的括号里）。 */
-export function tidy<P>(trace: Trace<P, FpAddState>): Trace<P, FpAddState> {
+export function tidy<P>(raw: Trace<P, FpAddState>): Trace<P, FpAddState> {
+  // 带正号、负号的指数加括号，播放器才排成上标；负的尾数加括号。
+  const neat = (text: string) => text.replace(/2\^([+−-])(\d+)/g, (_m, sign: string, digits: string) => `2^(${sign === '-' ? '−' : sign}${digits})`).replace(/× -([\d.]+)/g, '× (−$1)');
+  const base = subTrace(raw, neat);
+  // 条件里的 x、y 照解题表的写法（阶码补足位数）。
+  const said = (who: string) => base.table.rows.find((row) => row.cells[3]?.startsWith(`${who} = `))?.cells[3]?.slice(who.length + 3);
+  const trace = { ...base, conditions: base.conditions.map((c) => (c.label === 'x' || c.label === 'y' ? { ...c, value: said(c.label) ?? c.value } : c)) };
   return {
     ...trace,
-    steps: trace.steps.map((step) => {
+    steps: trace.steps.map((step, i) => {
+      // 「哪个数右移」这道题出在求阶差之前：题面只给两个阶码，不提还没讲的 ΔE。
+      if (step.ask?.options?.includes('都不移')) {
+        const before = i > 0 ? trace.steps[i - 1]!.state : trace.initial;
+        const show = (e: string) => e.replace('-', '−');
+        step = { ...step, ask: { ...step.ask, prompt: `x 的阶码是 ${show(before.x.exp)}，y 的阶码是 ${show(before.y.exp)}。对阶时哪个数的尾数要右移` } };
+      }
       const codes = new Set(step.changes.filter((c) => c.at.endsWith('.expCode') && c.to !== '').map((c) => c.at.replace('.expCode', '')));
       return { ...step, changes: step.changes.filter((c) => c.at !== 'stage' && c.at !== 'diffCode' && !(c.at.endsWith('.exp') && codes.has(c.at.replace('.exp', '')))) };
     }),

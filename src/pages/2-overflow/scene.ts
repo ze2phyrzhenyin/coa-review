@@ -112,7 +112,8 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
     }
     const labelSize = compact ? 0.32 : 0.31;
     // 窄屏上行名只留方括号那一段（[x]、+[−y]），全名在条件和解题表里。
-    const shown = compact ? label.replace(/变补$/, '').replace(/\s+/g, '').replace('各位取反', '取反') : label;
+    // 结果行的 [x+y] 五个字符在手机上会伸出右缘，写成「和」「差」，全名在步骤标题里。
+    const shown = !compact ? label : key === 'sum' ? (subtract ? '差' : '和') : label.replace(/变补$/, '').replace(/\s+/g, '').replace('各位取反', '取反');
     parts.push({
       id: `label-${key}`,
       kind: 'label',
@@ -355,6 +356,8 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   }
   const frame = (step: Step<OverflowState>): string[] | null => {
     const written = step.changes.some((change) => change.at.startsWith('rows.sum.cells.') && change.from === '');
+    // 结论那一步：三个分区、落点和刻度盘一起看（手机上刻度盘在最前面，不能只露半个）。
+    if (step.changes.some((change) => change.at === 'conclusion')) return ['zone-neg', 'zone-ok', 'zone-pos', 'mark', 'dial'];
     if (!written || sumDone(step.state.rows.sum) === null) return null;
     return Array.from({ length: W }, (_, c) => `sum-${c + 1}`);
   };

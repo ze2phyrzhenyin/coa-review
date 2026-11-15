@@ -8,6 +8,9 @@ import { TraceBuilder } from '../../engines/trace';
 import type { Step, Trace } from '../../engines/trace';
 import { decode } from '../../lib/bits';
 import type { Binding, Move } from '../../scene';
+import type { Ask } from '../../engines/trace';
+import type { Breakage } from '../../player/Player';
+import { subScene, subTrace } from './code';
 import { mulScene } from './scene';
 
 export interface BreakState extends MulState {
@@ -81,7 +84,7 @@ export function breakTrace(which: number): Trace<MulParams, BreakState> {
     ref: '教材 p47–48',
     update: put(truth, { left: want, right: want, result: 'match' }, '0'),
   });
-  return builder.finish({ 结论: '补码不经求补器直接进阵列，积是错的' }, { columns: [], rows: [] });
+  return subTrace(builder.finish({ 结论: '补码不经求补器直接进阵列，积是错的' }, { columns: [], rows: [] }));
 }
 
 export function breakScene(trace: Trace<MulParams, BreakState>, compact: boolean) {
@@ -117,5 +120,17 @@ export function breakScene(trace: Trace<MulParams, BreakState>, compact: boolean
   const own: Record<string, string> = { 'check.left': '按补码读', 'check.right': 'x·y', 'check.result': '比较', broken: 'E 接 0' };
   const names = (path: string) => own[path] ?? base.names(path);
   const values = (path: string, value: string) => (path === 'check.result' ? (value === 'match' ? '相等' : value === 'mismatch' ? '不等' : value) : path === 'broken' ? (value === '1' ? '是' : '否') : base.values(path, value));
-  return { scene, bind, moves, names, values };
+  // 答错：把学生的判断演出来。两个数真的放到比较牌上，靠拢或者弹开。
+  const wrong = (_ask: Ask, value: string, _state: BreakState, next: Step<BreakState> | null): Breakage | null => {
+    if (!next) return null;
+    const { check, product } = next.state;
+    const patch = { cmp: { left: check.left, right: check.right, result: check.result, hidden: false }, res: { value: product } };
+    return {
+      label: '',
+      patch,
+      moves: [{ value: product, from: `p-${N}`, to: 'res', arc: true }, { value: check.left, from: 'res', to: 'cmp', arc: true, phase: 1 }],
+      message: value === '等于' ? `说它等于 x·y，就把两个数放到一起比：按补码读是 ${check.left}，x·y 是 ${check.right}，对不上，两张牌弹开。` : `把两个数放到一起比：按补码读是 ${check.left}，x·y 也是 ${check.right}，这一组碰巧相等。`,
+    };
+  };
+  return subScene<BreakState, { scene: typeof scene; bind: typeof bind; names: typeof names; wrong: typeof wrong; moves: typeof moves; values: typeof values }>({ scene, bind, moves, names, values, wrong });
 }

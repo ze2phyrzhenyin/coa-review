@@ -436,9 +436,10 @@ export const CACHE_CONCLUSION =
   '直接映射时块 j 只能放进行 j mod m；组相联时放进组 j mod u 里的任意一行，组里没有空行才替换。LRU 换出计数器最大的那一行，也就是最久没用到的；换出的块修改位是 1 时，先写回主存再调入新块。';
 export const CACHE_NEEDS = [{ href: '/3-cache-addr', text: '地址切成标记、行号（组号）、字地址' }];
 
-/** 计数器的加法规则是本站的约定：教材只说 LRU 换出最久没用的行。 */
+/** 计数规则教材有（p108）；本站自己定的只有两点：只加同组的行、调入也算用了一次（docs/DECISIONS.md D16）。 */
 export function cacheConvention(step: Step<State>): string | null {
-  return step.changes.some((change) => /^rows\.\d+\.count$/.test(change.at)) ? '计数器怎么变是本站的约定：被访问的行清零，同组其余有块的行加 1。教材只要求换出最久没用到的行（p108）。' : null;
+  if (!step.changes.some((change) => /^rows\.\d+\.count$/.test(change.at))) return null;
+  return 'LRU 的计数规则教材有，考试要会写：命中的行清零，其他各行加 1，换出计数值最大的行（p108）。本站另定了两点：只给同一组里有块的行加 1；块调入也算用了一次，调入的行清零。';
 }
 
 /** 常见错误，每条在场景里演一遍。块号、行号都取自这份 Trace。 */
@@ -448,7 +449,7 @@ export function cacheMistakes(trace: Trace<Params, State>): Mistake<State>[] {
   const out: Mistake<State>[] = [];
   const cellOf = (block: number) => `mem.${Math.floor(block / PER_LINE)}.${block % PER_LINE}`;
   // 1. 组相联按行数取模；直接映射忘了先除以块大小。
-  const located = steps.findIndex((step) => step.changes.some((change) => change.at === 'access.candidates') && step.state.access.block !== null);
+  const located = steps.findIndex((step) => step.changes.some((change) => change.at.startsWith('access.candidates')) && step.state.access.block !== null);
   if (located >= 0) {
     const a = steps[located]!.state.access;
     const j = a.block!;
@@ -479,7 +480,71 @@ export function cacheMistakes(trace: Trace<Params, State>): Mistake<State>[] {
       });
     }
   }
-  // 2. 换出时忘了写回。
+  // 块号直接当行号（组号），不取余。
+  const modulus = g.mapping === '直接' ? g.rows : g.sets;
+  const big = steps.findIndex((step) => step.changes.some((change) => change.at.startsWith('access.candidates')) && (step.state.access.block ?? 0) >= modulus);
+  if (g.mapping !== '全相联' && big >= 0) {
+    const a = steps[big]!.state.access;
+    const what = g.mapping === '直接' ? '行' : '组';
+    out.push({
+      text: `容易把块号直接当成${what}号，因为忘了取余`,
+      at: big + 1,
+      act: () => ({
+        label: '',
+        patch: { calcI: { text: `${what}号 = 块号 = ${a.block}？`, changed: true, hidden: false } },
+        moves: [],
+        message: `cache 只有 ${modulus} 个${what}，编号 0 到 ${modulus - 1}，没有第 ${a.block} ${what}。块号要对${what}数取余：${a.block} mod ${modulus} = ${a.index}，块 ${a.block} 归第 ${a.index} ${what}。`,
+      }),
+    });
+  }
+  // LRU 换出计数器最小的行（弄反了）。
+  const swap = steps.findIndex((step, i) => {
+    if (trace.params.replacement !== 'LRU' || !step.changes.some((change) => change.at === 'access.action') || step.state.access.action !== '替换') return false;
+    const before = (i > 0 ? steps[i - 1]!.state : trace.initial).rows;
+    const counts = step.state.access.candidates.map((k) => before[k]?.count ?? 0);
+    return step.state.access.candidates.length > 1 && Math.min(...counts) !== Math.max(...counts);
+  });
+  if (swap >= 0) {
+    const a = steps[swap]!.state.access;
+    out.push({
+      text: '容易换出计数器最小的行，因为把「最少使用」读成了「数最小」',
+      at: swap,
+      act: (state) => {
+        const least = [...a.candidates].sort((x, y) => (state.rows[x]?.count ?? 0) - (state.rows[y]?.count ?? 0))[0]!;
+        const kept = state.rows[least]?.block;
+        return {
+          label: '',
+          patch: { out: { value: `块 ${kept}` }, [`r${least}`]: { active: 0 } },
+          moves: [{ value: `块 ${kept}`, from: `r${least}`, to: 'out', via: [`bus-r${least}`, 'bus-out'] }],
+          message: `行 ${least} 的计数器是 ${state.rows[least]?.count}，最小，说明它刚用过。把它换出，丢掉的正是最近在用的块 ${kept}。LRU 换出计数器最大的行：行 ${a.row}，它最久没用到。`,
+        };
+      },
+    });
+  }
+  // 候选行里还有空行，却去替换。
+  const load = steps.findIndex((step, i) => {
+    if (!step.changes.some((change) => change.at === 'access.action') || step.state.access.action !== '调入') return false;
+    const before = (i > 0 ? steps[i - 1]!.state : trace.initial).rows;
+    return step.state.access.candidates.some((k) => before[k]?.block !== null && before[k]?.block !== undefined);
+  });
+  if (load >= 0) {
+    const a = steps[load]!.state.access;
+    out.push({
+      text: '容易在组里还有空行时就去替换，因为看到缺失就想到换出',
+      at: load,
+      act: (state) => {
+        const full = a.candidates.find((k) => state.rows[k]?.block !== null && state.rows[k]?.block !== undefined)!;
+        const kept = state.rows[full]?.block;
+        return {
+          label: '',
+          patch: { out: { value: `块 ${kept}` }, [`r${full}`]: { active: 0 } },
+          moves: [{ value: `块 ${kept}`, from: `r${full}`, to: 'out', via: [`bus-r${full}`, 'bus-out'] }],
+          message: `行 ${a.row} 还空着，块 ${a.block} 直接放进去就行。这时把行 ${full} 里的块 ${kept} 换出，下次再访问它又要缺失一次。候选行都占满了才替换。`,
+        };
+      },
+    });
+  }
+  // 换出时忘了写回。
   const back = steps.findIndex((step) => step.state.access.writeBack && step.changes.some((change) => change.at === 'access.writeBack'));
   if (back >= 0) {
     const a = steps[back]!.state.access;

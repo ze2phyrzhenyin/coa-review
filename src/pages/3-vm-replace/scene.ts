@@ -29,7 +29,9 @@ export function filledColumns(trace: Trace<Params, State>, index: number): numbe
   const step = index > 0 ? trace.steps[index - 1] : null;
   if (!step) return 0;
   const n = step.state.current.n;
-  return step.level === 'access' ? n : n - 1;
+  // 比较步（刚换了访问页，这一列还没填）才少一列；页面加的最后一步「命中率」不改状态，各列都在。
+  const comparing = step.level !== 'access' && step.changes.some((change) => change.at === 'current.n' || change.at === 'current.page' || change.at === 'current.hit');
+  return comparing ? n - 1 : n;
 }
 
 /** 引擎解题表里第 k 列（从 0 起）在第 r 行的格子。 */
@@ -59,8 +61,9 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
       title: '列表',
       props: {
         name: '页面访问序列',
-        columns: pages.map((p) => ({ title: String(p), width: colW })),
-        rows: Array.from({ length: n + 1 }, () => pages.map(() => '')),
+        // 宽屏照例 3.11 在最右加一列「命中率」；手机上放不下，改成表下面的一块牌。
+        columns: [...pages.map((p) => ({ title: String(p), width: colW })), ...(narrow ? [] : [{ title: '命中率', width: 2.3 }])],
+        rows: Array.from({ length: n + 1 }, () => [...pages.map(() => ''), ...(narrow ? [] : [''])]),
         labels: [...Array.from({ length: n }, (_, i) => slot(i)), narrow ? '命中' : ''],
       },
     },
@@ -83,6 +86,7 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
     { id: 'hit', kind: 'label', position: at([2.4, 2.7], [-1.2, 3.9]), props: { text: '命中 0', plate: true, size: 0.36, weight: 600, mono: true }, pick: true, title: '命中' },
     { id: 'miss', kind: 'label', position: at([4.4, 2.7], [1.2, 3.9]), props: { text: '缺页 0', plate: true, size: 0.36, weight: 600, mono: true }, pick: true, title: '缺页' },
   ];
+  if (narrow) parts.push({ id: 'ratio', kind: 'label', position: [0, 5.4], props: { text: '', plate: true, size: 0.36, weight: 600, mono: true } });
   // 传送带自己只在两端写 a 和最后一格的字母；中间几格补上，和表的行名对得上。
   const convAt = parts.find((part) => part.id === 'conv')!.position;
   for (let k = 1; k < n - 1; k++) {
@@ -102,9 +106,12 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
     tbl: {
       rows: from<State>(['frames', 'current.n'], (c) => {
         const k = filledColumns(trace, c.index);
-        return Array.from({ length: n + 1 }, (_, r) => pages.map((_, col) => (col < k ? mark(cellOf(sheet, r, col)) : '')));
+        // 最后一格是命中率：全部列填完、到了「命中率」那一步才写（引擎的表里它在 a 行最后一格）。
+        const ratio = isTail(c) ? (sheet.rows[0]?.cells[count + 1] ?? '') : '';
+        return Array.from({ length: n + 1 }, (_, r) => [...pages.map((_, col) => (col < k ? mark(cellOf(sheet, r, col)) : '')), ...(narrow ? [] : [r === 0 ? ratio : ''])]);
       }),
       changedCells: from<State>(['frames'], (c) => {
+        if (isTail(c)) return narrow ? [] : [`0.${count}`];
         if (!c.step || c.step.level !== 'access') return [];
         const col = c.state.current.n - 1;
         return Array.from({ length: n + 1 }, (_, r) => `${r}.${col}`).filter((cell) => {
@@ -134,6 +141,7 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
       result: from<State>(['current.hit'], (c) => (c.state.current.hit === null ? '' : c.state.current.hit ? 'match' : 'mismatch')),
       hidden: (c: BindContext<State>) => !comparing(c),
     },
+    ...(narrow ? { ratio: { text: (c: BindContext<State>) => (isTail(c) ? `命中率 ${sheet.rows[0]?.cells[count + 1] ?? ''}` : ''), hidden: (c: BindContext<State>) => !isTail(c) } } : {}),
     hit: { text: from<State>(['hits'], (c) => `命中 ${c.state.hits}`) },
     miss: { text: from<State>(['faults'], (c) => `缺页 ${c.state.faults}`) },
   };
@@ -167,7 +175,7 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
   const frame = (step: Step<State>): string[] | null => {
     if (step.state.current.n === 0) return null;
     // 手机上每一步看同一片：表、传送带、访问页和淘汰，镜头不来回跑。装不下时看传送带（放在最后）。
-    if (narrow) return ['cur', 'tbl', 'conv'];
+    if (narrow) return step.changes.length === 0 ? ['hit', 'miss', 'ratio'] : ['cur', 'tbl', 'conv'];
     if (step.level === 'access') return ['tbl', 'conv'];
     return step.state.current.n <= count && step.title.startsWith('第') ? ['conv', 'cur', 'cmp'] : null;
   };
@@ -178,8 +186,12 @@ export function replaceStage(trace: Trace<Params, State>, narrow: boolean, sheet
 export function polish(trace: Trace<Params, State>): Trace<Params, State> {
   const last = trace.steps[trace.steps.length - 1];
   // 出题时台面上的「访问页」还是上一页，题面里写明问的是哪一页。答案不变，仍是引擎给的。
-  const steps = trace.steps.map((step) => {
+  const steps = trace.steps.map((raw) => {
+    let step = raw;
     const page = step.state.current.page;
+    // 命中的页已经在最下一格时，引擎那句「x 以下的页不动」没有所指，去掉。
+    const bottom = slot(trace.params.frames - 1);
+    if (step.why.includes(`${bottom} 以下的页不动。`)) step = { ...step, why: step.why.replace(`${bottom} 以下的页不动。`, '') };
     if (!step.ask || page === null) return step;
     const prompt = step.ask.prompt === '命中吗' ? `访问页 ${page}，命中吗` : `页 ${page} 命中后，a 格是哪一页`;
     return { ...step, ask: { ...step.ask, prompt } };

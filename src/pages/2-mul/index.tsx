@@ -9,7 +9,7 @@ import { formatValue, fromUnsigned, parseValue } from '../../lib/bits';
 import { Player } from '../../player/Player';
 import { Rich } from '../../player/Rich';
 import { BreakIt } from './BreakIt';
-import { EXAMPLES, MUL_CONCLUSION, MUL_NEEDS, MUL_QUESTION, exampleParams, lesson } from './lesson';
+import { EXAMPLES, MUL_CONCLUSION, MUL_NEEDS, MUL_QUESTION, MUL_QUESTION_SIGN, exampleParams, lesson, sub } from './lesson';
 import { Paper } from './Paper';
 import './mul.css';
 
@@ -73,7 +73,8 @@ function Learn() {
   const narrow = useNarrow();
   const made = useMemo(() => lesson(exampleParams(index), narrow), [index, narrow]);
   const signed = EXAMPLES[index]!.mode !== '无符号';
-  const question = signed ? { text: MUL_QUESTION, at: ['cx', 'cy', 'sx', 'sy'] } : { text: '阵列本身只做无符号乘法：位积怎么排，进位往哪走', at: ['fa-0-0', 'pp-0-0'] };
+  const at = made.ok ? made.top : [];
+  const question = signed ? { text: EXAMPLES[index]!.mode === '原码' ? MUL_QUESTION_SIGN : MUL_QUESTION, at } : { text: '阵列本身只做无符号乘法：位积怎么排，进位往哪走', at };
   return (
     <>
       <div class="seg is-mono mul-examples" role="group" aria-label="例题">
@@ -215,7 +216,9 @@ function Try() {
         <>
           <dl class="mul-result">
             <div>
-              <dt>{signed ? (mode === '原码' ? '[x×y]原' : '[x·y]补') : 'P'}</dt>
+              <dt>
+                <Rich text={sub(signed ? (mode === '原码' ? '[x×y]原' : '[x·y]补') : 'P')} />
+              </dt>
               <dd>{result['乘积']}</dd>
             </div>
             <div>
@@ -246,7 +249,7 @@ function Try() {
         </>
       ) : (
         <p class="field-error" role="alert">
-          {made.ok ? '' : made.error}
+          {made.ok ? '' : <Rich text={sub(made.error).replace('2^2n', '2^(2n)')} />}
         </p>
       )}
     </>

@@ -412,6 +412,8 @@ export function machineWrong(trace: Trace<Params, State>) {
 export function machineFrame(step: Step<State>): string[] | null {
   const changed = (path: string) => step.changes.some((change) => change.at === path || change.at.startsWith(`${path}.`));
   // 标志存进 PSWR：停在 ALU 和 PSWR 上（DR 收到结果时镜头已经跟着值去过）。
+  // DBUS 上的数打入 DR：这是这条指令在 DBUS 上送数的落点，停在 DR 上（标志进 PSWR 时镜头跟过去再回来）。
+  if (changed('reg.DR') && step.state.reg.DR !== null) return ['DR'];
   if (changed('reg.PSWR')) return ['ALU', 'PSWR'];
   // DR 打入通用寄存器：DR 和接收的寄存器一起看。
   const into = GENERAL_REGISTERS.find((r) => changed(`reg.${r}`));

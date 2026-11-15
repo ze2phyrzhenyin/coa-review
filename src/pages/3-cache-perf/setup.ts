@@ -77,8 +77,17 @@ export function inputOf(params: Params): TryInput {
   return out;
 }
 
-/** 练习：引擎按种子出题（四种问法轮着出）。 */
-export const quizParams = (seed: number): Params => generate(seed);
+/**
+ * 练习：引擎按种子出题，只出讲解里教过的三种（正向、由 t_a 求 h、由 e 求 h）。
+ * 二级 cache 的 CPI 讲解没有例题，留在试一试和 3-cache-l2 页，不进练习。同一个题号总是同一道题。
+ */
+export function quizParams(seed: number): Params {
+  for (let k = 0; k < 60; k++) {
+    const params = generate(seed + 7919 * k);
+    if (params.kind !== '二级cache') return params;
+  }
+  return { kind: '正向', nc: 4750, nm: 250, tc: 20, tm: 120 };
+}
 
 /** 学生写的数：e 和缺失率可以写百分数，其余写小数；可以带单位。 */
 function read(key: string, text: string): number | null {
