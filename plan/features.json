@@ -25,15 +25,15 @@
       "id": "2-codes",
       "title": "−128 为什么只有补码，补码和移码差在哪",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "2-overflow",
       "title": "01 和 10 哪个是正溢，进位丢掉算不算溢出",
       "batch": "sample",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "2-negate",
@@ -46,8 +46,8 @@
       "id": "2-ieee",
       "title": "隐藏的 1 去哪了，E 加 127 还是 128",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "2-range",
@@ -95,8 +95,8 @@
       "id": "2-fpadd",
       "title": "对阶移谁，规格化往哪边移",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "2-fpmul",
@@ -123,8 +123,8 @@
       "id": "3-decode",
       "title": "ROM、RAM 各占一段地址，译码器接哪几根线",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "3-endian",
@@ -158,15 +158,15 @@
       "id": "3-cache-run",
       "title": "主存块落到哪一行，为什么被换出",
       "batch": "sample",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "3-cache-perf",
       "title": "h、ta、e、r 怎么互相求",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "3-cache-write",
@@ -200,8 +200,8 @@
       "id": "3-vm-replace",
       "title": "FIFO 和 FIFO+LRU 的表每一列怎么填",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "3-miss-combo",
@@ -214,8 +214,8 @@
       "id": "4-opcode",
       "title": "扩展操作码到底留几个码",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "4-format",
@@ -305,22 +305,22 @@
       "id": "5-spacetime",
       "title": "时空图怎么画，周期数怎么数",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "5-hazard",
       "title": "RAW、WAR、WAW 怎么分",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "5-stall",
       "title": "相关之后停几拍，定向以后呢",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "5-superscalar",
@@ -333,8 +333,8 @@
       "id": "6-arbiter",
       "title": "链式查询为什么离仲裁器近的优先",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "6-timing",
@@ -361,15 +361,15 @@
       "id": "8-intr",
       "title": "关中断、保存断点、保存现场，谁做、先后是什么",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "8-mask",
       "title": "改屏蔽字为什么能改处理次序",
       "batch": "first",
-      "passes": false,
-      "evidence": "evals/look/final-parity.md"
+      "passes": true,
+      "evidence": "evals/look/final-recheck.md"
     },
     {
       "id": "8-im",

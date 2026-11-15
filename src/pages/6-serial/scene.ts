@@ -193,7 +193,8 @@ function frameStage(trace: Trace<Params, State>, p: FrameParams, narrow: boolean
   const frame = (step: Step<State>): string[] | null => {
     if (step.level !== 'beat') return null;
     const k = (step.state as FrameState).line.length - 1;
-    return ['wave', ...(k >= 1 && k <= p.dataBits ? [`c-${k - 1}`] : [])];
+    // 波形下面那一排位名也要在画面里。
+    return [...(k >= 1 && k <= p.dataBits ? [`c-${k - 1}`] : []), `n-${Math.max(0, k)}`, 'wave'];
   };
 
   const wrong = (ask: Ask, value: string, state: State): Breakage | null => {

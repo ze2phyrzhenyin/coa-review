@@ -204,10 +204,24 @@ export function flowMoves(L: Linked) {
 }
 
 /** 画方框的那一步看方框和模型机里动的部件；译码、「～」只看方框图。 */
-export function flowFrame(L: Linked, narrow: boolean) {
+/** 手机上「看模型机」：这一步（画到第几个方框）模型机里收值的部件，前面带上操作控制器；装不下两块时只看收值的那块。 */
+function machineFrame(L: Linked, s: FlowState): string[] | null {
+  const k = s.boxes.length - 1;
+  const cycle = L.cycles[k];
+  if (!cycle) return null;
+  const planned = L.cycleMoves(cycle);
+  const last = Math.max(0, ...planned.map((m) => m.phase ?? 0));
+  const targets = [...new Set(planned.filter((m) => (m.phase ?? 0) === last && (m.shape ?? 'card') === 'card').map((m) => m.to.split('.')[0]!))];
+  // 操作控制器只和后排的寄存器装得进一屏；收值的在前排（DR、R0–R3、PSWR）时只看它们，信号在舞台上方那行读数里。
+  const near = targets.every((id) => ['IR', 'PC', 'AR', 'DECODER'].includes(id));
+  return targets.length ? (near ? ['OC', ...targets] : targets) : ['OC'];
+}
+
+export function flowFrame(L: Linked, narrow: boolean, machine = false) {
   return (step: Step<FlowState>): string[] | null => {
     // 宽屏每一步都看整张台面：方框图一排和整台模型机。
     if (!narrow) return ['BOX_0', 'BOX_1', 'DMEM', 'DR', 'R0', 'ALU', 'PSWR'].slice();
+    if (machine) return machineFrame(L, step.state);
     // 手机上装不下整张台面：每一步停在正在画的方框上（值走的时候镜头会跟到模型机里，再回来）。
     if (step.level === 'cycle') return [`BOX_${step.state.boxes[step.state.boxes.length - 1]!.m - 1}`];
     // 菱形和它分出的各支挨在一起；「～」单独看（它和最后一个方框在手机上装不进一屏）。
@@ -224,11 +238,12 @@ export function flowCaption(L: Linked) {
 /** 「哪一拍」的题看候选牌；「几个方框」的题看刚画完的那个方框。 */
 const WIDE_FRAME = ['BOX_0', 'BOX_1', 'DMEM', 'DR', 'R0', 'ALU', 'PSWR'];
 
-export function flowAskFrame(L: Linked, narrow: boolean) {
+export function flowAskFrame(L: Linked, narrow: boolean, machine = false) {
   return (ask: { kind: string }, index: number): string[] => {
     if (!narrow) return WIDE_FRAME;
     if (ask.kind === 'choice') return BEATS.map((_, i) => `CHIP_${i}`);
     const s = index > 0 ? L.flow.steps[index - 1]!.state : L.flow.initial;
+    if (machine) return machineFrame(L, s) ?? [];
     const last = s.boxes[s.boxes.length - 1];
     return last ? [`BOX_${last.m - 1}`] : [];
   };
