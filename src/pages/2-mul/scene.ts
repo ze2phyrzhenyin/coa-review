@@ -52,11 +52,12 @@ export interface MulGeometry {
 }
 
 export function geometry(n: number, signed: boolean, compact: boolean): MulGeometry {
-  const P = compact ? 0.7 : 0.76;
+  // 窄屏：格距收到位格刚好不相碰，行名贴着每行最左一格放，整张台面在 390 宽、12 像素字下装得下。
+  const P = compact ? 0.64 : 0.76;
   const W = 2 * n;
   const colX = (w: number) => ((W - 1) / 2 - w) * P;
-  const signX = colX(W - 1) - P - 0.3;
-  const labelRight = (signed ? signX : colX(W - 1)) - P / 2 - 0.25;
+  const signX = colX(W - 1) - P - (compact ? 0.12 : 0.3);
+  const labelRight = (signed ? signX : colX(W - 1)) - P / 2 - (compact ? 0.12 : 0.25);
   return { P, colX, signX, labelRight };
 }
 
@@ -96,13 +97,16 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
       describe: (p: Patch) => `${title}：${String(p.bits ?? '').trim() || '空'}`,
       ...extra,
     } as PartSpec);
-  const label = (id: string, text: string, z: number, size = 0.34) => {
-    parts.push({ id, kind: 'label', position: [labelRight - textWidth(text, size) / 2, z], props: { text, size, tone: 'text', weight: 600 } });
+  const LS = compact ? 0.31 : 0.34;
+  /** 行名的右边界：宽屏是固定的一列；窄屏贴着这一行最左一格（最高权 top 那一列）。 */
+  const rightOf = (top: number | null) => (compact && top !== null ? colX(top) - P / 2 - 0.12 : labelRight);
+  const label = (id: string, text: string, z: number, top: number | null = null, size = LS) => {
+    parts.push({ id, kind: 'label', position: [rightOf(top) - textWidth(text, size) / 2, z], props: { text, size, tone: 'text', weight: 600 } });
   };
 
   // 列头。
-  for (let w = 0; w < W; w++) parts.push({ id: `head-${w}`, kind: 'label', position: [colX(w), -0.85], props: { text: `2^${w}`, size: 0.34, tone: 'muted' } });
-  if (signed) parts.push({ id: 'head-s', kind: 'label', position: [signX, -0.85], props: { text: '符号', size: 0.34, tone: 'muted' } });
+  for (let w = 0; w < W; w++) parts.push({ id: `head-${w}`, kind: 'label', position: [colX(w), -0.85], props: { text: `2^${w}`, size: LS, tone: 'muted' } });
+  if (signed) parts.push({ id: 'head-s', kind: 'label', position: [signX, -0.85], props: { text: '符号', size: LS, tone: 'muted' } });
 
   // |x|、|y|：带符号时，写出 [x] 以后先显示它的数值位，过算前求补器时就地翻成绝对值，翻过的位是强调色。
   const operandRow = (key: 'a' | 'b', machine: 'x' | 'y', z: number) => {
@@ -127,13 +131,13 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
     cell('sy', signX, zB, 'y 的符号位 y_f');
     table.sx = { bits: from('sign.xf', (c) => c.state.sign?.xf || ' ') };
     table.sy = { bits: from('sign.yf', (c) => c.state.sign?.yf || ' ') };
-    parts.push({ id: 'l-a', kind: 'label', position: [labelRight - 0.35, 0], props: { text: '', size: 0.34, weight: 600 } });
-    parts.push({ id: 'l-b', kind: 'label', position: [labelRight - 0.42, zB], props: { text: '', size: 0.34, weight: 600 } });
+    parts.push({ id: 'l-a', kind: 'label', position: [labelRight - (compact ? 0.4 : 0.35), 0], props: { text: '', size: LS, weight: 600 } });
+    parts.push({ id: 'l-b', kind: 'label', position: [labelRight - (compact ? 0.5 : 0.42), zB], props: { text: '', size: LS, weight: 600 } });
     table['l-a'] = { text: from('a', (c) => (c.state.a ? '|x|' : `[x]${code}`)) };
     table['l-b'] = { text: from('b', (c) => (c.state.b ? '× |y|' : `× [y]${code}`)) };
   } else {
-    label('l-a', 'A', 0);
-    label('l-b', '× B', zB);
+    label('l-a', 'A', 0, n - 1);
+    label('l-b', '× B', zB, n - 1);
   }
 
   // 求补器：牌上写 E 和它做了什么。
@@ -159,7 +163,7 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
       table[id] = { bits: from(`products.${j}.${i}`, (c) => c.state.products[j]?.[i] || ' ') };
     }
     const text = `b_${j}`;
-    parts.push({ id: `l-pp-${j}`, kind: 'label', position: [labelRight - textWidth(`${text} = 1`, 0.34) / 2, z], props: { text, size: 0.34, tone: 'muted' } });
+    parts.push({ id: `l-pp-${j}`, kind: 'label', position: [rightOf(j + n - 1) - textWidth(`${text} = 1`, LS) / 2, z], props: { text, size: LS, tone: 'muted' } });
     table[`l-pp-${j}`] = { text: (c) => (c.state.b ? `b_${j} = ${c.state.b.charAt(n - 1 - j)}` : text) };
   }
 
@@ -179,7 +183,7 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
         hidden: from(`rows.${r}.${k}.carry`, (c) => !c.state.rows[r]?.[k]?.carry),
       };
     }
-    label(`l-fa-${r}`, `第 ${r + 1} 行`, z);
+    label(`l-fa-${r}`, `第 ${r + 1} 行`, z, r + n - 1);
   }
 
   // 积：p_k 在 2^k 那一列；带符号时符号位 p_2n 在左边单独一列，算后求补器在右边，就地翻位。
@@ -194,7 +198,7 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
         }
       : { bits: from(`p.${k}`, (c) => c.state.p[k] || ' ') };
   }
-  label('l-p', signed ? '积' : 'P', zP);
+  label('l-p', signed ? '积' : 'P', zP, signed ? null : W - 1);
   if (signed) {
     cell('sp', signX, zP, `积的符号位 p_${W}`);
     table.sp = { bits: from('sign.pf', (c) => c.state.sign?.pf || ' ') };
@@ -228,6 +232,27 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
   parts.push({ id: 'tm', kind: 'register', position: [tmX, compact ? zRes + 1.65 : zRes], props: { name: '乘法时间 t_m', value: '', width: tmW } });
   table.tm = { value: from('delay', (c) => c.state.delay.replace(/^\(8n−4\)T = /, '')) };
 
+  // 窄屏：每一行左右两头各放一个不写字的占位，镜头看某几行时把它们一起装进画面，
+  // 整行连同左边的行名、符号位都在画面里，不会被左右缘切掉。
+  const rowZ: Record<string, number> = { a: 0, b: zB, p: zP };
+  for (let j = 0; j < n; j++) rowZ[`pp${j}`] = zPP + j * R;
+  for (let r = 0; r < n; r++) rowZ[`fa${r}`] = zRow(r);
+  if (compact) {
+    for (const [key, z] of Object.entries(rowZ)) {
+      parts.push({ id: `eL-${key}`, kind: 'label', position: [labelRight - 0.65, z], props: { text: '' } });
+      parts.push({ id: `eR-${key}`, kind: 'label', position: [colX(0), z], props: { text: '' } });
+    }
+  }
+  const rowKey = (id: string): string | null => {
+    const m = /^(a|b|p|pp|fa|c)-(\d+)/.exec(id);
+    if (m) return m[1] === 'pp' ? `pp${m[2]}` : m[1] === 'fa' || m[1] === 'c' ? `fa${m[2]}` : m[1]!;
+    return id === 'sx' || id === 'cx' ? 'a' : id === 'sy' || id === 'cy' ? 'b' : id === 'sp' ? 'p' : null;
+  };
+  const widen = (ids: string[] | null): string[] | null => {
+    if (!compact || !ids) return ids;
+    const keys = new Set(ids.map(rowKey).filter((key): key is string => !!key && key in rowZ));
+    return [...ids, ...[...keys].flatMap((key) => [`eL-${key}`, `eR-${key}`])];
+  };
   const scene: SceneSpec = { parts, wires: [], kinds: () => import('./parts') };
   const bind = bindTable<MulState>(table) as unknown as Binding<S>;
 
@@ -275,10 +300,11 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
   };
 
   const rowsOf = (prefix: string, count: number) => Array.from({ length: count }, (_, i) => `${prefix}-${i}`);
-  const frame = (step: Step<S>): string[] | null => {
+  const frameOf = (step: Step<S>): string[] | null => {
     // 开头几步都看 |x|、|y| 两行连同列头；窄屏上整两行装得进画面，不会切掉低位两列。
     const top = [...rowsOf('a', n), ...rowsOf('b', n), ...Array.from({ length: n }, (_, w) => `head-${w}`), ...(signed ? ['sx', 'sy', 'cx', 'cy', 'head-s'] : []), 'l-a', 'l-b'];
-    if (has(step, 'x') || has(step, 'pre.x.e') || has(step, 'pre.y.e')) return top;
+    // 窄屏上算符号位那一步也停在这两行：符号落到积那一行时镜头跟过去再回来。
+    if (has(step, 'x') || has(step, 'pre.x.e') || has(step, 'pre.y.e') || (compact && has(step, 'sign.pf'))) return top;
     if (has(step, 'post.e')) return [...rowsOf('p', W), 'sp', 'cp'];
     if (has(step, 'product')) return [...rowsOf('p', W), 'res', 'dec', ...(signed ? ['sp'] : [])];
     if (has(step, 'delay') && compact) return ['tm', 'res', ...rowsOf(`fa-${n - 1}`, n - 1)];
@@ -290,13 +316,22 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
     return null;
   };
 
+  const frame = (step: Step<S>): string[] | null => {
+    const chosen = frameOf(step);
+    if (chosen || !compact) return widen(chosen);
+    // 窄屏上行波进位的每一步：看最后一行全加器和积那一行。
+    for (let k = 0; k < n - 1; k++) if (has(step, `rows.${n - 1}.${k}.sum`)) return widen([...rowsOf(`fa-${n - 1}`, n - 1), ...rowsOf('p', W)]);
+    return null;
+  };
   const flipPart = (_ask: Ask, index: number): string | null => (index === askP1 ? 'p-1' : index === askTop ? `p-${W - 1}` : null);
-  const askFrame = (_ask: Ask, index: number): string[] => {
+  const askFrameOf = (_ask: Ask, index: number): string[] => {
     if (index === askP1) return ['pp-0-1', 'pp-1-0', 'fa-0-0', 'p-1', 'p-0'];
     if (index === askTop) return [`fa-${n - 1}-${n - 2}`, `c-${n - 2}-${n - 2}`, `c-${n - 1}-${n - 3 < 0 ? 0 : n - 3}`, `p-${W - 1}`, `p-${W - 2}`];
     if (index === askPost) return ['sp', 'cp', 'sw-1', 'sw-0', `p-${n}`];
     return [];
   };
+
+  const askFrame = (ask: Ask, index: number): string[] => widen(askFrameOf(ask, index)) ?? [];
 
   const counted = (path: string): string => {
     const m = /^rows\.(\d+)\.(\d+)(?:\.(\w+))?$/.exec(path);
@@ -450,7 +485,7 @@ export function mulScene<S extends MulState>(trace: Trace<MulParams, S>, compact
     return null;
   };
 
-  return { scene, bind, moves, names, values, flipPart, wrong, askFrame, frame, mistakes, convention, top: [...rowsOf('a', n), ...rowsOf('b', n), ...(signed ? ['sx', 'sy', 'cx', 'cy'] : [])] };
+  return { scene, bind, moves, names, values, flipPart, wrong, askFrame, frame, mistakes, convention, top: [...rowsOf('a', n), ...rowsOf('b', n), ...(signed ? ['sx', 'sy', 'cx', 'cy'] : []), 'l-a', 'l-b'] };
 }
 
 export { minus };

@@ -5,7 +5,7 @@ import type { FlowParams } from '../../engines/hardwired/flow';
 import { Player } from '../../player/Player';
 import { Rich } from '../../player/Rich';
 import './flow.css';
-import { FLOW_CONCLUSION, FLOW_NEEDS, FLOW_QUESTION, flowAskFrame, flowBind, flowBreak, flowCaption, flowFrame, flowMistakes, flowMoves, flowNames, flowScene, flowValues, flowWrong, link } from './scene';
+import { FLOW_CONCLUSION, FLOW_NEEDS, flowQuestion, flowAskFrame, flowBind, flowBreak, flowCaption, flowFrame, flowMistakes, flowMoves, flowNames, flowScene, flowValues, flowWrong, link } from './scene';
 
 /** 一份参数 → 方框图的 Trace、配套的模型机 Trace 和台面。 */
 export function FlowPlayer({ params, lesson }: { params: FlowParams; lesson: boolean }) {
@@ -39,10 +39,10 @@ export function FlowPlayer({ params, lesson }: { params: FlowParams; lesson: boo
       values={made.values}
       caption={made.caption}
       frame={made.frame}
-      askFrame={flowAskFrame()}
+      askFrame={flowAskFrame(made.L, narrow)}
       onWrong={made.wrong}
       breakIt={made.breakIt}
-      {...(lesson ? { question: FLOW_QUESTION, conclusion: FLOW_CONCLUSION, needs: FLOW_NEEDS, mistakes: made.mistakes } : {})}
+      {...(lesson ? { question: flowQuestion(narrow), conclusion: FLOW_CONCLUSION, needs: FLOW_NEEDS, mistakes: made.mistakes } : {})}
     />
     </div>
   );

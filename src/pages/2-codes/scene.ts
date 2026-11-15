@@ -79,7 +79,7 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
   const blank = ' '.repeat(n + 1);
   const R = 1.3;
   // 宽屏：原 左上，反 右上，补 右下，移 左下。窄屏：一列。
-  const COL = Math.max(3.3, (n + 1) * 0.28 + 1.6);
+  const COL = Math.max(3.9, (n + 1) * 0.28 + 1.9);
   const cells: Record<Code, [number, number]> = compact
     ? { 原码: [0, 0], 反码: [0, 6.0], 补码: [0, 12.0], 移码: [0, 18.0] }
     : { 原码: [-COL, 0], 反码: [COL, 0], 补码: [COL, 5.1], 移码: [-COL, 5.1] };
@@ -165,7 +165,7 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
   /** 学生写的位串放到这种码的盘上：指针指过去，读数写出它其实是多少。 */
   const onRing = (code: Code, bits: string, note: string): Breakage['patch'] => ({
     [`bits-${code}`]: { bits },
-    [`ring-${code}`]: { pointer: parseInt(bits, 2), ghost: -1, empty: '', reading: `${compact ? (note.includes('是') ? '是 ' : '指 ') : note}${readOn(code, bits, n, notation)}` },
+    [`ring-${code}`]: { pointer: parseInt(bits, 2), ghost: -1, empty: '', reading: `${note.includes('是') ? '是 ' : '指 '}${readOn(code, bits, n, notation)}` },
   });
 
   const wrong = (ask: Ask, value: string, state: CodesState, next: Step<CodesState> | null): Breakage | null => {
@@ -197,7 +197,7 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
     if (ask.answer === '一种' && value === '两种') {
       return {
         label: '',
-        patch: { [`ring-${code}`]: { ghost: half, reading: `${compact ? '' : '1 后面全 0 '}是 ${readOn(code, fromUnsigned(half, n + 1), n, notation)}` } },
+        patch: { [`ring-${code}`]: { ghost: half, reading: `是 ${readOn(code, fromUnsigned(half, n + 1), n, notation)}` } },
         moves: [{ value: show(code, fromUnsigned(half, n + 1)), from: `bits-${code}`, to: `ring-${code}`, arc: true }],
         message: `补码盘上 1 后面全 0 那一格读成 ${readOn(code, fromUnsigned(half, n + 1), n, notation)}，不是 −0。−0 的反码加 1，进位出了符号位按模丢掉，落回 0 那一格。`,
       };
@@ -256,7 +256,7 @@ export function codesScene(trace: Trace<CodesParams, CodesState>, compact = fals
       at: stepOf('补码'),
       act: () => ({
         label: '',
-        patch: { 'ring-补码': { ghost: half, reading: `${compact ? '' : '1 后面全 0 '}是 ${readOn('补码', fromUnsigned(half, n + 1), n, notation)}` } },
+        patch: { 'ring-补码': { ghost: half, reading: `是 ${readOn('补码', fromUnsigned(half, n + 1), n, notation)}` } },
         moves: [{ value: show('补码', fromUnsigned(half, n + 1)), from: 'bits-补码', to: 'ring-补码', arc: true }],
         message: `补码盘上 1 后面全 0 那一格已经给了 ${readOn('补码', fromUnsigned(half, n + 1), n, notation)}。补码一圈 ${size} 格，${size} 个不同的数，没有哪一格是 −0。`,
       }),

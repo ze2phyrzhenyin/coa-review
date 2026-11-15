@@ -202,7 +202,8 @@ export function overflowScene(trace: Trace<OverflowParams, OverflowState>, solut
   const sumDone = (row: { cells: string[] } | null | undefined): number | null => (row && /^[01]$/.test(row.cells[1] ?? '') ? single(row) : null);
   const R = compact ? 1.45 : 1.6;
   const dialX = compact ? 0 : span / 2 + R + 2.3;
-  const dialZ = compact ? zLine + 3.9 : (rz(keys[0]!) + zSum) / 2;
+  // 窄屏上刻度盘在结果落点的前面，离得够远：落点的牌不压到盘后面的名牌。
+  const dialZ = compact ? zLine + 4.7 : (rz(keys[0]!) + zSum) / 2;
   parts.push({
     id: 'dial',
     kind: 'dial',

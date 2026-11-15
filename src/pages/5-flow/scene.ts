@@ -75,7 +75,12 @@ function cpuAt(L: Linked, s: FlowState): { state: CpuState; step: Step<CpuState>
 }
 
 /** 一个方框三行：框里的操作（几条并排写，分号隔开，同图 5.15）、电位信号、脉冲信号。 */
-const boxRows = (ops: string[], level: string[], pulse: string[]): string[][] => [[ops.map((op) => op.split('，')[0]!).join('；').replace(/IR\(地址码\)/g, 'IR')], [level.join('，')], [pulse.join('，')]];
+const boxRows = (ops: string[], level: string[], pulse: string[]): string[][] => {
+  // 「R0、R1→ALU；ALU→DBUS」连着写成「R0、R1→ALU→DBUS」，一行放得下。
+  const short = ops.map((op) => op.split('，')[0]!.replace(/IR\(地址码\)/g, 'IR'));
+  const joined = short.join('；').replace(/→ALU；ALU→/g, '→ALU→');
+  return [[joined], [level.join('，')], [pulse.join('，')]];
+};
 
 export function flowScene(L: Linked): SceneSpec {
   const machine = machineScene(L.cpu);
@@ -200,18 +205,14 @@ export function flowMoves(L: Linked) {
 
 /** 画方框的那一步看方框和模型机里动的部件；译码、「～」只看方框图。 */
 export function flowFrame(L: Linked, narrow: boolean) {
-  const moves = flowMoves(L);
   return (step: Step<FlowState>): string[] | null => {
-    if (step.level === 'cycle') {
-      // 宽屏整张台面都在画面里，不用指定。手机上装不下：停在模型机里收值的部件上，方框的内容在步骤文字里。
-      if (!narrow) return null;
-      const planned = moves(step);
-      const last = Math.max(0, ...planned.map((m) => m.phase ?? 0));
-      const targets = [...new Set(planned.filter((m) => (m.phase ?? 0) === last && (m.shape ?? 'card') === 'card').map((m) => m.to.split('.')[0]!))];
-      return targets.length ? targets : null;
-    }
-    if (step.changes.some((x) => x.at.startsWith('decoded'))) return narrow ? ['DIAMOND', ...L.flow.params.instructions.map((_, i) => `TAG_${i}`)] : null;
-    if (step.changes.some((x) => x.at.startsWith('ended'))) return narrow ? ['END'] : null;
+    // 宽屏每一步都看整张台面：方框图一排和整台模型机。
+    if (!narrow) return ['BOX_0', 'BOX_1', 'DMEM', 'DR', 'R0', 'ALU', 'PSWR'].slice();
+    // 手机上装不下整张台面：每一步停在正在画的方框上（值走的时候镜头会跟到模型机里，再回来）。
+    const count = L.counts[step.state.current ?? 0]!;
+    if (step.level === 'cycle') return [`BOX_${step.state.boxes[step.state.boxes.length - 1]!.m - 1}`];
+    if (step.changes.some((x) => x.at.startsWith('decoded'))) return ['DIAMOND', 'BOX_0'];
+    if (step.changes.some((x) => x.at.startsWith('ended'))) return ['END', `BOX_${count - 1}`];
     return null;
   };
 }
@@ -220,7 +221,18 @@ export function flowCaption(L: Linked) {
   return (s: FlowState): string => machineCaption(cpuAt(L, s).state);
 }
 
-export const flowAskFrame = () => (): string[] => BEATS.map((_, i) => `CHIP_${i}`);
+/** 「哪一拍」的题看候选牌；「几个方框」的题看刚画完的那个方框。 */
+const WIDE_FRAME = ['BOX_0', 'BOX_1', 'DMEM', 'DR', 'R0', 'ALU', 'PSWR'];
+
+export function flowAskFrame(L: Linked, narrow: boolean) {
+  return (ask: { kind: string }, index: number): string[] => {
+    if (!narrow) return WIDE_FRAME;
+    if (ask.kind === 'choice') return BEATS.map((_, i) => `CHIP_${i}`);
+    const s = index > 0 ? L.flow.steps[index - 1]!.state : L.flow.initial;
+    const last = s.boxes[s.boxes.length - 1];
+    return last ? [`BOX_${last.m - 1}`] : [];
+  };
+}
 
 export function flowNames(path: string): string {
   const m = /^boxes\.(\d+)\.(\w+)(?:\.(\d+))?$/.exec(path);
@@ -421,7 +433,8 @@ export function flowMistakes(L: Linked): Mistake<FlowState>[] {
   return out.slice(0, 3);
 }
 
-export const FLOW_QUESTION = { text: '一个方框是一个 CPU 周期；框旁的信号哪些直接写，哪些要注 T', at: ['BOX_0'] };
+/** 宽屏第 0 步看全景：方框图一排和模型机的两个角都垫上；手机先看第一个方框。 */
+export const flowQuestion = (narrow: boolean) => ({ text: '一个方框是一个 CPU 周期；框旁的信号哪些直接写，哪些要注 T', at: narrow ? ['BOX_0'] : ['BOX_0', 'BOX_1', 'DR', 'PSWR'] });
 export const FLOW_CONCLUSION =
   '一个方框就是一个 CPU 周期，框里写这个周期的「源→目的」；框旁的电位信号（RD、C1–C3 这类开通路、保持整个周期的）直接写，脉冲信号（LDxx、PC+1、WE(D) 这类打入、写入的）要注明在哪一拍：进 DR、IR 和写数存在 T3，进 AR、PC 和通用寄存器在 T4。';
 export const FLOW_NEEDS = [{ href: '/5-cycle', text: '模型机的指令周期' }];

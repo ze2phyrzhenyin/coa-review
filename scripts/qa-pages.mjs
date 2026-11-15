@@ -41,12 +41,27 @@ function collectFacts() {
     player: !!document.querySelector('[data-player]'),
     // 上下标要排成 <sub>/<sup>，不能把下划线和尖号直接给学生看。
     raw: [...(main?.innerText ?? '').matchAll(/[A-Za-z0-9)\]][_^](?:\{|\(|[-−]?[A-Za-z0-9])/g)].map((m) => m[0]).slice(0, 3),
+    // 码名（[x]补、[x]变补……）要是下标：同一个文字节点里「]」后面直接跟码名，就是没排版。
+    // 读屏用的文字、下拉选项、输入框里没法排下标，不算。
+    codes: (() => {
+      const found = [];
+      if (!main) return found;
+      const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node && found.length < 3; node = walker.nextNode()) {
+        const parent = node.parentElement;
+        if (!parent || parent.closest('[aria-live], .pl-sr, option, script, style, textarea')) continue;
+        const hit = /\[[^\[\]]{1,12}\](变补|补|原|反|移)(?![码位数动来过])/.exec(node.nodeValue ?? '');
+        if (hit) found.push(hit[0]);
+      }
+      return found;
+    })(),
   };
 }
 
 function report(where, size, facts) {
   if (facts.overflow > 1 || facts.mainOverflow > 1) failures.push(`${where}：横向溢出 ${Math.max(facts.overflow, facts.mainOverflow)} px；宽图放进自己的滚动容器或按步骤切局部`);
   if (size.isMobile && facts.small.length) failures.push(`${where}：触控目标小于 44 px：${facts.small.slice(0, 4).join('、')}`);
+  if (facts.codes.length) failures.push(`${where}：码名没排成下标：${facts.codes.join('、')}（[x]<sub>补</sub>；文字过一遍 Rich 就有）`);
   if (facts.raw.length) failures.push(`${where}：文字里有没排版的上下标记号：${facts.raw.join('、')}（用 <sub>/<sup>，播放器里用 Rich）`);
   if (size.isMobile && facts.tiny.length) failures.push(`${where}：${facts.tiny.length} 个输入框文字小于 16 px（iOS 会放大页面）：${facts.tiny.slice(0, 3).join('、')}`);
 }

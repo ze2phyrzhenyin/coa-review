@@ -94,7 +94,7 @@ export function breakScene(trace: Trace<MulParams, BreakState>, compact: boolean
     ...base.scene,
     parts: [
       ...base.scene.parts,
-      { id: 'cmp', kind: 'compare' as const, position: [res.position[0] + (compact ? 0 : 0.6), res.position[1] + (compact ? 3.5 : 1.9)] as const, props: { left: '−100', right: '−100', leftName: '按补码读', rightName: 'x·y', result: '' } },
+      { id: 'cmp', kind: 'compare' as const, position: [compact ? 0 : res.position[0] + 0.6, res.position[1] + (compact ? 3.5 : 1.9)] as const, props: { left: '−100', right: '−100', leftName: '按补码读', rightName: 'x·y', result: '' } },
     ],
   };
   const bind: Binding<BreakState> = {

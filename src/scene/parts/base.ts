@@ -4,6 +4,8 @@ import { box, cardGeometry } from '../kit';
 import type { Kit } from '../kit';
 import { timing } from '../theme';
 import type { CommonProps, Vec2 } from '../types';
+import { pickFrameOf } from '../frame';
+import type { PickFrame } from '../frame';
 
 /** 更新的方式：不动、原地翻面、有值落进来。 */
 export type Animate = false | 'flip' | 'land';
@@ -31,6 +33,7 @@ export abstract class Part<P extends CommonProps = CommonProps> {
   private dimmed = false;
   private ring: Group | null = null;
   private brackets: Group | null = null;
+  private bracketsOnFace = false;
   private readonly home: Vector3;
 
   constructor(
@@ -162,31 +165,41 @@ export abstract class Part<P extends CommonProps = CommonProps> {
     }
     if (pickable && !this.brackets) {
       this.brackets = this.corners();
-      this.group.add(this.brackets);
+      if (!this.bracketsOnFace) this.group.add(this.brackets);
     }
     if (this.ring) this.ring.visible = focus;
     if (this.brackets) this.brackets.visible = pickable;
     this.kit.invalidate();
   }
 
+  /** 候选框画在哪、多大。默认按占地和牌的高宽定（见 frame.ts）；形状特别的部件可以覆盖。 */
+  protected pickFrame(): PickFrame {
+    return pickFrameOf(this.footprint, this.faceWidth, this.faceHeight, this.face.position.y);
+  }
+
   private corners(): Group {
-    const { w, d } = this.footprint;
-    const m = 0.2;
+    const frame = this.pickFrame();
     const t = 0.04;
-    const W = w + m * 2;
-    const D = d + m * 2;
     const group = new Group();
-    const arm = Math.min(0.36, w / 3, d / 3);
-    const add = (bw: number, bd: number, x: number, z: number) => {
-      const bar = box(this.kit.mats.mark, bw, 0.01, bd);
-      bar.position.set(x, 0.022, z);
+    const arm = Math.min(0.36, frame.w / 3, frame.h / 3);
+    const onFace = frame.plane === 'face';
+    const add = (bw: number, bh: number, x: number, v: number) => {
+      // 台面上：v 是 z；板的平面上：v 是 y。
+      const bar = onFace ? box(this.kit.mats.mark, bw, bh, 0.01) : box(this.kit.mats.mark, bw, 0.01, bh);
+      if (onFace) bar.position.set(x, frame.y0 + frame.h / 2 + v, 0.03);
+      else bar.position.set(x, 0.022, v);
       group.add(bar);
     };
     for (const sx of [-1, 1]) {
-      for (const sz of [-1, 1]) {
-        add(arm, t, sx * (W / 2 - arm / 2), sz * (D / 2));
-        add(t, arm, sx * (W / 2), sz * (D / 2 - arm / 2));
+      for (const sv of [-1, 1]) {
+        add(arm, t, sx * (frame.w / 2 - arm / 2), sv * (frame.h / 2));
+        add(t, arm, sx * (frame.w / 2), sv * (frame.h / 2 - arm / 2));
       }
+    }
+    // 板上的框挂在正对屏幕的组里，跟着板一起立着。
+    if (onFace) {
+      this.face.add(group);
+      this.bracketsOnFace = true;
     }
     return group;
   }

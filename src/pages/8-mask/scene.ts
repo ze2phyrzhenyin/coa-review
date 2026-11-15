@@ -57,7 +57,7 @@ export function kindOf(step: Step<State>): 'mask' | 'order' | 'arrive' | 'enter'
 }
 
 export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskStage {
-  const ROW = 1.15;
+  const ROW = narrow ? 1.4 : 1.15;
   const n = trace.params.levels;
   const final = trace.steps.at(-1)?.state ?? trace.initial;
   const end = Math.max(1, final.t);
@@ -83,12 +83,12 @@ export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskSta
   const parts: PartSpec[] = [];
   const table: Parameters<typeof bindTable<State>>[0] = {};
 
-  parts.push({ id: 'order', kind: 'label', position: [narrow ? 0 : TX - 0.4, Z0 - 1.75], props: { text: '', plate: true, size: 0.31, weight: 600 } });
+  parts.push({ id: 'order', kind: 'label', position: [narrow ? 0 : TX - 0.4, Z0 - (narrow ? 2.2 : 1.75)], props: { text: '', plate: true, size: 0.31, weight: 600 } });
   table.order = {
     text: from('order', (c) => (c.state.order ? `处理次序 ${c.state.order.map(levelName).join('→')}` : c.index > n ? '排不成一个处理次序' : '')),
     hidden: from('order', (c) => !c.state.order && c.index <= n),
   };
-  for (let j = 0; j < n; j++) parts.push({ id: `h-${j}`, kind: 'label', position: [xs(j), Z0 - 0.9], props: { text: `L${j}`, size: 0.31, tone: 'muted', weight: 600 } });
+  for (let j = 0; j < n; j++) parts.push({ id: `h-${j}`, kind: 'label', position: [xs(j), Z0 - (narrow ? 1.25 : 0.9)], props: { text: `L${j}`, size: 0.31, tone: 'muted', weight: 600 } });
   for (let i = 0; i < n; i++) {
     parts.push({ id: `m-${i}`, kind: 'bits', position: [TX, Z0 + i * ROW], props: { name: `L${i} 程序`, bits: blankRow, group: 8 }, pick: true, title: `L${i}` });
     table[`m-${i}`] = { bits: from(`masks.${i}`, (c) => c.state.masks[i] || blankRow) };
@@ -199,6 +199,8 @@ export function maskStage(trace: Trace<Params, State>, narrow: boolean): MaskSta
     // 带上列头上面那块牌的位置，列头离画面上沿留出一行。
     if (ask.kind === 'bits' && level !== null) return ['order', `h-0`, `h-${n - 1}`, ...Array.from({ length: n }, (_, i) => `m-${i}`)];
     // 屏蔽字表的列头也要在画面里：不看列头分不清哪一位是哪一级。
+    // 手机上放不下三排寄存器：留列头、各排屏蔽字和屏蔽寄存器，请求和送排队器在题面上方的读数和上一步里。
+    if (narrow) return ['h-0', `h-${n - 1}`, ...Array.from({ length: n }, (_, i) => `m-${i}`), 'irr', 'imr'];
     return ['h-0', `h-${n - 1}`, 'irr', 'imr', 'pass', ...Array.from({ length: n }, (_, i) => `m-${i}`)];
   };
   const frame = (step: Step<State>): string[] | null => {

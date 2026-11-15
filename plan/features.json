@@ -32,8 +32,8 @@
       "id": "2-overflow",
       "title": "01 和 10 哪个是正溢，进位丢掉算不算溢出",
       "batch": "sample",
-      "passes": true,
-      "evidence": "evals/look/2-overflow/report-r3.md"
+      "passes": false,
+      "evidence": "evals/look/2-overflow/report-b2.md"
     },
     {
       "id": "2-negate",
@@ -116,8 +116,8 @@
       "id": "3-expand",
       "title": "8 片芯片为什么只要 2 位片选",
       "batch": "first",
-      "passes": false,
-      "evidence": ""
+      "passes": true,
+      "evidence": "evals/look/3-expand/report-b2.md"
     },
     {
       "id": "3-decode",
@@ -151,15 +151,15 @@
       "id": "3-cache-addr",
       "title": "同一个地址，三种映射各切成哪几段",
       "batch": "first",
-      "passes": false,
-      "evidence": ""
+      "passes": true,
+      "evidence": "evals/look/3-cache-addr/report-b2.md"
     },
     {
       "id": "3-cache-run",
       "title": "主存块落到哪一行，为什么被换出",
       "batch": "sample",
       "passes": true,
-      "evidence": "evals/look/3-cache-run/report-r4.md"
+      "evidence": "evals/look/3-cache-run/report-b2.md"
     },
     {
       "id": "3-cache-perf",
@@ -186,8 +186,8 @@
       "id": "3-vm-addr",
       "title": "虚地址怎么变成物理地址",
       "batch": "first",
-      "passes": false,
-      "evidence": ""
+      "passes": true,
+      "evidence": "evals/look/3-vm-addr/report-b2.md"
     },
     {
       "id": "3-vm-seg",
@@ -200,8 +200,8 @@
       "id": "3-vm-replace",
       "title": "FIFO 和 FIFO+LRU 的表每一列怎么填",
       "batch": "first",
-      "passes": false,
-      "evidence": ""
+      "passes": true,
+      "evidence": "evals/look/3-vm-replace/report-b2.md"
     },
     {
       "id": "3-miss-combo",
@@ -228,8 +228,8 @@
       "id": "4-ea",
       "title": "这串十六进制指令的有效地址是多少",
       "batch": "first",
-      "passes": false,
-      "evidence": ""
+      "passes": true,
+      "evidence": "evals/look/4-ea/report-b2.md"
     },
     {
       "id": "4-arm",
@@ -243,7 +243,7 @@
       "title": "LAD 为什么比 ADD 多一个 CPU 周期",
       "batch": "sample",
       "passes": true,
-      "evidence": "evals/look/5-cycle/report-r3.md"
+      "evidence": "evals/look/5-cycle/report-b2.md"
     },
     {
       "id": "5-flow",
@@ -270,8 +270,8 @@
       "id": "5-micro",
       "title": "取指微指令怎么知道下一条去哪",
       "batch": "first",
-      "passes": false,
-      "evidence": ""
+      "passes": true,
+      "evidence": "evals/look/5-micro/report-b2.md"
     },
     {
       "id": "5-mfield",
@@ -312,15 +312,15 @@
       "id": "5-hazard",
       "title": "RAW、WAR、WAW 怎么分",
       "batch": "first",
-      "passes": false,
-      "evidence": ""
+      "passes": true,
+      "evidence": "evals/look/5-hazard/report-b2.md"
     },
     {
       "id": "5-stall",
       "title": "相关之后停几拍，定向以后呢",
       "batch": "first",
-      "passes": false,
-      "evidence": ""
+      "passes": true,
+      "evidence": "evals/look/5-stall/report-b2.md"
     },
     {
       "id": "5-superscalar",
@@ -347,8 +347,8 @@
       "id": "6-serial",
       "title": "一帧到底几位，带宽怎么算",
       "batch": "first",
-      "passes": false,
-      "evidence": ""
+      "passes": true,
+      "evidence": "evals/look/6-serial/report-b2.md"
     },
     {
       "id": "8-poll",

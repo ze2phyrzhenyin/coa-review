@@ -4,7 +4,7 @@ import { run } from '../../engines/hardwired/model';
 import type { DeriveParams } from '../../engines/hardwired/model';
 import { Player } from '../../player/Player';
 import { Rich } from '../../player/Rich';
-import { HARD_CONCLUSION, HARD_NEEDS, HARD_QUESTION, hardBind, hardBreak, hardConvention, hardMistakes, hardMoves, hardNames, hardScene, hardValues, hardWrong, polish, hardFrame } from './scene';
+import { HARD_CONCLUSION, HARD_NEEDS, hardQuestion, hardBind, hardBreak, hardConvention, hardMistakes, hardMoves, hardNames, hardScene, hardValues, hardWrong, polish, hardFrame } from './scene';
 
 /** 一份参数 → 推导的 Trace 和台面。 */
 export function DerivePlayer({ params, lesson }: { params: DeriveParams; lesson: boolean }) {
@@ -39,7 +39,7 @@ export function DerivePlayer({ params, lesson }: { params: DeriveParams; lesson:
       onWrong={made.wrong}
       breakIt={made.breakIt}
       convention={hardConvention}
-      {...(lesson ? { question: HARD_QUESTION, conclusion: HARD_CONCLUSION, needs: HARD_NEEDS, mistakes: made.mistakes } : {})}
+      {...(lesson ? { question: hardQuestion(narrow), conclusion: HARD_CONCLUSION, needs: HARD_NEEDS, mistakes: made.mistakes } : {})}
     />
   );
 }

@@ -74,7 +74,7 @@ function IntrPlayer({ params, lesson, breakIt }: { params: Params; lesson?: bool
 function Legend() {
   return (
     <p class="mk-terms">
-      台面上：接口里的 <Term k="RD">RD</Term> 是准备就绪、<Term k="EI">EI</Term> 是允许中断；CPU 里的 <Term k="中断请求触发器">IR</Term> 收请求，<Term k="中断屏蔽触发器">IM</Term> 为 1 是关中断。
+      台面上：一条指令执行完，CPU 在<Term k="公操作" />里查有没有中断请求。接口里的 <Term k="BS">BS</Term> 为 1 表示设备在工作（服务完和 RD 一起清 0）， <Term k="RD">RD</Term> 是准备就绪、<Term k="EI">EI</Term> 是允许中断；CPU 里的 <Term k="中断请求触发器">IR</Term> 收请求，<Term k="中断屏蔽触发器">IM</Term> 为 1 是关中断。
       <Term k="断点" />写在主程序那张卡的卡角上，<Term k="现场" />进堆栈。右下三栏按图 8.6 排，<Term k="中断周期" />一栏全是硬件。
     </p>
   );

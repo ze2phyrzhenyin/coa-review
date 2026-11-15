@@ -121,7 +121,7 @@ export const glossary: GlossaryEntry[] = [
   { term: '片选', aka: ['CS', '片选信号'], def: '芯片的选中信号，低电平有效。片选无效的芯片不响应读写，数据线处于高阻。', ref: 'p74–77', page: '3-expand' },
   { term: '译码器', aka: ['3-8 译码器', '2-4 译码器'], def: 'n 位输入对应 2^n 根输出，每次只有一根有效。存储器里用它把高位地址变成各组芯片的片选。', ref: 'p77', page: '3-decode' },
   { term: '片内地址', def: '直接接到每片芯片地址引脚上的低位地址，在选中的芯片里再选出一个单元。', ref: 'p76–77', page: '3-expand' },
-  { term: '局部译码', aka: ['部分译码'], def: '只拿一部分高位地址去译码，没参加译码的地址位取 0 取 1 都选中同一片，一个单元会有几个地址。', ref: 'p77', page: '3-decode' },
+  { term: '局部译码', def: '芯片比译码器一根输出管的那段地址小时，再用门电路把段内的高位地址译一次，只让其中一小段选中这片芯片。', ref: 'p77', page: '3-decode' },
   { term: 'MREQ', aka: ['访存信号'], def: 'CPU 发出的访存信号，低电平有效，接在译码器的使能端：CPU 不访问存储器时哪一片都不选。', ref: 'p77、p122', page: '3-decode' },
   // 第 3 章：命中率和访问时间
   { term: '平均访问时间', aka: ['t_a'], def: '把命中和缺失两种情况按比例合起来的访问时间：t_a = h·t_c + (1 − h)·t_m。', ref: 'p101', page: '3-cache-perf' },
@@ -201,6 +201,8 @@ export const glossary: GlossaryEntry[] = [
   { term: '中断屏蔽寄存器', def: '多级中断时每一级一位，1 表示屏蔽这一级的请求，0 表示允许。', ref: 'p270–272', page: '8-mask' },
   { term: '屏蔽字', aka: ['中断屏蔽字'], def: '某一级的服务程序运行时装进中断屏蔽寄存器的那一串位，决定这时哪些级的请求能打断它。', ref: 'p270', page: '8-mask' },
   { term: '排队器', aka: ['判优'], def: '几个没被屏蔽的请求同时到时，让优先级高的封锁低的，只输出其中一个的电路。', ref: 'p272', page: '8-mask' },
+  { term: 'MIPS', def: '每秒执行多少百万条指令，MIPS = f / (CPI × 10^6)。流水线的吞吐率也可以用它表示。', ref: 'p15、p186', page: '5-spacetime' },
+  { term: '独立请求', aka: ['独立请求方式'], def: '集中式仲裁的一种：每个设备各有一对 BR_i、BG_i 直接连到仲裁器，由仲裁器按优先级决定授权给谁，响应最快。', ref: 'p212–213', page: '6-arbiter' },
 ];
 
 const index = new Map<string, GlossaryEntry>();

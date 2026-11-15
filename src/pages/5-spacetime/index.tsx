@@ -19,7 +19,12 @@ function useRun(params: SpacetimeParams) {
   const narrow = useNarrow();
   return useMemo(() => {
     // 时空图就画在台面上（考试的版式），播放器下面不再重复一张解题表。
-    const trace = { ...polishTrace(runSpacetime(params)), table: { columns: [], rows: [] } };
+    const polished = polishTrace(runSpacetime(params));
+    // 吞吐率那一步补上单位换算的说法（数仍是引擎的）。
+    const steps = polished.steps.map((step) =>
+      step.title.startsWith('吞吐率') ? { ...step, why: `${step.why}单位换算：MIPS 是每秒百万条指令，1 s = 10^9 ns，所以「条/ns」乘 10^9 得「条/s」，再除以 10^6，合起来是乘 1000。` } : step,
+    );
+    const trace = { ...polished, steps, table: { columns: [], rows: [] } };
     return { trace, stage: spaceStage(trace, narrow), wrong: spaceWrong(trace), mistakes: spaceMistakes(trace), convention: spaceConvention(params) };
     // key 就是 params 的内容。
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -45,6 +50,11 @@ function Lead() {
         时空图画完，下面三个数就能直接读出来。
       </p>
       <Formula text="T_k = k + (n − 1)　　C_k = n·k / T_k　　T_p = n / (T_k·τ)" />
+      <p class="pp-note">
+        <Rich text="吞吐率 T_p 的单位是 " />
+        <Term k="MIPS">MIPS</Term>
+        <Rich text="，每秒百万条指令。τ 用 ns 时，n / (T_k·τ) 得到的是「条/ns」，乘 1000 就是 MIPS。" />
+      </p>
     </>
   );
 }

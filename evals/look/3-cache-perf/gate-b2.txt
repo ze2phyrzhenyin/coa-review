@@ -1,0 +1,6 @@
+lint-copy: 1 个文件，0 error，0 warn
+lint-copy exit 0
+qa-navigation ok
+nav exit 0
+qa-pages ok
+pages exit 0

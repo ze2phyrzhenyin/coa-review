@@ -20,9 +20,13 @@ export function normalize(ask: Ask, value: string): string {
 
 export const sameAnswer = (ask: Ask, value: string): boolean => normalize(ask, value) === normalize(ask, ask.answer);
 
-/** 演后果时镜头临时要看的部件：各个移动的两头。 */
-export function breakFrame(moves: Move[]): string[] | undefined {
-  const ids = [...new Set(moves.flatMap((move) => [move.from, move.to]))];
-  // 没有移动（只盖一层画面）：不临时换镜头，留在这一步本来的画面上演。
+/**
+ * 演后果（答错重演、常见错误、弄坏它）时镜头临时要看的部件：被改了画面的部件，加上各个移动的两头。
+ * 值最后落下的地方排在最后：装不下时镜头先保它。什么都没有时返回 undefined，留在这一步本来的画面上。
+ */
+export function breakFrame(moves: Move[], patch: Record<string, unknown> = {}): string[] | undefined {
+  const landing = moves.length ? moves[moves.length - 1]!.to : null;
+  const ids = [...new Set([...Object.keys(patch), ...moves.flatMap((move) => [move.from, move.to])])].filter((id) => id !== landing);
+  if (landing) ids.push(landing);
   return ids.length > 0 ? ids : undefined;
 }

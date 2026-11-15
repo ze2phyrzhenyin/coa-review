@@ -75,7 +75,6 @@ export function breakTrace(which: number): Trace<DivParams, BreakState> {
     title: `第 0 轮减 y：${show(absX)} + ${show(negY)} = ${show(added.sum)}，符号位向外的进位 ${added.carryOut}`,
     why: '和的符号位是 0：够减。天平往余数一边沉。',
     ref: '教材 p50',
-    ask: { prompt: `第 0 轮的和是 ${show(added.sum)}。q_0 是几`, kind: 'choice', options: ['0', '1'], answer: q0, hint: '和 ≥ 0 上商 1，和 < 0 上商 0。' },
     update: (d) => {
       const r = d.rounds[0]!;
       r.op = '减 y';
@@ -92,6 +91,8 @@ export function breakTrace(which: number): Trace<DivParams, BreakState> {
     title: `上商 q_0 = ${q0}：商的整数位是 1，放不下`,
     why: '定点小数的商是 q_0.q_1…q_n，q_0 这一位只能是 0。q_0 = 1 说明商 ≥ 1，再往下算也只是错数。所以做原码小数除法之前要保证 |x| < |y|，整数题先乘比例因子也是为了这个。',
     ref: '教材 p49',
+    // 题出在和已经算出来之后、上商之前：答错时学生说的商位能对着和的符号位演出来。
+    ask: { prompt: `第 0 轮的和是 ${show(added.sum)}。q_0 是几`, kind: 'choice', options: ['0', '1'], answer: q0, hint: '和 ≥ 0 上商 1，和 < 0 上商 0。' },
     update: (d) => {
       d.q[0] = q0 as '1';
       d.rounds[0]!.q = q0 as '1';

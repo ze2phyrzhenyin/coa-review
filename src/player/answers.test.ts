@@ -33,12 +33,23 @@ describe('答案比对', () => {
 });
 
 describe('演后果时的镜头', () => {
-  it('没有移动时不指定要看的部件（场景按当前镜头原地演）', () => {
+  it('没有移动也没有改画面时不指定要看的部件', () => {
+    expect(breakFrame([], {})).toBeUndefined();
     expect(breakFrame([])).toBeUndefined();
   });
 
-  it('有移动时看各个移动的两头，不重复，格子只取部件', () => {
-    expect(breakFrame([{ value: '1', from: 'A', to: 'BUS' }, { value: '2', from: 'B', to: 'BUS' }])).toEqual(['A', 'BUS', 'B']);
+  it('看各个移动的两头，不重复；格子引用原样留着', () => {
+    expect(breakFrame([{ value: '1', from: 'A', to: 'BUS' }, { value: '2', from: 'B', to: 'BUS' }])).toEqual(['A', 'B', 'BUS']);
     expect(breakFrame([{ value: '块 3', from: 'mem.0.3', to: 'r1' }])).toEqual(['mem.0.3', 'r1']);
+  });
+
+  it('只改画面、没有移动的重演：看被改的部件', () => {
+    expect(breakFrame([], { mx: { mant: '00.0110' }, stay: { value: '直接加？' } })).toEqual(['mx', 'stay']);
+  });
+
+  it('改了的部件和移动的两头都要看，最后一个是值落下的地方', () => {
+    const frame = breakFrame([{ value: '11', from: 'mx', to: 'lost' }], { my: { mant: '00.1' }, lost: { value: '11' } });
+    expect(new Set(frame)).toEqual(new Set(['my', 'mx', 'lost']));
+    expect(frame?.[frame.length - 1]).toBe('lost');
   });
 });

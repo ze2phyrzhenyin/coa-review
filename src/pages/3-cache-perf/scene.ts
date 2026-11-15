@@ -90,11 +90,12 @@ export function perfStage(trace: Trace<Params, State>, narrow: boolean): PerfSta
   const cellW = at(l2 ? 3.4 : keys.length > 3 ? 2.9 : 3.3, 3.6);
   const regW = at(l2 ? 3.0 : 2.6, 3.3);
   const rowsOf = Math.ceil(keys.length / perRow);
-  const zGiven = at(-6.9, -7.8 - (rowsOf - 2) * 1.9);
-  const zCalc = at(-4.9, -6.2 - (rowsOf - 2) * 1.9);
-  const zResult0 = at(-2.6, -3.9 - (rowsOf - 2) * 1.9);
-  const rowGap = at(1.6, 1.9);
-  const zTrack = zResult0 + rowsOf * rowGap + at(1.9, 0.9);
+  const zGiven = at(-6.9, -7.3 - (rowsOf - 2) * 1.7);
+  const zCalc = at(-4.9, -5.8 - (rowsOf - 2) * 1.7);
+  const zResult0 = at(-2.6, -3.9 - (rowsOf - 2) * 1.7);
+  const rowGap = at(1.6, 1.7);
+  // 尺板有三条道那么深，位置是它的中心：离最后一排牌要留出半块板，牌才不被板挡住。
+  const zTrack = zResult0 + rowsOf * rowGap + at(1.9, 2.0);
   const placeAt = (i: number): [number, number] => {
     const row = Math.floor(i / perRow);
     const inRow = Math.min(perRow, keys.length - row * perRow);
@@ -111,17 +112,17 @@ export function perfStage(trace: Trace<Params, State>, narrow: boolean): PerfSta
     position: [(i - (given.length - 1) / 2) * gGap, zGiven] as [number, number],
     props: { name: g.name, value: g.value, width: gW },
   }));
-  parts.push({ id: 'calc', kind: 'label', position: [0, zCalc], props: { text: '', plate: true, size: 0.31, mono: true } });
+  parts.push({ id: 'calc', kind: 'label', position: [0, zCalc], props: { text: '', plate: true, size: at(0.31, 0.36), mono: true } });
   keys.forEach((key, i) => parts.push({ id: id(key), kind: 'register', position: placeAt(i), props: { name: nameOf(key), value: '', width: regW } }));
 
   // 时间尺。
-  const length = at(9.0, 6.4);
+  const length = at(9.0, 5.4);
   if (l2) {
     const top = v['一级CPI'] ?? 1;
     parts.push({
       id: 'track',
       kind: 'track',
-      position: [0.6, zTrack],
+      position: [at(0.6, 0.45), zTrack],
       title: '每条指令的周期数',
       props: { length, span: [0, top], lanes: ['只有一级', '有两级'], segments: [], ticks: [{ at: 0, text: '0' }, { at: top, text: `${Number(top.toFixed(2))}` }] },
     });
@@ -132,7 +133,7 @@ export function perfStage(trace: Trace<Params, State>, narrow: boolean): PerfSta
     parts.push({
       id: 'track',
       kind: 'track',
-      position: [0.6, zTrack],
+      position: [at(0.6, 0.45), zTrack],
       title: '时间尺',
       props: {
         ...(unit === ' ns' ? {} : { name: '以 t_c 为 1' }),
@@ -233,11 +234,12 @@ export function perfStage(trace: Trace<Params, State>, narrow: boolean): PerfSta
   const names = (path: string): string => nameOf(path);
   /** 「变化」里的数按引擎 result 的写法（百分数、带 ns）。 */
   const values = (path: string, value: string): string => (value === '' || value === 'null' ? value : (trace.result[path] ?? value));
-  const askFrame = (): string[] => ['calc', id('e'), 'track'];
+  const askFrame = (): string[] => ['calc', ...keys.map(id), 'track'];
   const frame = (step: Step<State>): string[] | null => {
     if (!narrow) return null;
     const key = keys.find((k) => step.changes.some((change) => change.at === k));
-    return key ? ['calc', id(key), 'track'] : null;
+    // 手机上每一步看同一片：算式条、全部结果牌、时间尺。镜头不动，刚求出的牌和尺子同时看得见。
+    return key ? ['calc', ...keys.map(id), 'track'] : null;
   };
   return { scene: { parts, wires }, bind, moves, names, values, askFrame, frame };
 }

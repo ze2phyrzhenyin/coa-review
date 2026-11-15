@@ -273,6 +273,7 @@ export function hardFrame(trace: Trace<DeriveParams, DeriveState>, narrow: boole
     if (step.state.scanning) return [gridOf(view, ops.indexOf(step.state.scanning))];
     if (step.changes.some((c) => c.at.startsWith('terms.'))) return step.state.terms.map((_, i) => `TERM_${i}`);
     if (step.changes.some((c) => c.at === 'expression')) return ['EXPR'];
+    // 判断电位还是脉冲的那一步：手机看信号牌和类型牌。
     return ['SIG', 'KIND'];
   };
 }
@@ -402,7 +403,7 @@ export function hardMistakes(trace: Trace<DeriveParams, DeriveState>, narrow: bo
 }
 
 /** 第 0 步的问题、结论、需要先会。 */
-export const HARD_QUESTION = { text: '这个信号在流程图的哪几格出现，每一格写成哪一项', at: ['SIG', 'KIND'] };
+export const hardQuestion = (narrow: boolean) => ({ text: '这个信号在流程图的哪几格出现，每一格写成哪一项', at: narrow ? ['SIG', 'KIND'] : ['G', 'SIG'] });
 export const HARD_CONCLUSION =
   '在指令周期流程图里找出发这个信号的每一处，写成 M·T·指令：脉冲信号与上节拍电位 M 和节拍脉冲 T，电位信号只与 M；同一个 M·T 的几条指令相或写进括号，所有指令都有的项不写指令，各项再相或。';
 export const HARD_NEEDS = [

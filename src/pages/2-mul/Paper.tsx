@@ -35,7 +35,7 @@ function sheetScene(problem: Problem, wide: boolean): { scene: SceneSpec; frame:
   const cell = (id: string, x: number, z: number, title: string, pick = false) =>
     parts.push({ id, kind: '2-mul:cell', position: [x, z], props: { bits: ' ', variant: 'bit' }, title, pick, describe: (p: Patch) => `${title}：${String(p.bits ?? '').trim() || '空'}` } as PartSpec);
   const label = (id: string, text: string, z: number, pick = false) =>
-    parts.push({ id, kind: 'label', position: [labelRight - textWidth(text, 0.34) / 2, z], props: { text: sub(text), size: 0.34, weight: 600 }, pick, title: text });
+    parts.push({ id, kind: 'label', position: [labelRight - textWidth(text, wide ? 0.34 : 0.31) / 2, z], props: { text: sub(text), size: wide ? 0.34 : 0.31, weight: 600 }, pick, title: text });
   for (let w = 0; w < W; w++) parts.push({ id: `head-${w}`, kind: 'label', position: [colX(w), -0.85], props: { text: `2^${w}`, size: 0.34, tone: 'muted' } });
   if (signed) parts.push({ id: 'head-s', kind: 'label', position: [signX, -0.85], props: { text: '符号', size: 0.34, tone: 'muted' } });
   let z = 0;
@@ -48,7 +48,8 @@ function sheetScene(problem: Problem, wide: boolean): { scene: SceneSpec; frame:
   if (signed) z += 0.25;
   problem.lines.forEach((line, i) => {
     if (line.kind === 'sum') z += 0.25;
-    label(`ll-${i}`, line.label, z, true);
+    // 窄屏上行名最多三个字，整张答题纸才不出左缘。
+    label(`ll-${i}`, !wide && line.kind === 'post' ? '求补后' : line.label, z, true);
     for (let k = 0; k < line.width; k++) {
       const weight = line.low + line.width - 1 - k;
       cell(`c-${i}-${k}`, line.low < 0 ? signX : colX(weight), z, line.low < 0 ? `${line.label}` : `${line.label} 的 2^${weight} 位`, true);

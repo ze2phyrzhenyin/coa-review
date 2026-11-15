@@ -88,7 +88,7 @@ class Ruler extends Part<RulerProps> {
     for (const [text, z, tone] of [['e', 1.3, 'text'], ['E', 1.8, 'addr']] as const) {
       const head = new TextPlane(kit, text, { size: sizes.note, tone, weight: 600, align: 'right' });
       head.place(0, 0);
-      this.holder(new Vector3(STARTS[0]! - 0.32, 0.05, z)).add(head.mesh);
+      this.holder(new Vector3(STARTS[0]! - (props.compact ? 0.5 : 0.7), 0.05, z)).add(head.mesh);
       this.heads.push(head);
     }
     // 指针：一根细杆加一张牌。
@@ -185,7 +185,7 @@ class Ruler extends Part<RulerProps> {
 
   override bounds(): Box3 {
     const box3 = super.bounds();
-    box3.min.x -= 0.7;
+    box3.min.x -= 0.95;
     box3.min.z -= 1.9;
     box3.max.z += 2.0;
     box3.max.y = Math.max(box3.max.y, 1.2);

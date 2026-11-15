@@ -1,0 +1,6 @@
+/* 四类指令时四层抽屉柜比别的页深：宽屏上舞台高一些，整张台面才装得下。 */
+@media (min-width: 900px) {
+  .opx .pl-stage {
+    height: clamp(460px, 78vh, 700px);
+  }
+}

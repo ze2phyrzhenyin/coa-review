@@ -77,11 +77,11 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
   // 上面一排：x、二进制、规格化写法。
   const top: [string, string, number, [number, number], [number, number]][] = [
     ['x', 'x（十进制）', W ? 4.6 : 3.6, [-5.0, -2.5], [0, -5.4]],
-    ['bin', mode === 'encode' ? '|x| 的二进制' : '真值（二进制）', W ? 6.2 : 4.6, [-0.6, -2.5], [0, -3.95]],
-    ['normal', teach ? '尾数 × 2^e' : '规格化写法', W ? 6.2 : 4.8, [4.6, -2.5], [0, -2.5]],
+    ['bin', mode === 'encode' ? '|x| 的二进制' : '真值（二进制）', W ? 5.6 : 4.6, [-0.6, -2.5], [0, -3.95]],
+    ['normal', teach ? '尾数 × 2^e' : '规格化写法', W ? 5.6 : 4.8, [4.6, -2.5], [0, -2.5]],
   ];
   for (const [id, name, width, wide, narrow] of top) parts.push({ id, kind: 'register', position: W ? narrow : wide, props: { name, value: '', width }, title: name });
-  const fit = W ? 22 : 18;
+  const fit = W ? 20 : 18;
   table.x = { value: mode === 'encode' ? from('decimal', () => input.replace('-', MINUS)) : from('decimal', (c) => clip(c.state.decimal, fit)) };
   table.bin = { value: mode === 'encode' ? from('binary', (c) => clip(c.state.binary, fit)) : from('value', (c) => clip(c.state.value, fit)) };
   table.normal = { value: from('normal', (c) => (c.state.normal.length > fit ? c.state.normal.replace(/^([−]?[01]\.[01]{0,10})[01]*…?/, '$1…') : c.state.normal)) };
@@ -120,9 +120,9 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
   // 指数、偏移量、阶码、十六进制。
   const zNum = W ? below + 1.4 : 3.2;
   const num: [string, string, number, [number, number], [number, number]][] = [
-    ['e', '指数 e', 2.0, [-6.3, zNum], [-2.6, zNum]],
-    ...(bias !== null ? ([['bias', '偏移量', 3.0, [-3.65, zNum], [0, zNum]]] as [string, string, number, [number, number], [number, number]][]) : []),
-    ['Edec', teach ? '阶码' : '阶码 E', 2.0, [-1.0, zNum], [2.6, zNum]],
+    ['e', '指数 e', W ? 1.7 : 2.0, [-6.3, zNum], [-2.45, zNum]],
+    ...(bias !== null ? ([['bias', '偏移量', W ? 2.9 : 3.0, [-3.65, zNum], [0, zNum]]] as [string, string, number, [number, number], [number, number]][]) : []),
+    ['Edec', teach ? '阶码' : '阶码 E', W ? 1.7 : 2.0, [-1.0, zNum], [2.45, zNum]],
     ['hex', mode === 'encode' ? '十六进制' : '给出的机器码', 3.6, [4.1, Math.max(zNum, mEnd + 0.35)], [0, zNum + 1.35]],
   ];
   for (const [id, name, width, wide, narrow] of num) parts.push({ id, kind: 'register', position: W ? narrow : wide, props: { name, value: '', width }, title: name });
@@ -154,7 +154,7 @@ export function ieeeScene(trace: Trace<IeeeParams, IeeeState>, compact = false, 
   parts.push({
     id: 'ruler',
     kind: '2-ieee:ruler',
-    position: [W ? 0.15 : 0, rulerZ],
+    position: [W ? 0.3 : 0, rulerZ],
     props: { binade: null, frac: 1, shift: 0, pin: '', bias: null, lens: '', empty: '', compact: W },
     title: '数轴',
     describe: (p) => (p.binade === null ? '数轴，没有指针' : `数轴，指针在 2^${String(p.binade)} 到 2^${Number(p.binade) + 1} 之间`),

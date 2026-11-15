@@ -22,6 +22,7 @@ const REQUESTS: Request[] = [
 const EXAMPLES: { id: string; label: string; params: Params }[] = [
   { id: 'chain', label: '链式查询', params: { mode: '链式查询', devices: 4, requests: REQUESTS } },
   { id: 'count', label: '计数器，从中止点计', params: { mode: '计数器定时查询', devices: 4, requests: REQUESTS, counterFrom: '中止点' } },
+  { id: 'own', label: '独立请求，设备 3 最优先', params: { mode: '独立请求', devices: 4, requests: REQUESTS, priority: [3, 2, 1, 0] } },
 ];
 
 /**
@@ -75,7 +76,7 @@ function ArbPlayer({ params, lesson }: { params: Params; lesson?: boolean }) {
 function Legend() {
   return (
     <p class="mk-terms">
-      台面上：<Term k="BR" />（总线请求）、<Term k="BS" />（总线忙，1 表示总线正被使用）是各接口共用的线；<Term k="BG" />（总线授权）在<Term k="链式查询" />时从仲裁器出发，一个接口一个接口往下传。下方的时间轴记着每台设备占用总线的时段。
+      台面上：<Term k="BR" />（总线请求）、<Term k="BS" />（总线忙，1 表示总线正被使用）是各接口共用的线；<Term k="BG" />（总线授权）在<Term k="链式查询" />时从仲裁器出发，一个接口一个接口往下传；<Term k="独立请求" />时每个接口各有一对 BR<sub>i</sub>、BG<sub>i</sub>，由仲裁器里的排队电路按优先次序选。下方的时间轴记着每台设备占用总线的时段。
     </p>
   );
 }
@@ -109,7 +110,7 @@ function Learn() {
       <ArbPlayer params={example.params} lesson />
       <div class="mk-controls">
         <p class="mk-note">
-          两道例题的请求完全相同，只换了仲裁方式。授权次序：
+          三道例题的请求完全相同，只换了仲裁方式。授权次序：
           {results.map((item, i) => (
             <span key={item.label}>
               {i > 0 ? '；' : ''}

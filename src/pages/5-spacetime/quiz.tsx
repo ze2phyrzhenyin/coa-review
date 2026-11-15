@@ -290,7 +290,7 @@ function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
   return (
     <div class="pp-quiz">
       <p class="pp-task">
-        <Rich text="按下面的条件画出时空图（段为行，纵轴自下而上），再写出时钟周期、T_k、C_k 和 T_p。点纸上的格子跳到那一列，在下面的填写栏里选指令。" />
+        <Rich text="按下面的条件画出时空图（段为行，纵轴自下而上），再写出时钟周期、T_k、C_k 和 T_p（单位 MIPS，每秒百万条指令；τ 用 ns 时把「条/ns」乘 1000）。点纸上的格子跳到那一列，在下面的填写栏里选指令。" />
       </p>
       <Given items={given} />
       <PaperStage scene={scene} pose={pose} frame={['paper']} panel={panel} onPick={pick} />

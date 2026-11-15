@@ -38,13 +38,13 @@ function layout(narrow: boolean, codeW: number): Layout {
     };
   }
   // 宽屏一类一行：格式牌、可用牌、抽屉柜从左往右。
-  const dz = 4.9;
+  const dz = 4.6;
   const shelfX = 0.6 + codeW + 1.2;
   return {
-    fmt: (i) => [-7.6, -5.4 + i * dz],
+    fmt: (i) => [-8.0, -5.4 + i * dz],
     cap: (i) => [-2.8, -5.4 + i * dz],
     shelf: (i) => [shelfX, -5.6 + i * dz],
-    verdict: (n) => [-2.8, -5.4 + n * dz],
+    verdict: (n) => [-7.6, -5.4 + (n - 1) * dz + 2.4],
   };
 }
 
@@ -67,7 +67,7 @@ export function opScene(trace: Trace<OpcodeParams, OpcodeState>, narrow: boolean
   const L = layout(narrow, codeW);
   const parts: PartSpec[] = [];
   p.levels.forEach((l, i) => {
-    parts.push({ id: `FMT_${i}`, kind: 'register', position: L.fmt(i), props: { name: levelName(l.addresses), value: formatText(p, i), width: narrow ? 3.6 : 4.2, ink: 'ctrl' } });
+    parts.push({ id: `FMT_${i}`, kind: 'register', position: L.fmt(i), props: { name: levelName(l.addresses), value: formatText(p, i), width: narrow ? 3.6 : Math.min(5.4, Math.max(4.2, formatText(p, i).length * 0.2 + 0.5)), ink: 'ctrl' } });
     parts.push({ id: `CAP_${i}`, kind: 'register', position: L.cap(i), props: { name: '可用', value: '', width: narrow ? 2.6 : 2.8 } });
     parts.push({
       id: `SHELF_${i}`,
@@ -268,7 +268,17 @@ export function opMistakes(trace: Trace<OpcodeParams, OpcodeState>): Mistake<Opc
   return out.slice(0, 3);
 }
 
-export const OP_QUESTION = { text: '每一类用掉几个码、留下几个码，下一类就有几个编码可用', at: ['FMT_0', 'CAP_0'] };
+export const opQuestion = (p: OpcodeParams, narrow: boolean) => ({
+  text: '每一类用掉几个码、留下几个码，下一类就有几个编码可用',
+  // 宽屏第 0 步看全景：各层的格式牌和抽屉柜都垫上；手机先看第一层。
+  at: narrow ? ['FMT_0', 'CAP_0'] : p.levels.flatMap((_, i) => [`FMT_${i}`, `SHELF_${i}`]),
+});
+
+/** 宽屏每一步都看整张台面，上面几层不被切掉；手机上按焦点走。 */
+export function opFrame(p: OpcodeParams, narrow: boolean) {
+  const all = [...p.levels.flatMap((_, i) => [`FMT_${i}`, `CAP_${i}`, `SHELF_${i}`]), 'VERDICT'];
+  return (): string[] | null => (narrow ? null : all);
+}
 export const OP_CONCLUSION =
   '从地址最多的一类排起：第一类可用 2^操作码位数 个编码，每类从小到大取够自己的条数，其余的码全部留作扩展；下一类可用 = 上一类留下的码数 × 2^多出的操作码位数。哪一类要的条数比它可用的多，方案就不可行，要缩减前面某一类。';
 export const OP_NEEDS = [{ href: '/4-ea', text: '指令格式：操作码和地址码' }];

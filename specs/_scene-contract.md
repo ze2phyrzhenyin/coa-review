@@ -62,7 +62,7 @@ const bind = bindTable<State>({ R1: { value: 'reg.R1' }, C2: { open: 'ctl.C2' } 
 
 ## 页面自带部件
 
-`src/scene/define.ts`：`definePart('<页面编号>:<名字>', (kit, id, position, props) => new MyPart(…))`。部件类继承 `Part<P>`，同内置部件一样写 `apply(next, previous, animate)`，可以覆盖 `bounds()`、`focusBox()`、`anchor()`、`port()`、`pin(name)`、`cellAnchor(r, c)`；文字用 `TextPlane`、`Card`（`kit.texts` 里的字自动参加 12 像素和压字检查，`bounds()` 决定镜头和点选按钮）。`define.ts` 一处导出 `Part`、`Card`、`TextPlane`、几何、`rebound`、`burst`、缓动、`sizes`、`timing`。它引用 three.js，只在 `kinds` 加载的模块里用：
+`src/scene/define.ts`：`definePart('<页面编号>:<名字>', (kit, id, position, props) => new MyPart(…))`。部件类继承 `Part<P>`，同内置部件一样写 `apply(next, previous, animate)`，可以覆盖 `bounds()`、`focusBox()`、`anchor()`、`port()`、`pin(name)`、`cellAnchor(r, c)`；文字用 `TextPlane`、`Card`（`kit.texts` 里的字自动参加 12 像素和压字检查，`bounds()` 决定镜头和点选按钮）。部件必须如实报三样：`footprint`（底座的宽和深）、`faceWidth`、`faceHeight`（立着的牌或板的宽和高，从 `face` 的原点往上算）。镜头、点选按钮和候选框（等学生点选时的四个角）都按它们算：板高超过底座进深的 1.25 倍时，候选框画在板的平面上，从底座围到板顶；否则贴在台面上围着占地。形状特别的覆盖 `pickFrame()`。`define.ts` 一处导出 `Part`、`Card`、`TextPlane`、几何、`rebound`、`burst`、缓动、`sizes`、`timing`。它引用 three.js，只在 `kinds` 加载的模块里用：
 
 ```ts
 // src/pages/6-arbiter/parts.ts

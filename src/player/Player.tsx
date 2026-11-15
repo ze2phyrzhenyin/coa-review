@@ -219,7 +219,7 @@ export function Player<P, S>({ trace, scene, bind, moves, names, values, caption
     lastIndex.current = index;
     shown.current = key;
     if (breakage) {
-      const look = breakFrame(breakage.moves);
+      const look = breakFrame(breakage.moves, breakage.patch);
       current.show(index, pose, { animate: true, forward: true, moves: breakage.moves, ...(look ? { frame: look } : {}) });
     } else {
       const forward = index === from + 1;

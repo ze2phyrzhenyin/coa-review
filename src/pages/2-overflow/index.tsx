@@ -7,6 +7,7 @@ import { formatValue, parseValue } from '../../lib/bits';
 import type { Notation } from '../../lib/bits';
 import { Term } from '../../app/TermCard';
 import { Player } from '../../player/Player';
+import { Rich } from '../../player/Rich';
 import { breakScene, breakTrace } from './break';
 import { EXAMPLES, exampleParams, lesson } from './lesson';
 import { OVERFLOW_CONCLUSION, OVERFLOW_NEEDS, OVERFLOW_QUESTION } from './scene';
@@ -217,7 +218,9 @@ function Try() {
         <>
           <dl class="ovf-formulas">
             <div>
-              <dt>[x{op === '加' ? '+' : '−'}y]变补</dt>
+              <dt>
+                <Rich text={`[x${op === '加' ? '+' : '−'}y]变补`} />
+              </dt>
               <dd>{made.trace.result['结果的变形补码']}</dd>
             </div>
             <div>

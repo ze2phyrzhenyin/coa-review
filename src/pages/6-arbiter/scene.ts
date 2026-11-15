@@ -127,9 +127,9 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
     for (let i = 0; i < n; i++) {
       const [x, z] = devPos(i);
       if (narrow) {
-        const xr = 1.75 + i * 0.62;
+        const xr = 1.7 + i * 0.5;
         parts.push({ id: `sBR${i}`, kind: 'signal', position: [0, 0], props: { from: `D${i}.e`, to: 'ARB.e', text: `BR_${i}`, ink: 'ctrl', via: [[xr, z - 0.15], [xr, ARB[1] - 0.15]], labelAt: 0.06 } });
-        parts.push({ id: `sBG${i}`, kind: 'signal', position: [0, 0], props: { from: 'ARB.e', to: `D${i}.e`, text: `BG_${i}`, ink: 'ctrl', via: [[xr + 0.3, ARB[1] + 0.15], [xr + 0.3, z + 0.15]], labelAt: 0.55 } });
+        parts.push({ id: `sBG${i}`, kind: 'signal', position: [0, 0], props: { from: 'ARB.e', to: `D${i}.e`, text: `BG_${i}`, ink: 'ctrl', via: [[xr + 0.25, ARB[1] + 0.15], [xr + 0.25, z + 0.15]], labelAt: 0.55 } });
       } else {
         const lane = 1.2 + i * 0.62;
         parts.push({ id: `sBR${i}`, kind: 'signal', position: [0, 0], props: { from: `D${i}.s`, to: 'ARB.s', text: `BR_${i}`, ink: 'ctrl', via: [[x - 0.35, z + lane], [ARB[0] - 0.35, z + lane]], labelAt: 0.12 } });
@@ -222,7 +222,7 @@ export function arbStage(trace: Trace<Params, State>, narrow: boolean): ArbStage
     const kind = kindOf(step);
     const st = step.state;
     const top = narrow ? ['cap'] : [];
-    if (kind === 'release' || kind === 'grant') return [...top, 'ARB', ...devices, 'track'];
+    if (kind === 'release' || kind === 'grant') return narrow && own ? [...top, 'ARB', ...devices] : [...top, 'ARB', ...devices, 'track'];
     if (kind === 'bg') {
       const i = st.devices.findLastIndex((d) => d.bg === 1);
       return i > 0 ? [`D${i - 1}`, `D${i}`] : [...top, 'ARB', 'D0'];

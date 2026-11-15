@@ -19,6 +19,8 @@ export interface TrackProps extends CommonProps {
   int: number;
   frac: number;
   box: number;
+  /** 窄屏：盒子上的字写短。 */
+  compact?: boolean;
 }
 
 const TILE = 0.5;
@@ -111,8 +113,10 @@ class Track extends Part<TrackProps> {
     this.chip = new Card(kit, props.name, { kind: 'chip', height: sizes.chipHeight, size: sizes.name, weight: 600, minWidth: 0.62 });
     this.chip.group.position.set(left - 0.42 - this.chip.width / 2, sizes.tileHeight / 2, 0);
     this.face.add(this.chip.group);
-    const boxName = new TextPlane(kit, '移出的位', { size: 0.31, tone: 'muted' });
+    const boxName = new TextPlane(kit, props.compact ? '移出' : '移出的位', { size: 0.31, tone: 'muted' });
     boxName.place((boxLeft + right) / 2, sizes.tileHeight + 0.12);
+    // 「移出的位」比一格的小盒宽：边界要算上它，否则窄屏取景会把它裁掉。
+    this.boxLabelRight = (boxLeft + right) / 2 + ((props.compact ? 2 : 4) * 0.31 * 1.15) / 2;
     this.face.add(boxName.mesh);
     this.extras.push(boxName);
     this.faceHeight = sizes.tileHeight + 0.2;
@@ -120,10 +124,12 @@ class Track extends Part<TrackProps> {
     this.update(props, false);
   }
 
+  private boxLabelRight = 0;
+
   override bounds(): Box3 {
     const box3 = super.bounds();
     box3.min.x = this.center.x + this.xs[0]! - TILE / 2 - this.chip.width - 1.0;
-    box3.max.x = this.center.x + this.xs[this.count - 1]! + TILE / 2 + 0.3;
+    box3.max.x = this.center.x + Math.max(this.xs[this.count - 1]! + TILE / 2, this.boxLabelRight) + 0.3;
     return box3;
   }
 

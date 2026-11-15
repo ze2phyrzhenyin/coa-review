@@ -77,7 +77,7 @@ export function Sheet({ seed, onNext }: { seed: number; onNext: () => void }) {
         return (
           <div key={line.key} class={`ovf-line${line.kind === 'sum' ? ' is-sum' : ''}`}>
             <label class="ovf-line-label" for={`ovf-${line.key}`}>
-              {line.label}
+              <Rich text={line.label} />
             </label>
             <input
               id={`ovf-${line.key}`}

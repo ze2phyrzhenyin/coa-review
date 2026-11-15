@@ -234,7 +234,7 @@ class Ring extends Part<RingProps> {
     const box3 = super.bounds();
     box3.expandByVector(new Vector3(0.7, 0, 0.35));
     if (this.below) box3.max.z += 1.1;
-    else box3.max.x += this.reading.group.visible ? this.reading.width + 0.1 : 0;
+    else box3.max.x += 2.5;
     box3.max.y = Math.max(box3.max.y, 0.7);
     return box3;
   }

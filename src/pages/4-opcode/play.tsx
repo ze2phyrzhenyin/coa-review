@@ -4,7 +4,8 @@ import { run } from '../../engines/opcode/model';
 import type { OpcodeParams } from '../../engines/opcode/model';
 import { Player } from '../../player/Player';
 import { Rich } from '../../player/Rich';
-import { OP_CONCLUSION, OP_NEEDS, OP_QUESTION, opBind, opBreak, opMistakes, opMoves, opNames, opScene, opValues, opWrong } from './scene';
+import './opcode.css';
+import { OP_CONCLUSION, OP_NEEDS, opQuestion, opFrame, opBind, opBreak, opMistakes, opMoves, opNames, opScene, opValues, opWrong } from './scene';
 
 /** 一份参数 → 引擎 Trace 和台面。 */
 export function OpcodePlayer({ params, lesson }: { params: OpcodeParams; lesson: boolean }) {
@@ -13,7 +14,7 @@ export function OpcodePlayer({ params, lesson }: { params: OpcodeParams; lesson:
   const made = useMemo(() => {
     try {
       const trace = run(params);
-      return { trace, scene: opScene(trace, narrow), bind: opBind(trace, narrow), moves: opMoves(params, narrow), wrong: opWrong(params), breakIt: opBreak(params), mistakes: opMistakes(trace), error: '' };
+      return { trace, scene: opScene(trace, narrow), bind: opBind(trace, narrow), moves: opMoves(params, narrow), wrong: opWrong(params), breakIt: opBreak(params), mistakes: opMistakes(trace), frame: opFrame(params, narrow), error: '' };
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) };
     }
@@ -27,6 +28,7 @@ export function OpcodePlayer({ params, lesson }: { params: OpcodeParams; lesson:
     );
   }
   return (
+    <div class="opx">
     <Player
       wide
       trace={made.trace}
@@ -35,9 +37,11 @@ export function OpcodePlayer({ params, lesson }: { params: OpcodeParams; lesson:
       moves={made.moves}
       names={opNames}
       values={opValues}
+      frame={made.frame}
       onWrong={made.wrong}
       breakIt={made.breakIt}
-      {...(lesson ? { question: OP_QUESTION, conclusion: OP_CONCLUSION, needs: OP_NEEDS, mistakes: made.mistakes } : {})}
+      {...(lesson ? { question: opQuestion(params, narrow), conclusion: OP_CONCLUSION, needs: OP_NEEDS, mistakes: made.mistakes } : {})}
     />
+    </div>
   );
 }

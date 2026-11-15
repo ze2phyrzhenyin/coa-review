@@ -18,7 +18,7 @@ import { Player } from '../../player/Player';
 | `names?` | `(path) => string`，把状态路径换成学生认识的名字，用在「变化」里 |
 | `values?` | `(path, value) => string`，「变化」里值的写法（true 写成「开」）；空串和 null 已写成「空」 |
 | `caption?` | `(state) => string`，舞台上方一行读数（模型机：CPU 周期、节拍、有效信号） |
-| `breakIt?` | `(state, part \| null) => Breakage \| null`，弄坏它：`{ label, patch, moves, message }`。有就在舞台下方给按钮，学生点场景里对应的部件也行；演出时把 `patch` 盖在画面上（`moves` 可以是空数组，镜头不动），`message` 显示在舞台下，「恢复」收回。有待答的题时不给 |
+| `breakIt?` | `(state, part \| null) => Breakage \| null`，弄坏它：`{ label, patch, moves, message }`。有就在舞台下方给按钮，学生点场景里对应的部件也行；演出时把 `patch` 盖在画面上（镜头临时看住 `patch` 里的部件和 `moves` 的两头，装不下时保值落下的地方；`moves` 可以是空数组），`message` 显示在舞台下，「恢复」收回。有待答的题时不给 |
 | `onWrong?` | `(ask, value, state, next) => Breakage \| null`，答错时页面演后果（任何题型）：把 `patch` 盖上、`moves` 走一遍，约 2.6 秒后自己退回；`message` 留在题目下的提示前面 |
 | `askFrame?` | `(ask, index) => 部件 id[]`，出题时镜头看这些部件（题目问的格子、要比的式子）；候选装不下时靠「看其余部件」 |
 | `flipPart?` | `(ask, index) => 部件 id \| null`，`bits` 题在这个 `bits` 部件上翻位片作答 |

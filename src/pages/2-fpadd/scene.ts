@@ -17,6 +17,7 @@ export interface FpScene {
   values: (path: string, value: string) => string;
   wrong: (ask: Ask, value: string, state: FpAddState, next: Step<FpAddState> | null) => Breakage | null;
   askFrame: (ask: Ask, index: number) => string[];
+  frame: (step: Step<FpAddState>) => string[] | null;
   mistakes: Mistake<FpAddState>[];
   convention: (step: Step<FpAddState>) => string | null;
   question: { text: string; at: string[] };
@@ -52,7 +53,7 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
   const table: Parameters<typeof bindTable<FpAddState>>[0] = {};
   const rowZ = { x: 0, y: W ? 3.2 : 1.7, sum: W ? 6.4 : 3.9 };
   const expX = W ? -1.4 : -6.4;
-  const trackX = W ? 0.55 : 0.9;
+  const trackX = W ? 0.3 : 0.9;
   const trackDz = W ? 1.25 : 0;
   const expName = twos ? '阶码' : '指数';
   const title: Record<string, string> = { x: 'x', y: subtract ? 'y（变符号后）' : 'y', sum: '和' };
@@ -70,7 +71,7 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
       id: `m${key}`,
       kind: '2-fpadd:track',
       position: [trackX, z + trackDz],
-      props: { name: key === 'sum' ? '和' : key, mant: '', out: '', int, frac, box },
+      props: { name: key === 'sum' ? '和' : key, mant: '', out: '', int, frac, box, compact: W },
       pick: key !== 'sum',
       title: key === 'sum' ? '和的尾数' : `${key} 的尾数`,
       describe: (p) => `${key === 'sum' ? '和' : key} 的尾数 ${String(p.mant || '空')}${p.out ? `（移出 ${String(p.out)}）` : ''}`,
@@ -81,7 +82,7 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
   if (!W) parts.push({ id: 'plus', kind: 'label', position: [trackX - (W ? 3.6 : 4.1), rowZ.sum - (W ? 0.35 : 0.95) + trackDz], props: { text: '+', size: 0.5, weight: 600 } });
 
   // 规格化的三个方向贴在和的滑轨下面；再下面是 0 检查、阶差、溢出、都不移几块牌。
-  const zNorm = rowZ.sum + trackDz + (W ? 1.6 : 1.8);
+  const zNorm = rowZ.sum + trackDz + (W ? 2.0 : 1.8);
   const dirs: [string, string][] = [
     ['norm-l', '向左规格化'],
     ['norm-n', '不用规格化'],
@@ -152,7 +153,14 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
   };
   const values = (_path: string, value: string) => plainText(value);
 
-  const askFrame = (ask: Ask): string[] => (ask.options?.includes('都不移') ? ['ex', 'ey', 'mx', 'my', 'diff', 'stay'] : ['msum', 'esum', 'norm-l', 'norm-n', 'norm-r']);
+  // 手机上只看两条尾数（答错时演的就是它们）；「都不移」在题目下面另有按钮。
+  const askFrame = (ask: Ask): string[] => (ask.options?.includes('都不移') ? (W ? ['mx', 'my'] : ['ex', 'ey', 'mx', 'my', 'diff', 'stay']) : ['msum', 'esum', 'norm-l', 'norm-n', 'norm-r']);
+  /** 对阶的每一步，镜头看住正在右移的那条滑轨。 */
+  const frame = (step: Step<FpAddState>): string[] | null => {
+    if (step.state.stage !== '对阶') return null;
+    const key = has(step, 'x.out') || has(step, 'x.mant') ? 'x' : has(step, 'y.out') || has(step, 'y.mant') ? 'y' : null;
+    return key ? [`e${key}`, `m${key}`] : null;
+  };
 
   const shiftLeft = (mant: string, k: number): { mant: string; lost: string } => {
     const sign = /^[−-]/.test(mant) ? MINUS : '';
@@ -183,7 +191,7 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
       return {
         label: '',
         patch: { [`m${key}`]: { mant: lost.mant, out: '' } },
-        moves: [{ value: lost.lost, from: `m${key}`, to: `e${key}`, arc: true }],
+        moves: [{ value: `左移 ${d} 位`, from: `e${key}`, to: `m${key}`, arc: true }],
         message: `${key} 的阶码大。让它去对小阶，尾数要左移 ${d} 位，最高的 ${lost.lost} 挤出去了，丢的是最大的那几位。所以是小阶向大阶看齐：小阶的尾数右移，丢的只是最低位。`,
       };
     }
@@ -224,7 +232,7 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
         return {
           label: '',
           patch: { [`m${bigKey}`]: { mant: lost.mant, out: '' } },
-          moves: [{ value: lost.lost, from: `m${bigKey}`, to: `e${bigKey}`, arc: true }],
+          moves: [{ value: `左移 ${d} 位`, from: `e${bigKey}`, to: `m${bigKey}`, arc: true }],
           message: `大阶的 ${bigKey} 左移 ${d} 位，最高的 ${lost.lost} 被挤掉，结果错得多。小阶的尾数右移，挤掉的只是最低位，还能留在盒子里舍入。`,
         };
       },
@@ -271,5 +279,5 @@ export function fpScene(trace: Trace<FpAddParams, FpAddState>, compact = false):
   };
 
   const question = { text: '对阶时哪一条尾数右移，移出去的位去哪；加完以后往哪边规格化，阶码跟着加还是减', at: W ? ['mx', 'my'] : ['ex', 'ey', 'mx', 'my'] };
-  return { scene, bind, moves, names, values, wrong, askFrame, mistakes, convention, question };
+  return { scene, bind, moves, names, values, wrong, askFrame, frame, mistakes, convention, question };
 }

@@ -35,6 +35,8 @@ export type { Animate, Side } from './parts/base';
 export { Card } from './parts/card';
 export type { CardKind, CardOptions } from './parts/card';
 export { rebound, burst } from './parts/effects';
+export { pickFrameOf } from './frame';
+export type { PickFrame } from './frame';
 export { estimateWidth } from './parts/memory';
 export { TextPlane, blockGeometry, box, cardGeometry, discGeometry, prismGeometry } from './kit';
 export type { Kit, TextTone } from './kit';

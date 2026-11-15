@@ -34,7 +34,7 @@ export default function Page() {
 function Legend() {
   return (
     <p class="cd-legend">
-      阶码 3 位数值位用<Term k="补码" />，运算时写两个<Term k="符号位" />；尾数 6 位数值位用<Term k="变形补码" />。每条尾数是一条滑轨，小数点固定，右头连着一个盒子：对阶、向右规格化移出去的位掉进盒子，舍入时再看它。
+      <Term k="阶码" /> 3 位数值位用<Term k="补码" />，运算时写两个<Term k="符号位" />；<Term k="尾数" /> 6 位数值位用<Term k="变形补码" />。<Term k="对阶" />是相加之前把两个数的阶码变成一样；<Term k="规格化" />是加完以后把尾数挪回规定的样子，阶码跟着改。每条尾数是一条滑轨，小数点固定，右头连着一个盒子：对阶、向右规格化移出去的位掉进盒子，舍入时再看它。
     </p>
   );
 }
@@ -57,7 +57,7 @@ function Learn() {
           names={made.names}
           values={made.values}
           onWrong={made.wrong}
-          askFrame={made.askFrame}
+          askFrame={made.askFrame} frame={made.frame}
           question={made.question}
           conclusion={FP_CONCLUSION}
           needs={NEEDS}
@@ -182,7 +182,7 @@ function Try() {
               </div>
             ))}
           </dl>
-          <Player key={`try-${JSON.stringify(params)}-${narrow}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} onWrong={made.wrong} askFrame={made.askFrame} convention={made.convention} />
+          <Player key={`try-${JSON.stringify(params)}-${narrow}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} onWrong={made.wrong} askFrame={made.askFrame} frame={made.frame} convention={made.convention} />
         </>
       ) : (
         <p class="field-error" role="alert">
@@ -205,7 +205,7 @@ function Practice() {
       <p class="cd-task">
         <Rich text={`第 ${seed} 题。${c('格式')}。x = ${c('x')}，y = ${c('y')}，求 ${c('运算')}，${c('舍入')}。每道题点场景里的部件或填进框里。`.replace(/(?<![\^(])-/g, '−')} />
       </p>
-      <Player key={`practice-${seed}-${narrow}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} onWrong={made.wrong} askFrame={made.askFrame} convention={made.convention}>
+      <Player key={`practice-${seed}-${narrow}`} trace={made.trace} scene={made.scene} bind={made.bind} moves={made.moves} names={made.names} values={made.values} onWrong={made.wrong} askFrame={made.askFrame} frame={made.frame} convention={made.convention}>
         <button type="button" class="btn" onClick={next}>
           换一题
         </button>
